@@ -1097,10 +1097,6 @@
     if (st2 && (sl || sp)) { st2.scrollLeft = sl; st2.scrollTop = sp; }
     if (global.__jrLayout) global.__jrLayout(); else updateMiniViewport();
   }
-  function audit(action, target, impact) {
-    var u = UI();
-    if (typeof u.audit === 'function') u.audit({ action: action, target: target, impact: impact });
-  }
   function agentOf(h) { return S.AGENTS[S.idx.agent[h.state.agentId]]; }
 
   /* 切旅程 */
@@ -1165,7 +1161,6 @@
     };
     jr.pick = jid; jr.sel = null; jr.edgeSel = null; jr.run = null;
     presetZoom(a, jr);       /* 先算好新空旅程的缩放，避免"旧比例 → 新比例"闪一下 */
-    audit('新建旅程', a.name + ' · 未命名旅程 ' + n, '本会话草稿，未发布');
     h.toast('已新建一条空旅程（草稿）', 'ok');
     refresh(h);
   };
@@ -1198,7 +1193,9 @@
       dropY: at ? Math.max(0, at.y - (H[kind] || H.action) / 2) : null,
       tin: end ? '上游交给这一步的内容（待配置）' : '（起点）',
       tout: '这一步交给下一步的内容（待配置）',
-      cfg: [['状态', '未配置'], ['负责人', KIND[kind] ? KIND[kind].who : '平台']]
+      /* 2026-10-28：「负责人」改为「执行方」—— who 里存的是「平台 · 事件总线」「本 Agent」这类执行方，
+       本来就不是人名，挂「负责人」是错标。 */
+      cfg: [['状态', '未配置'], ['执行方', KIND[kind] ? KIND[kind].who : '平台']]
     };
     /* 原来指向 end 的边改指新节点，再加一条 新节点 → end */
     var edges = sh.edges.map(function (e) {
@@ -1208,7 +1205,6 @@
     else if (sh.nodes.length) edges.push({ f: sh.nodes[sh.nodes.length - 1].k, t: key });
     jr.edit[jr.pick] = { nodes: sh.nodes.concat([nn]), edges: edges };
     jr.sel = key;
-    audit('旅程加一步', a.name + ' · ' + sh.base.name + ' + ' + name, '本会话草稿；插入到输出前，上下游已重接');
     h.toast('已加一步「' + name + '」（插在输出前）', 'ok');
     refresh(h);
   };
@@ -1230,7 +1226,6 @@
     jr.edit[jr.pick] = { nodes: sh.nodes.filter(function (n) { return n.k !== key; }), edges: edges };
     jr.sel = null;
     jr.edgeSel = null;
-    audit('旅程删一步', a.name + ' · ' + sh.base.name + ' - ' + target.name, '本会话草稿；上下游已直连');
     h.toast('已删「' + target.name + '」，上下游已接上', 'ok');
     refresh(h);
   };
@@ -1312,7 +1307,6 @@
     node.hidden = false;
     jr.edit[jr.pick] = { nodes: sh.nodes, edges: sh.edges };
     jr.sel = node.k;
-    audit('展开兜底路径', a.name + ' · ' + sh.base.name, '只是显示，不改流程');
     refresh(h);
   };
 
@@ -1324,8 +1318,6 @@
     if (!st || st === statusOf(jr, sh.base)) return;
     var apply = function () {
       jr.status[sh.base.id] = st;
-      audit('切换旅程状态', a.name + ' · ' + sh.base.name + ' → ' + statusLabel(st),
-        st === 'paused' ? '暂停后不再产生新的触达（本会话演示）' : '状态变更（本会话演示）');
       h.toast('旅程状态已改为「' + statusLabel(st) + '」', st === 'paused' ? 'warn' : 'ok');
       refresh(h);
     };
@@ -1361,11 +1353,9 @@
     jr.edit[jr.pick] = { nodes: sh.nodes, edges: sh.edges };
     jr.sel = null; jr.pan = { x: 0, y: 0 };
     presetZoom(a, jr);       /* 画布随位移清空而变窄，缩放也跟着一帧到位 */
-    audit('整理布局', a.name + ' · ' + sh.base.name, clearedNote(moved));
     h.toast('已按流程列重新排布（' + moved + ' 个节点归位）', 'ok');
     refresh(h);
   };
-  function clearedNote(n) { return '清除 ' + n + ' 个手工位移，回到自动列布局'; }
 
   /* 专注模式：收起左右两栏，画布吃满宽度。
      三栏时中栏只有 610px，六列流程只能靠 0.72 缩放 + 横向滚动看；专注后 1190px，
@@ -1410,7 +1400,6 @@
     /* 真落盘（2026-10-22）：上一版这里是把 localStorage 写入删掉的，因为当时没有读取路径。
        现在 Jr() 会 loadDraft 读回来，写入才有意义 —— 保存 = 立刻写本机，不刷新也丢不了。 */
     saveDraft(a, jr);
-    audit('保存旅程草稿', a.name + ' · ' + sh.base.name, '已写入本机草稿，未发布线上');
     h.toast('草稿已保存到本机 · 刷新不丢', 'ok');
     refresh(h);
   };
@@ -1584,7 +1573,6 @@
       title: '发布「' + sh.base.name + '」到线上？',
       desc: '发布后新客户会按这条旅程走，影响的量级见下；本原型里「发布」只改本会话状态，不真发。',
       tone: 'danger',
-      requireReason: true,
       impacts: [
         { label: '生效范围', value: '新进入的客户立即按新版走' },
         { label: '在途客户', value: '仍按旧版跑完，不打断' },
@@ -1593,7 +1581,6 @@
       onConfirm: function () {
         jr.status[sh.base.id] = 'running';
         jr.saved = 1;
-        audit('发布旅程', a.name + ' · ' + sh.base.name, '本会话演示发布；节点 ' + sh.nodes.length + ' 个');
         h.toast('已发布（演示）· 新客户按新版进入', 'ok');
         refresh(h);
       }
@@ -1628,7 +1615,6 @@
     if (!f || !t2 || f.kind === 'end') { h.toast('这一步不能再往外连', 'warn'); return; }
     pushUndo(a, jr);
     jr.edit[jr.pick] = { nodes: sh.nodes, edges: sh.edges.concat([{ f: from, t: to }]) };
-    audit('旅程接线', a.name + ' · ' + sh.base.name + '：' + (f.name || from) + ' → ' + (t2.name || to), '本会话草稿');
     h.toast('已连上：' + (f.name || from) + ' → ' + (t2.name || to), 'ok');
     refresh(h);
   };
@@ -1671,7 +1657,6 @@
     pushUndo(a, jr);
     jr.edit[jr.pick] = { nodes: sh.nodes, edges: sh.edges.filter(function (e) { return (e.f + '>' + e.t) !== key; }) };
     jr.edgeSel = null;
-    audit('删除旅程连线', a.name + ' · ' + sh.base.name + '：' + key, '本会话草稿');
     h.toast('已删掉这条连线 · 要还原就点「恢复」', 'ok');
     refresh(h);
   };

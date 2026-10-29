@@ -247,10 +247,6 @@
     return typeof fallback === 'function' ? fallback() : (fallback || '');
   }
   function vReady() { return !!(V && typeof V.detailTabs === 'function'); }
-  function audit(log) {
-    var u = global.V10UI || {};
-    if (typeof u.audit === 'function') { try { u.audit(log); } catch (e) { /* 审计不可用不阻断 */ } }
-  }
 
   /* SECTION: build-questions — 从 qcount 派生逐题结构（确定性） */
   function buildQuestions(row) {
@@ -1051,7 +1047,6 @@
         ? '已保存到本会话：' + cnt + ' 条人工校正（刷新仍在，关闭标签页失效）'
         : '保存失败（会话存储不可用）：' + cnt + ' 条仅存在于当前页面', ok ? 'ok' : 'warn');
     }
-    audit({ action: 'survey.review.tag', target: ctx.surveyId, detail: '人工校正保存 ' + cnt + ' 条（本会话）' });
   }
   function scheduleArm(h, state, total) {
     ensureHooks();
@@ -1143,11 +1138,10 @@
     ];
     if (V && typeof V.dangerConfirm === 'function') {
       V.dangerConfirm(h, {
-        title: '提交投放审批：' + row.name, perm: 'survey:publish', requireReason: false,
+        title: '提交投放审批：' + row.name, perm: 'survey:publish',
         impacts: impacts, confirmText: '确认发布',
         onConfirm: function () {
           h.toast('投放审批已提交', 'ok');
-          audit({ action: 'survey.publish.submit', target: row.id, detail: '预计触达 ' + reach + ' 人' });
         }
       });
     } else {
@@ -1242,7 +1236,6 @@
     var fname = 'AI访谈-' + row.name + '-' + label.split('（')[0] + '.' + kind;
     if (!downloadFile(fname, body, mime)) { h.toast('导出失败：当前浏览器不支持本地下载', 'bad'); return; }
     h.toast('已导出' + label + '：' + fname + '（文件已下载）', 'ok');
-    audit({ action: 'survey.export.' + id, target: row.id, detail: fname + (id === 'csv' ? (mask ? '（脱敏）' : '（含记录号）') : '') });
   };
   ACTIONS['sv-pause'] = function (id, btn, h) {
     var row = getSurvey(id || (h.state && (h.state.objId || h.state.surveyId)));
@@ -1255,12 +1248,11 @@
     ];
     if (V && typeof V.dangerConfirm === 'function') {
       V.dangerConfirm(h, {
-        title: '暂停触达：' + row.name, perm: 'survey:publish', requireReason: true,
-        reasonLabel: '暂停原因（必填，将写入审计）', impacts: impacts, confirmText: '确认暂停',
+        title: '暂停触达：' + row.name, perm: 'survey:publish',
+        impacts: impacts, confirmText: '确认暂停',
         onConfirm: function (reason) {
           h.state.svPaused = true;
           h.toast('触达已暂停，已答数据保留', 'warn');
-          audit({ action: 'survey.pause', target: row.id, reason: reason || '（未填写）' });
           h.navigate({}, { scroll: false });
         }
       });
@@ -1271,7 +1263,6 @@
   ACTIONS['sv-resume'] = function (id, btn, h) {
     h.state.svPaused = false;
     h.toast('触达已恢复', 'ok');
-    audit({ action: 'survey.resume', target: id });
     h.navigate({}, { scroll: false });
   };
   ACTIONS['sv-delivery'] = function (id, btn, h) {
@@ -1282,7 +1273,6 @@
     var st = h.state;
     st.svQrN = num(st.svQrN, 0) + 1;
     h.toast('已重新生成自助入口（第 ' + st.svQrN + ' 版，旧链接仍有效）', 'ok');
-    audit({ action: 'survey.delivery.gen', target: id || null, detail: '第 ' + st.svQrN + ' 版' });
     h.navigate({}, { scroll: false });
   };
   ACTIONS['sv-copy-link'] = function (id, btn, h) {
@@ -1295,15 +1285,12 @@
       }
     } catch (e) { done = false; }
     h.toast(done ? '自助入口链接已复制' : '自助入口链接：' + link, 'info');
-    audit({ action: 'survey.delivery.copy', target: link });
   };
   ACTIONS['sv-import-list'] = function (id, btn, h) {
     h.toast('已打开名单导入（CSV / Excel）；导入后进入触达队列前会先去重与黑名单过滤', 'info');
-    audit({ action: 'survey.list.import', target: id || null });
   };
   ACTIONS['sv-ack-compliance'] = function (id, btn, h) {
     h.state.svAckCompliance = true;
     h.toast('已确认合规前置：名单授权 / 禁发时段 / 退订入口 / AIGC 标识 / 人审门控', 'ok');
-    audit({ action: 'survey.compliance.ack', target: id || null });
   };
 })(window);

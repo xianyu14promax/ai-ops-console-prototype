@@ -278,7 +278,7 @@
       /* 动作是**两颗有文字的控件**（不是图标按钮）：主＝接入到 Agent，次＝看详情。
          整卡也可点（等同详情），三处入口同一个抽屉，不出现第二种行为。 */
       '<button type="button" class="btn-ghost sm cw-join" data-act="assets-open" data-id="' + h.esc(c.id) + '"' +
-      ' title="接入到某个 Agent（在详情里选目标，写操作 + 留审计）">接入</button>' +
+      ' title="接入到某个 Agent（在详情里选目标，写操作）">接入</button>' +
       '<span class="cw-open">详情<i aria-hidden="true">→</i></span>' +
       '</span>' +
       '</div>';
@@ -381,10 +381,10 @@
       /* 说明放在两栏**外面**：放进栏内会被滚动边缘切掉半行字（实测），
          也正好对齐文档查看器「栏下一条通栏说明」的排法。 */
       (tools
-        ? '<div class="cw-note"><b>接入是写操作</b>：建立绑定并写一条审计；接入后默认开通该服务的<b>全部工具</b>，' +
-          '在右边那张卡上逐个关掉不用的（关掉会写审计，清单存在会话状态里，刷新回到初始态）。' +
+        ? '<div class="cw-note"><b>接入是写操作</b>：建立绑定；接入后默认开通该服务的<b>全部工具</b>，' +
+          '在右边那张卡上逐个关掉不用的（清单存在会话状态里，刷新回到初始态）。' +
           '真正生效的授权仍落到 Agent 详情 › 编排配置 › 工具授权。</div>'
-        : '<div class="cw-note"><b>接入是写操作</b>：建立绑定并写一条审计，卡片的「已接入」即为结果；' +
+        : '<div class="cw-note"><b>接入是写操作</b>：建立绑定，卡片的「已接入」即为结果；' +
           '原型里的绑定存在会话状态里，刷新回到初始态。</div>');
     UI().openSheet({
       title: card.name,
@@ -564,7 +564,7 @@
     });
     return card;
   }
-  /* 接入 = 真写操作：建立绑定 → 写审计 → 抽屉**不关**，就地展开该 Agent 的工具清单。 */
+  /* 接入 = 真写操作：建立绑定 → 抽屉**不关**，就地展开该 Agent 的工具清单。 */
   ACTIONS['assets-bind'] = function (id, btn, h) {
     var p = String(id == null ? '' : id).split('|');
     var assetId = p[0], agentId = p[1];
@@ -575,20 +575,11 @@
     var list = bind[assetId] || (bind[assetId] = []);
     if (list.indexOf(agentId) > -1) { h.toast('已经接入过「' + agent.name + '」', 'info'); return; }
     var card = findCard(assetId, h);
-    var win = UI();
-    if (win.audit) {
-      win.audit({
-        action: '接入资产',
-        target: (card ? card.name : assetId) + ' → ' + agent.name,
-        impact: '该 Agent 的编排中新增一项可用' + (card ? card.note.split(' · ')[0] : '能力'),
-        reason: '在「能力与权限」页接入'
-      });
-    }
     list.push(agentId);
     var toolN = card && card.raw && card.raw.tools
       ? card.raw.tools.length - ((card.raw.offTools || []).length) : 0;
     h.toast('已接入：' + (card ? card.name : assetId) + ' → ' + agent.name +
-      (toolN ? '（默认开通 ' + toolN + ' 个工具，可逐个关）' : '（已写审计）'), 'ok');
+      (toolN ? '（默认开通 ' + toolN + ' 个工具，可逐个关）' : ''), 'ok');
     /* 只重画内容，不走 navigate：navigate 一旦改变 hash，hashchange 里会 closeModals()，
        抽屉就被收掉了（首次进来 `#/platform/assets` 会被规范成 `.../assets/`，实测踩到）。
        这里没有地址状态要改，重画就够。 */
@@ -601,7 +592,7 @@
     var now = d && d.querySelector('.v10-sheet');
     if (now && keepScroll) now.scrollTop = keepScroll;
   };
-  /* 工具级授权就地改：关一个是收紧（写审计），开回来是恢复（只提示，不重复记账）。 */
+  /* 工具级授权就地改：关一个是收紧，开回来是恢复（只提示，不重复记账）。 */
   ACTIONS['assets-tool'] = function (id, btn, h) {
     var p = String(id == null ? '' : id).split('|');
     var assetId = p[0], agentId = p[1], tool = p.slice(2).join('|');
@@ -616,14 +607,6 @@
     if (turningOff) off.push(tool); else off.splice(i, 1);
     map[key] = off;
     var agent = ((global.DATA_SEED || {}).AGENTS || []).filter(function (a) { return a.id === agentId; })[0];
-    if (turningOff && UI().audit) {
-      UI().audit({
-        action: '关闭工具授权',
-        target: (card ? card.name : assetId) + ' → ' + (agent ? agent.name : agentId) + ' · ' + tool,
-        impact: '该 Agent 不能再调用这个工具',
-        reason: '在「能力与权限」详情里逐个调整'
-      });
-    }
     h.toast((agent ? agent.name : agentId) + '：' + (turningOff ? '已关闭 ' : '已开启 ') + tool, turningOff ? 'info' : 'ok');
     /* 就地翻这颗 chip —— 重开整张抽屉会把滚动位置弹回顶部（一个服务七八个工具时很难用），
        所以只改自己 + 同一张卡上的「可用工具 n / m」。 */

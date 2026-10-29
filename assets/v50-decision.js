@@ -25,7 +25,11 @@
   var W = 1112, H = 1121;
   /* 左右各一条竖列（2026-10-25 业主「左右竖向排列」+「方形卡片」）：
      一组 = 部名一行 + 三方卡，三组一列；两列之间整块留白给堂中央的输入条。 */
-  var SIDE_X = 18, RAIL_W = 104, CARD_H = 104, ITEM_GAP = 7, LABEL_H = 18, GROUP_GAP = 14;
+  var RAIL_W = 104, CARD_H = 104, ITEM_GAP = 7, LABEL_H = 18, GROUP_GAP = 14;
+  /* 两侧空出「刚好一列的宽度」：104 卡 + 7 间距 + 7 呼吸。
+     2026-10-28 业主「留的空要可以再塞一列 agent」—— 这个数是量出来的，不是拍的：
+     以后每部加人、或左右各补一列，位置已经在那儿，卡片不用搬家。卡宽改了这行跟着变。 */
+  var SIDE_X = RAIL_W + ITEM_GAP + 7;
   var GROUP_H = LABEL_H + ITEM_GAP + 3 * CARD_H + 2 * ITEM_GAP;
   var RAIL_H = 3 * GROUP_H + 2 * GROUP_GAP;
   var TOP = Math.round((H - RAIL_H) / 2);
@@ -35,38 +39,40 @@
      say = 本议题里的发言条数，就是卡右上角那个数。 */
   /* 六部十八职，名字一律用《王翼》原文 —— 业主看过白话版，说「算了，文言文」，
      所以卡片上写「腹心」「股肱」「羽翼」，不写「总协调」「落地执行」。
-     what 是悬停提示里的人话解释：名字是古的，解释得让人看懂，两件事不冲突。
-     say = 本议题里的发言条数，就是卡右上角那个数。 */
+     gist = 名字底下那行白话（2026-10-28 业主「这个是文言文，后面加解释」）：
+            职名不动，下面补一句四字左右的活话，一眼知道它干什么。
+     what = 悬停提示里的完整解释（比 gist 详细，说清怎么做）。
+     say  = 本议题里的发言条数，就是卡右上角那个数。 */
   var DEPTS = [
     { id: 'plan', side: 'left', name: '决策中枢', brief: '出主意，最后收口', agents: [
-      { name: '腹心', meta: '96% · 18条', say: 6, what: '把六部的结论汇总成一份，突发情况也归它兜' },
-      { name: '谋士', meta: '88% · 14条', say: 5, what: '推演几种走法各要多少投入、最坏会烂在哪' },
-      { name: '通材', meta: '72% · 6条', say: 2, what: '跟外部谈条件，消化临时插进来的事' }
+      { name: '腹心', meta: '96% · 18条', say: 6, gist: '汇总收口', what: '把六部的结论汇总成一份，突发情况也归它兜' },
+      { name: '谋士', meta: '88% · 14条', say: 5, gist: '推演走法', what: '推演几种走法各要多少投入、最坏会烂在哪' },
+      { name: '通材', meta: '72% · 6条', say: 2, gist: '对外交涉', what: '跟外部谈条件，消化临时插进来的事' }
     ] },
     { id: 'intel', side: 'left', name: '情报研判', brief: '搞清外面什么情况', agents: [
-      { name: '天文', meta: '81% · 11条', say: 3, what: '看现在是不是进场的时点，早半年晚半年差多少' },
-      { name: '地利', meta: '84% · 13条', say: 4, what: '算各个国家的盘子、距离、门槛和实际难度' },
-      { name: '耳目', meta: '77% · 22条', say: 3, what: '盯住外头在说什么 —— 客户、同行、媒体' }
+      { name: '天文', meta: '81% · 11条', say: 3, gist: '看准时机', what: '看现在是不是进场的时点，早半年晚半年差多少' },
+      { name: '地利', meta: '84% · 13条', say: 4, gist: '算各国盘子', what: '算各个国家的盘子、距离、门槛和实际难度' },
+      { name: '耳目', meta: '77% · 22条', say: 3, gist: '盯住舆情', what: '盯住外头在说什么 —— 客户、同行、媒体' }
     ] },
     { id: 'supply', side: 'left', name: '保障支撑', brief: '钱、人、退路', agents: [
-      { name: '通粮', meta: '86% · 8条', say: 2, what: '排人、排钱、排时间，保证打得下去' },
-      { name: '法算', meta: '91% · 16条', say: 4, what: '一笔一笔算清投入、回本周期和现金压力' },
-      { name: '方士', meta: '64% · 5条', say: 1, what: '万一出事怎么收场，损失封在多少以内' }
+      { name: '通粮', meta: '86% · 8条', say: 2, gist: '排人排钱', what: '排人、排钱、排时间，保证打得下去' },
+      { name: '法算', meta: '91% · 16条', say: 4, gist: '算清投入', what: '一笔一笔算清投入、回本周期和现金压力' },
+      { name: '方士', meta: '64% · 5条', say: 1, gist: '备好退路', what: '万一出事怎么收场，损失封在多少以内' }
     ] },
     { id: 'ops', side: 'right', name: '作战执行', brief: '定打法，推着走', agents: [
-      { name: '兵法', meta: '83% · 12条', say: 4, what: '把大目标拆成能落地的动作和先后顺序' },
-      { name: '奋威', meta: '75% · 7条', say: 2, what: '盯进度、推卡点，谁慢了就催谁' },
-      { name: '权士', meta: '61% · 4条', say: 1, what: '常规打法走不通时，换一条路' }
+      { name: '兵法', meta: '83% · 12条', say: 4, gist: '拆解打法', what: '把大目标拆成能落地的动作和先后顺序' },
+      { name: '奋威', meta: '75% · 7条', say: 2, gist: '盯住进度', what: '盯进度、推卡点，谁慢了就催谁' },
+      { name: '权士', meta: '61% · 4条', say: 1, gist: '换条路走', what: '常规打法走不通时，换一条路' }
     ] },
     { id: 'land', side: 'right', name: '工程守御', brief: '把事真正办成', agents: [
-      { name: '股肱', meta: '89% · 10条', say: 3, what: '合规改造、节点部署这些硬活归它' },
-      { name: '爪牙', meta: '79% · 9条', say: 2, what: '先小范围跑一遍，把坑提前踩出来' },
-      { name: '伏鼓旗', meta: '93% · 6条', say: 2, what: '保证六部说的是同一件事，口径不乱' }
+      { name: '股肱', meta: '89% · 10条', say: 3, gist: '合规落地', what: '合规改造、节点部署这些硬活归它' },
+      { name: '爪牙', meta: '79% · 9条', say: 2, gist: '踩坑试跑', what: '先小范围跑一遍，把坑提前踩出来' },
+      { name: '伏鼓旗', meta: '93% · 6条', say: 2, gist: '统一口径', what: '保证六部说的是同一件事，口径不乱' }
     ] },
     { id: 'voice', side: 'right', name: '造势攻心', brief: '管外面怎么看我们', agents: [
-      { name: '羽翼', meta: '70% · 8条', say: 2, what: '对外讲清楚我们在干什么，抢认知' },
-      { name: '术士', meta: '55% · 3条', say: 1, what: '不走正面的办法，能用，但不能常用' },
-      { name: '游士', meta: '69% · 9条', say: 3, what: '摸清对手的报价、动作和底牌' }
+      { name: '羽翼', meta: '70% · 8条', say: 2, gist: '对外讲清', what: '对外讲清楚我们在干什么，抢认知' },
+      { name: '术士', meta: '55% · 3条', say: 1, gist: '剑走偏锋', what: '不走正面的办法，能用，但不能常用' },
+      { name: '游士', meta: '69% · 9条', say: 3, gist: '探对手底', what: '摸清对手的报价、动作和底牌' }
     ] }
   ];
 
@@ -113,12 +119,18 @@
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
   }); }
 
-  /* 一席 = 一张方卡：图标 / 职名 / 把握与证据条数，右上角是发言条数。 */
+  /* 一席 = 一张方卡：图标 / 职名 / 白话解释（后面跟证据条数），右上角是发言条数。
+     职名是文言（腹心），底下紧跟一行白话（汇总收口）—— 名古、解释白，两件事不冲突。
+     2026-10-28 业主两轮意见：先「删除这个」（整行 96% · 18条 下卡），
+     再「这个（11条）移动到 这个（看准时机）后面」—— 百分比不要了，
+     证据条数留着，接在白话后面当后缀。 */
   function agentCard(h, a) {
+    var cnt = (a.meta.match(/\d+\s*条/) || [''])[0];
     return '<div class="hall-agent" title="' + esc(a.name) + '：' + esc(a.what) + '">' +
       '<span class="hall-ico">' + h.icon('bot', 13) + '</span>' +
       '<b>' + esc(a.name) + '</b>' +
-      '<u>' + esc(a.meta) + '</u>' +
+      '<span class="hall-gist">' + esc(a.gist) +
+        (cnt ? '<i class="hall-cnt">' + esc(cnt) + '</i>' : '') + '</span>' +
       '<em class="hall-n">' + a.say + '</em>' +
       '</div>';
   }
@@ -130,6 +142,43 @@
     var body = d.agents.map(function (a) { return agentCard(h, a); }).join('');
     return '<div class="hall-dept ' + d.side + '" style="left:' + x + 'px;top:' + y + 'px;width:' + RAIL_W + 'px">' +
       head + '<div class="hall-dept-body">' + body + '</div></div>';
+  }
+
+  /* 沙盘边长：2026-10-29 业主「沙盘比 agent 卡片略小点」——
+     原来 260 的方盘压在 104 的方卡旁边太抢眼，缩成 92（卡 104，刚好小一圈），
+     半径、描边、棋盘格都跟着收，不再当成一块面板。 */
+  var SB_SIZE = 92;
+
+  /* ── 沙盘（2026-10-28 业主三轮意见）──────────────────────────────
+     ① 「做个沙盘放在地利右侧」—— 地利管「算各国盘子」，沙盘就挂在它右边；
+     ② 「拿国际象棋黑白格，颜色用我们 log 色蓝白，表示沙盘推演」—— 底板是蓝白棋盘；
+     ③ 「不要里面内容，直接加个模糊，加个加载动画，显示沙盘推演中」
+        —— 这一版要的是**还没出结果的状态**：四块地和底注收起来，
+        换成景深模糊 + 转圈 + 「沙盘推演中」。盘还在，格子还看得见，只是不清楚。
+     ⚠ 不用左侧竖条上色（业主明令禁止），状态一律走药丸 + 整框描边。 */
+  function sandbox() {
+    /* 位置：左列第二组（情报研判）里的第二张卡（地利）。
+       2026-10-29 起盘子和卡差不多高了（92 vs 104），改成**垂直居中对齐**：
+       底边对齐会让它比卡高出 12px 挂在上面，看着像没落位；居中最稳，指向也清楚。
+       横向「贴在地利右边 12px」（业主「放 agent 卡片旁边」）：
+       这个 12 是相对席卡的，所以 .hsand 也吃 --rail-out 的位移（见 CSS），
+       否则席卡被往边上推、沙盘原地不动，间距会莫名涨到 28。 */
+    var intelY = TOP + (GROUP_H + GROUP_GAP);
+    var diliY = intelY + LABEL_H + ITEM_GAP + (CARD_H + ITEM_GAP);
+    var SAND_GAP = 12;
+    var x = SIDE_X + RAIL_W + SAND_GAP;
+    var y = diliY + Math.round((CARD_H - SB_SIZE) / 2);
+
+    return '<div class="hsand hsand-run" style="left:' + x + 'px;top:' + y + 'px">' +
+      '<div class="hsand-blur"></div>' +
+      '<div class="hsand-load">' +
+        '<span class="hsand-spin"></span>' +
+        '<b>沙盘推演中</b>' +
+        /* 副行断在「行情」后面，不用自动折行 —— 76px 宽自动折会把「门槛」劈成
+           「门」/「槛与起量」，一个字挂在行首。这里写死语义断点。 */
+        '<i>卜算列国行情<br>门槛与起量</i>' +
+      '</div>' +
+      '</div>';
   }
 
   /* 画布：一个固定尺寸的世界层塞进一个视口，视口高度吃满一屏。
@@ -147,18 +196,12 @@
       var y = TOP + (d.side === 'left' ? li++ : ri++) * (GROUP_H + GROUP_GAP);
       out += deptBlock(h, d, x, y);
     }
-    out += '</div></div>' +
+    out += sandbox() + '</div></div>' +
       /* 输入条就在堂里 —— 十八席沿两边竖排，中间这块是业主开口的位置。
-         挂在视口上而不是世界层上：缩放平移只动席卡，说话的地方不动。 */
+         挂在视口上而不是世界层上：纸面怎么变，说话的地方不动。
+         2026-10-28 业主「画布固定住，不可移动」：缩放条、拖动提示、以及平移缩放本身
+         全部去掉了 —— 工具条一留就会让人以为还能挪，不如一起收走。 */
       composer() +
-      '<div class="hall-bar">' +
-        '<button type="button" data-hall="out" title="缩小">−</button>' +
-        '<span class="hall-zoomv">100%</span>' +
-        '<button type="button" data-hall="in" title="放大">+</button>' +
-        '<button type="button" data-hall="fit" title="适应窗口">适应</button>' +
-        '<button type="button" data-hall="one" title="原始大小">1:1</button>' +
-      '</div>' +
-      '<div class="hall-hint">Ctrl + 滚轮缩放 · 空白处拖动平移</div>' +
       '</div>';
     return out;
   }
@@ -261,27 +304,26 @@
     '</div>';
   }
 
-  /* ── 画布的缩放与平移 ─────────────────────────────────────
-     视图只存在 state.hallView 里（k/tx/ty），不进 URL、不进历史：
-     缩放是看法，不是状态。重渲染后靠 __hallBoot 把它原样贴回去。
-     ⚠ 普通滚轮不拦 —— 鼠标停在画布上照样能滚页面；Ctrl/⌘ + 滚轮才缩放，
-       和关系图（v24）同一套约定，省得两页两种手感。 */
-  var K_MIN = 0.45, K_MAX = 1.8;
-
-  function hallView() {
-    var st = global.APP_SHELL && global.APP_SHELL.state;
-    if (!st) return null;
-    if (!st.hallView) st.hallView = { k: 0, tx: 0, ty: 0 };
-    return st.hallView;
-  }
+  /* ── 画布是张纸：只自适应，不能拖也不能缩 ──────────────────
+     2026-10-28 业主「画布固定住，不可移动」。原来的平移/缩放/工具条全撤了。
+     缩放在这里只剩一个用途：窗口装不下时自动缩到装得下（K_MIN 兜底），
+     这样窄屏也不会把右边那列切掉。视图只是局部变量，不跨重渲染保留 ——
+     没有"业主调过的看法"这回事了。 */
+  var K_MIN = 0.45;
 
   function paint(el, world, v) {
     world.style.transform = 'translate(' + Math.round(v.tx) + 'px,' + Math.round(v.ty) + 'px) scale(' +
       (Math.round(v.k * 1000) / 1000) + ')';
-    var zv = el.querySelector('.hall-zoomv');
-    if (zv) zv.textContent = Math.round(v.k * 100) + '%';
-    /* 堂内输入条不许压到两列席卡：宽度跟着缩放后的中间空档走（空档 = 1112 - 左右两列 244）。 */
-    el.style.setProperty('--dock-w', Math.round((W - 2 * (SIDE_X + RAIL_W)) * v.k - 24) + 'px');
+    /* 画布比世界层宽的时候，居中的那点留白别白扔 —— 把它推给两列席卡，
+       让左右两组贴着画布边框站（还留 SIDE_X 的空），中间的堂跟着变宽。
+       2026-10-28 业主「这两个往边上靠点，但要留空」：贴边，但不贴死。 */
+    var out = Math.max(0, ((el.clientWidth || 0) / v.k - W) / 2);
+    el.style.setProperty('--rail-out', (Math.round(out * 10) / 10) + 'px');
+    /* 堂内输入条不许压到两列席卡：宽度跟着缩放后的中间空档走
+       （空档 = 画布宽 - 左右两列各 (SIDE_X + RAIL_W)）。 */
+    var worldPx = Math.max(W * v.k, el.clientWidth || 0);
+    var gap = worldPx - 2 * (SIDE_X + RAIL_W) * v.k;
+    el.style.setProperty('--dock-w', Math.round(gap - 24) + 'px');
     placeDock();
   }
 
@@ -310,7 +352,7 @@
   function fit(el, world, v) {
     var cw = el.clientWidth || 0, ch = el.clientHeight || 0;
     if (cw < 40 || ch < 40) return;
-    /* 一屏能装下就不放大（不把 88 的方卡撑成 110）—— 装不下才缩，且缩不过 0.45 */
+    /* 一屏能装下就不放大（不把方卡撑大）—— 装不下才缩，且缩不过 0.45 */
     var k = Math.min((cw - 20) / W, (ch - 20) / H, 1);
     v.k = Math.max(k, K_MIN);
     v.tx = (cw - W * v.k) / 2;
@@ -318,21 +360,13 @@
     paint(el, world, v);
   }
 
-  function zoomAt(el, world, v, k2, px, py) {
-    k2 = Math.min(K_MAX, Math.max(K_MIN, k2));
-    var r = k2 / v.k;
-    v.tx = px - (px - v.tx) * r;
-    v.ty = py - (py - v.ty) * r;
-    v.k = k2;
-    paint(el, world, v);
-  }
-
   function boot() {
     var el = global.document.getElementById('hall-canvas');
     if (!el) return;
     var world = el.querySelector('.hall-world');
-    var v = hallView();
-    if (!world || !v) return;
+    if (!world) return;
+    /* 每次重渲染都从头算：没有要复原的视图状态 */
+    var v = { k: 0, tx: 0, ty: 0 };
 
     dockEl = el;
     if (!boot.bound) {
@@ -341,58 +375,23 @@
       global.document.addEventListener('scroll', onDockScroll, { capture: true, passive: true });
       global.addEventListener('resize', onDockScroll);
     }
+    /* 窗口变宽变窄要重算：一是贴边距离，二是装不下时得跟着缩。
+       放这里而不是上面的绑定块：上面的只绑一次，闭包里攥的是第一次的那张画布。 */
+    if (!el.__hallRz) {
+      el.__hallRz = 1;
+      global.addEventListener('resize', function () {
+        var e2 = global.document.getElementById('hall-canvas');
+        if (!e2) return;
+        var w2 = e2.querySelector('.hall-world');
+        if (w2) fit(e2, w2, { k: 0, tx: 0, ty: 0 });
+      });
+    }
 
-    if (v.k) paint(el, world, v); else fit(el, world, v);
+    fit(el, world, v);
 
     /* 首屏的页头高度要等字体落位才定，boot 这一下算出来的画布顶是临时的：再量两次 */
     global.requestAnimationFrame(placeDock);
     if (global.document.fonts && global.document.fonts.ready) global.document.fonts.ready.then(placeDock);
-
-    var btn = el.querySelectorAll('[data-hall]');
-    for (var i = 0; i < btn.length; i++) {
-      btn[i].addEventListener('click', function (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        var act = this.getAttribute('data-hall');
-        var cx = el.clientWidth / 2, cy = el.clientHeight / 2;
-        if (act === 'fit') return fit(el, world, v);
-        if (act === 'one') return zoomAt(el, world, v, 1, cx, cy);
-        if (act === 'in') return zoomAt(el, world, v, v.k * 1.15, cx, cy);
-        if (act === 'out') return zoomAt(el, world, v, v.k / 1.15, cx, cy);
-      });
-    }
-
-    /* 空白处拖动 = 平移。落在方卡上不接管 —— 卡片以后要能点开看发言 */
-    el.addEventListener('pointerdown', function (ev) {
-      if (ev.button !== 0) return;
-      if (ev.target.closest && ev.target.closest('.hall-agent, .hall-bar, .cmp')) return;
-      var x0 = ev.clientX, y0 = ev.clientY, tx0 = v.tx, ty0 = v.ty, moved = false;
-      el.classList.add('panning');
-      try { if (el.setPointerCapture) el.setPointerCapture(ev.pointerId); } catch (e) {}
-      function mv(e2) {
-        if (e2.buttons === 0) { up(); return; }
-        var dx = e2.clientX - x0, dy = e2.clientY - y0;
-        if (!moved && Math.abs(dx) + Math.abs(dy) < 3) return;
-        moved = true;
-        v.tx = tx0 + dx; v.ty = ty0 + dy;
-        paint(el, world, v);
-      }
-      function up() {
-        global.document.removeEventListener('pointermove', mv);
-        global.document.removeEventListener('pointerup', up);
-        el.classList.remove('panning');
-      }
-      global.document.addEventListener('pointermove', mv);
-      global.document.addEventListener('pointerup', up);
-      ev.preventDefault();
-    });
-
-    el.addEventListener('wheel', function (ev) {
-      if (!ev.ctrlKey && !ev.metaKey) return;      /* 不按 Ctrl 就放行，页面照常滚 */
-      ev.preventDefault();
-      var r = el.getBoundingClientRect();
-      zoomAt(el, world, v, v.k * Math.pow(1.0015, -ev.deltaY), ev.clientX - r.left, ev.clientY - r.top);
-    }, { passive: false });
   }
 
   function bootAll() {

@@ -1,0 +1,137 @@
+{
+  "_说明": "并行开发的归属表。core 是串行区，谁改都要排队；其余每一条是一个可以同时开工的泳道。一个泳道只能改自己 files 的文件、自己 sections 的样式段。没认领的段落与文件一律落 core —— 新增的东西默认串行，要并行必须在这里显式认领。",
+  "_改法": "加泳道 = 加一条；sections 写段落标题开头的原文，能唯一匹配到那行注释即可。改完跑 node _parallel/guard.cjs --list，末尾会提示有没有配了却找不到的段落。",
+
+  "serial": {
+    "why": [
+      "app.js 是路由、state、helpers 与图标表，所有页面都读它",
+      "renderers2.js 8871 行装 15 个页面渲染器，多人同时加页面会语义打架",
+      "seed / data / query / decisions / facts / charts 是数据契约，字段形状一变全站塌",
+      "renderers.js 的 UI 导出与 pageHead 是模板契约，所有页面拼 HTML 都靠它",
+      "v10-ui.js 是全站弹层 / 确认 / 审计的唯一出口",
+      "主 HTML 第 6522-6593 行是 41 条 script 的加载顺序，版本号也挤在这里",
+      "base / buttons / controls / table / cards-metrics 是公共令牌与骨架"
+    ],
+    "排队规则": "同一时刻只允许一个分支改串行区。改完先合，其它分支 rebase 后再动。"
+  },
+
+  "lanes": {
+    "core": {
+      "owner": "串行区，一轮只允许一个分支改",
+      "files": [
+        "app.js", "seed.js", "data.js", "query.js", "decisions.js", "facts.js", "charts.js",
+        "renderers.js", "renderers2.js", "v10-ui.js", "v19-governance-fix.js", "v39-retired.js",
+        "v10-builder.js", "world-map.js"
+      ],
+      "sections": [
+        "SECTION: base",
+        "SECTION: buttons",
+        "SECTION: topbar",
+        "SECTION: v27-avatar",
+        "SECTION: shell-nav",
+        "SECTION: page-head",
+        "SECTION: controls",
+        "SECTION: cards-metrics",
+        "SECTION: table",
+        "SECTION: empty-fatal",
+        "SECTION: meta-bar",
+        "SECTION: charts",
+        "SECTION: toast",
+        "SECTION: responsive"
+      ]
+    },
+
+    "agent-wb": {
+      "owner": "Agent 工作台：列表 / 详情壳 / 会话与轨迹 / 关系网 / 编排",
+      "files": [
+        "v23-exp-agent-link.js", "v24-agent-net.js", "v27-agent-session.js",
+        "v27-session-store.js", "v28-session-engine.js", "v41-agent-journey.js"
+      ],
+      "sections": [
+        "SECTION: agent-list",
+        "SECTION: agent-detail",
+        "SECTION: agent-detail-top",
+        "SECTION: filters-chips",
+        "SECTION: hit-testing",
+        "SECTION: ds-usage",
+        "SECTION: tf",
+        "SECTION: agent-net",
+        "SECTION: org-view",
+        "SECTION: dsh-tokens",
+        "SECTION: dsh-verbatim",
+        "SECTION: v27-agent-session",
+        "SECTION: v27-scoped-type",
+        "SECTION: v41-journey"
+      ]
+    },
+
+    "assets": {
+      "owner": "能力与资产：画像库 / 知识库 / 沙盒 / 权限编辑器 / 成员卡 / 联系墙",
+      "files": [
+        "v10-detail-asset.js", "v10-detail-sandbox.js", "v26-kb-desk.js",
+        "v33-assets.js", "v34-perm-edit.js", "v36-member-cards.js", "v38-agent-connect.js"
+      ],
+      "sections": [
+        "SECTION: ent-icon",
+        "v26：账号与权限页的两个专用布局类",
+        "v26：账号与权限页的类型对齐",
+        "SECTION: v26-kb-desk",
+        "SECTION: v28-identity",
+        "SECTION: v28-twocol",
+        "SECTION: v29-perm-editor",
+        "SECTION: cwall",
+        "SECTION: perm-edit",
+        "SECTION: awc",
+        "SECTION: am-sec"
+      ]
+    },
+
+    "engine": {
+      "owner": "引擎域：访谈作业台 / 用户模拟 / 网关三页签 / 合规与审批详情",
+      "files": [
+        "v10-interview.js", "v10-interview-home.js", "v10-interview-data.js",
+        "v10-detail-survey.js", "v10-detail-gov.js", "v10-detail-flow.js", "v29-gateway-tabs.js"
+      ],
+      "sections": [
+        "SECTION: user-pool",
+        "AI 访谈作业台",
+        "SECTION: svc-identity",
+        "v29：网关页三个 Tab"
+      ]
+    },
+
+    "decision": {
+      "owner": "决策会议室",
+      "files": ["v50-decision.js"],
+      "sections": [
+        "SECTION: decision-room",
+        "朝堂制（v51）"
+      ]
+    },
+
+    "media": {
+      "owner": "网红营销 / 舆情看板",
+      "files": ["kol.js", "render-kol.js", "v37-op-board.js"],
+      "sections": [
+        "SECTION: kol-task-view",
+        "SECTION: v37 舆情分析看板"
+      ]
+    },
+
+    "overview": {
+      "owner": "工作台总览与入口接线",
+      "files": ["v30-overview-links.js", "v31-detail-links.js"],
+      "sections": [
+        "总览屏重排",
+        "SECTION: overview",
+        "SECTION: misc-pages"
+      ]
+    },
+
+    "settings": {
+      "owner": "设置入口与设置弹层",
+      "files": ["v40-settings.js"],
+      "sections": []
+    }
+  }
+}

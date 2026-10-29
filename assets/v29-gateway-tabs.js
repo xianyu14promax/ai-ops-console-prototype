@@ -387,7 +387,7 @@
    * 同一批技能的不同画法 —— 同一屏把同一件事说三遍，谁也说不清哪份是准的。
    * 现在的分工：
    *   卡片 = 摘要（身份 / 状态 / 三个数字 / 一句问题），整张可点；
-   *   详情抽屉 = 全部字段（触发条件、依赖、调用方式、版本、负责人、SKILL.md、引用方）；
+   *   详情抽屉 = 全部字段（触发条件、依赖、调用方式、版本、SKILL.md、引用方）；
    *   筛选 chips = 「怎么找到要处理的那条」，是过滤而不是第二份列表。
    */
   RENDERERS.gatewaySkills = function (cap, state, h) {
@@ -704,7 +704,6 @@
     var rows = [
       ['版本', sk.version],
       ['调用方式', sk.invocableText + (sk.invocable === 'user' ? '（模型不会自动加载）' : '')],
-      ['负责人', sk.ownerName + ' · ' + sk.ownerDept],
       ['最近更新', Math.abs(sk.updatedDay) + ' 天前'],
       ['状态', statusTextOf(stat, sk)]
     ];
@@ -761,8 +760,7 @@
         { label: '影响', value: turnOff ? '引用它的 Agent 下一轮委派将找不到该技能；' + sk.invocableText.replace('模型可触发', '模型侧将无法自动加载') : '重新对模型与用户开放', tone: turnOff ? 'danger' : '' },
         { label: '可回滚', value: '是 —— 再次点击即可恢复' }
       ],
-      requireReason: turnOff, confirmText: '确认' + (turnOff ? '停用' : '启用'),
-      action: (turnOff ? '停用' : '启用') + '技能', target: sk.name,
+      confirmText: '确认' + (turnOff ? '停用' : '启用'),
       onConfirm: function () {
         h.state.skillOps = h.state.skillOps || {};
         h.state.skillOps[sk.id] = turnOff ? 'off' : 'on';
@@ -772,11 +770,8 @@
     });
   };
   /* 登记技能：填完落进本会话的「新建」区，刷新还原。
-     技能包不是一行标题，所以字段按技能包的最小可用集给：名称 / 用途 / 触发条件 / 调用方式 / 负责人。 */
+     技能包不是一行标题，所以字段按技能包的最小可用集给：名称 / 用途 / 触发条件 / 调用方式。 */
   ACTIONS['sk-new'] = function (id, btn, h) {
-    var owners = S.OWNERS.map(function (o) {
-      return '<option value="' + esc(o.id) + '">' + esc(o.name + ' · ' + o.dept) + '</option>';
-    }).join('');
     /* 输入控件用自包含样式（本仓 v26 侧边栏同一写法）：不引别的文件注入的类，
        否则那张样式表改一次、这里就跟着塌一次。 */
     var inp = 'style="width:100%;height:34px;border:1px solid var(--line);border-radius:8px;padding:0 8px;background:#fff"';
@@ -796,9 +791,7 @@
         '<option value="both">模型 + 用户（模型命中描述即加载）</option>' +
         '<option value="model">仅模型可触发</option>' +
         '<option value="user">仅用户可调用（模型不会自动加载）</option>' +
-        '</select>' +
-        '<label class="sub-h" for="sk-n-owner">负责人</label>' +
-        '<select id="sk-n-owner" ' + inp + '>' + owners + '</select>',
+        '</select>',
       footHtml: '<button class="btn-ghost" data-v10="cancel">取消</button>' +
         '<button class="btn-primary" data-act="sk-new-ok">登记</button>'
     });
@@ -815,7 +808,7 @@
     h.state.newSkills = h.state.newSkills || [];
     h.state.newSkills.push({
       id: 'sk-new-' + Date.now().toString(36), name: name, purpose: purpose, trigger: trigger,
-      invocable: inv, invocableText: invText, owner: val('sk-n-owner')
+      invocable: inv, invocableText: invText
     });
     global.V10UI.closeSheet();
     h.toast('已登记「' + name + '」（仅本会话，刷新后还原）', 'ok');
@@ -850,8 +843,7 @@
             : '新旧密钥并行，调用方需在并行期内切换', tone: revoke ? 'danger' : '' },
         { label: '可回滚', value: revoke ? '否 —— 吊销不可撤销，只能重新签发' : '是 —— 并行期内可回退', tone: revoke ? 'danger' : '' }
       ],
-      requireReason: revoke, confirmText: '确认' + (revoke ? '吊销' : '轮换'),
-      action: revoke ? '吊销密钥' : '轮换密钥', target: k.name + ' · ' + k.svc,
+      confirmText: '确认' + (revoke ? '吊销' : '轮换'),
       onConfirm: function () {
         h.state.keyOps = h.state.keyOps || {};
         h.state.keyOps[k.name] = revoke ? 'revoked' : 'rotated';

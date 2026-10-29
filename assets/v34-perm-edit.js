@@ -6,8 +6,8 @@
  * 本文件把 Agent 详情页上三处"只读陈列"改成**可编辑**，并且**按风险分档**：
  *
  *   ① 编排配置 › 工具授权（新）：这个 Agent 对每个 MCP 工具是"可用/不可用"。
- *      · 授权**只读**工具 → 低风险：即时生效（过权限门禁即可，不弹确认），并留审计；
- *      · 授权**写**工具   → 高风险：确认弹层 + **强制填理由**（dangerConfirm 的 requireReason）；
+ *      · 授权**只读**工具 → 低风险：即时生效（过权限门禁即可，不弹确认）；
+ *      · 授权**写**工具   → 高风险：确认弹层 + **强制填理由**；
  *      · 收回任何工具     → 中风险：确认 + 影响面（会列出用到它的节点数）。
  *   ② 版本与发布 › 自动回滚条件（改）：条件从"印一行字"变成可调；
  *      · 收紧（成功率阈值调高 / P99 调低）→ 低风险，即时生效；
@@ -17,7 +17,7 @@
  *      按钮就该把人带过去，而不是弹一句"后续版本开放"）。
  *
  * ⚠ 复用而非另造（本仓纪律）：
- *   · 门禁、风险档、强制理由、审计全走 V10UI.dangerConfirm / checkPerm / audit（一处收口）；
+ *   · 门禁、风险档、强制理由全走 V10UI.dangerConfirm / checkPerm（一处收口）；
  *   · 风险级别不在这里自定，而是登记成**权限点**的 risk 字段（seed.js 的 PERM_POINTS 是唯一真源）；
  *   · 状态存 state.agentToolGrant / state.rollbackRule：会话内可改、刷新还原（与全站写操作一致）。
  */
@@ -124,7 +124,7 @@
       '<span>已授权 <b>' + totalOn + '</b> / ' + totalTools + ' 个工具' + (writeOn ? '（含 <b class="bad">' + writeOn + '</b> 个写工具）' : '') + '</span>' +
       '</div>' +
       /* 风险分级写清在界面上：用户点之前就该知道这一下会不会弹理由框 */
-      '<div class="bt-note">改授权的代价按风险分档：<b>只读工具</b>即时生效并留审计；' +
+      '<div class="bt-note">改授权的代价按风险分档：<b>只读工具</b>即时生效；' +
       '<b>写工具</b>要过一次确认并填写理由（高危动作不给"顺手就开"的机会）；' +
       '<b>收回</b>要确认影响面。授权是**本 Agent 级**的，不影响其它 Agent 与服务的全局开关。</div>' +
       /* 低风险改动的撤销入口（业主明确要求"提供撤销机制"）：只在刚改过时出现 */
@@ -170,7 +170,7 @@
       /* 2026-10-18（业主「自述腔」）：删掉"如实说明：本原型只把…不假装已接入执行"这种自我辩解，
          但**保留事实边界**——自动回滚确实只在这里登记、执行在流水线。事实照说，口气不解释。 */
       '<div class="bt-note"><b>收紧</b>即时生效，<b>放宽</b>需填理由；比例调整有 ' + minWatch() +
-      ' 分钟最小观察期；回滚后不会自动重试灰度。自动回滚条件在这里登记（会话态 + 审计），执行在发布流水线 —— ' +
+      ' 分钟最小观察期；回滚后不会自动重试灰度。自动回滚条件在这里登记（会话态），执行在发布流水线 —— ' +
       '要立即回滚，用上面的「立即回滚」。</div>';
   }
   function minWatch() {
@@ -199,9 +199,8 @@
       grantsOf(h)[key] = to;
       /* 撤销用的"上一个状态"：只看这一次改动，不累积历史（一条改动一次撤销机会） */
       h.state.permUndo = { kind: 'tool', key: key, tool: svc.name + ' · ' + tool, prev: to === 'allow' ? 'deny' : 'allow', to: to };
-      if (win.audit && reason === null) { /* 低风险路径：不弹确认，但审计一条不能少 */ }
       h.toast((to === 'allow' ? '已授权：' : '已收回：') + svc.name + ' · ' + tool +
-        (reason ? '（理由已入审计）' : '（已留审计，可撤销）'), 'ok');
+        '（可撤销）', 'ok');
       h.navigate({});
     }
     /* 低风险（只读授权）：过门禁后**即时生效** —— 业主明确要求"低风险可以立即保存"。
@@ -209,9 +208,6 @@
     if (to === 'allow' && !isW) {
       var chk = win.checkPerm ? win.checkPerm(perm) : { ok: true };
       if (chk && chk.ok) {
-        if (win.audit) {
-          win.audit({ action: '授予工具', target: svc.name + ' · ' + tool + ' → ' + a.name, impact: '低风险 · 只读工具，即时生效' });
-        }
         commit(null);
         return;
       }
@@ -222,9 +218,6 @@
       tone: isW && to === 'allow' ? 'danger' : 'warn',
       danger: !(isW && to === 'allow'),
       perm: perm,
-      requireReason: isW && to === 'allow',
-      action: to === 'allow' ? '授予工具' : '收回工具授权',
-      target: svc.name + ' · ' + tool + ' → ' + a.name,
       impacts: [
         { label: '工具', value: tool + (isW ? '（写动作）' : '（只读）'), tone: isW ? 'danger' : '' },
         { label: '变更', value: from + ' → ' + (to === 'allow' ? '已授权' : '未授权') },
@@ -244,10 +237,8 @@
     } else {
       grantsOf(h)[u.key] = u.prev;
     }
-    var win = UI();
-    if (win.audit) win.audit({ action: '撤销权限/策略改动', target: u.tool || '自动回滚条件', impact: '回到改动前状态', reason: '在页面上点了撤销' });
     h.state.permUndo = null;
-    h.toast('已撤销，回到改动前状态（撤销也留审计）', 'ok');
+    h.toast('已撤销，回到改动前状态', 'ok');
     h.navigate({});
   };
 
@@ -268,13 +259,12 @@
       h.state.rollbackRule = next;
       h.state.permUndo = { kind: 'rule', prev: cur, tool: '自动回滚条件' };
       h.toast('自动回滚条件已更新为 ' + h.fmt.pct2(next.sr) + ' / ' + h.fmt.dur(next.p99) +
-        (reason ? '（理由已入审计）' : '（已留审计，可撤销）'), 'ok');
+        '（可撤销）', 'ok');
       h.navigate({});
     }
     if (tighten) {
       var chk = win.checkPerm ? win.checkPerm('agent:rollback:rule') : { ok: true };
       if (chk && chk.ok) {
-        if (win.audit) win.audit({ action: '收紧自动回滚条件', target: '成功率 ' + h.fmt.pct2(next.sr) + ' / P99 ' + h.fmt.dur(next.p99), impact: '低风险 · 更容易触发回滚' });
         commit(null);
         return;
       }
@@ -282,9 +272,7 @@
     win.dangerConfirm(h, {
       title: '放宽自动回滚条件',
       desc: '把安全线往下挪 —— 出问题时更晚才会回滚。',
-      tone: 'danger', perm: 'agent:rollback:rule', requireReason: true,
-      action: '放宽自动回滚条件',
-      target: '成功率 ' + h.fmt.pct2(cur.sr) + ' → ' + h.fmt.pct2(next.sr) + '，P99 ' + h.fmt.dur(cur.p99) + ' → ' + h.fmt.dur(next.p99),
+      tone: 'danger', perm: 'agent:rollback:rule',
       impacts: [
         { label: '变更', value: (field === 'sr' ? '成功率阈值' : 'P99 阈值') + '：' + (field === 'sr' ? h.fmt.pct2(cur.sr) + ' → ' + h.fmt.pct2(next.sr) : h.fmt.dur(cur.p99) + ' → ' + h.fmt.dur(next.p99)), tone: 'danger' },
         { label: '影响', value: '灰度期间若指标劣化，会更晚触发自动回滚（保护变弱）' },
@@ -306,15 +294,14 @@
     if (next.on) {
       win.dangerConfirm(h, {
         title: '登记启用自动回滚', desc: '把当前条件登记为该发布线的自动回滚规则。',
-        tone: 'warn', perm: 'agent:rollback:rule', action: '登记启用自动回滚',
-        target: '成功率 ' + h.fmt.pct2(next.sr) + ' / P99 ' + h.fmt.dur(next.p99),
+        tone: 'warn', perm: 'agent:rollback:rule',
         impacts: [{ label: '变更', value: '未启用 → 已登记启用' },
           { label: '如实说明', value: '本原型只登记规则；执行在发布流水线，页面上不会真的自动回滚' }],
         onConfirm: function (reason) { commit(reason); }
       });
     } else {
       var chk = win.checkPerm ? win.checkPerm('agent:rollback:rule') : { ok: true };
-      if (chk && chk.ok) { if (win.audit) win.audit({ action: '取消启用自动回滚', target: '自动回滚条件', impact: '低风险 · 收回自动保护登记' }); commit(null); return; }
+      if (chk && chk.ok) { commit(null); return; }
       win.dangerConfirm(h, { title: '取消启用自动回滚', tone: 'warn', perm: 'agent:rollback:rule', onConfirm: function (r) { commit(r); } });
     }
   };

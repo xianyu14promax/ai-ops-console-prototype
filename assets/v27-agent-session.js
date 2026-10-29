@@ -9,7 +9,7 @@
  * ── 干预模型（与 DSH 一致，也是业主这次强调的）──────────────────
  *   **人给提示，Agent 继续执行** —— 提示不打断、不暂停，作为"从下一轮起生效"的引导注入会话；
  *   被提示影响的后续轮次会标出「已按你的提示调整」并写明是哪一条，能对回源头。
- *   只有两个动作是"强干预"（会停）：暂停（本会话）与接管（转人工），都要额外权限 + 理由 + 审计。
+ *   只有两个动作是"强干预"（会停）：暂停（本会话）与接管（转人工），都要额外权限。
  *   中途中断当前动作 ⇒ 在"继续执行"的模型下没有意义，已去掉（DSH 也没有这个按钮）。
  * ────────────────────────────────────────────────────────────
  */
@@ -1344,7 +1344,7 @@
   }
   /* 首条待处置：3 行高、黄底左边框、字号放大到 13px —— 位置 + 尺寸，不靠把按钮做小 */
   function pendingFocus(a, se, h, items) {
-    return '<div class="as-focus" data-pending-focus="1" style="border:.5px solid var(--d-border1);border-left:3px solid var(--d-amber);border-radius:var(--d-r-md);background:var(--d-surface);padding:10px 12px;margin:0 0 14px">' +
+    return '<div class="as-focus" data-pending-focus="1" style="border:.5px solid var(--d-border1);border-radius:var(--d-r-md);background:#fffdf7;padding:10px 12px;margin:0 0 14px">' +
       '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">' +
       h.pill('warn', items.length + ' 件事等你点头') +
       '<span style="font-size:11.5px;color:var(--d-label3)">按等级与等待时长排序 · 处置后自动让位给下一件</span></div>' +
@@ -2258,9 +2258,8 @@
   /* v52：右栏补两块**真实**内容，把底部空白填满（业主：右栏再加点信息，铺满）。
      不是编的占位：
        · 用到的服务 —— 拓扑取自 F.AGENT_TOPO[a.id]（与「编排配置」同一份），
-         元信息取自 S.MCP_SERVICES（读写声明在数据层），调用次数从本会话 rounds 的 actions 里数；
-       · 最近处置 —— 来自 V10UI.auditList()（真实审计，按 target 含本 Agent 过滤）。
-     两块都没有数据时返回空串，不留空壳。 */
+         元信息取自 S.MCP_SERVICES（读写声明在数据层），调用次数从本会话 rounds 的 actions 里数。
+     没有数据时返回空串，不留空壳。 */
   function svcPanel(a, se, h) {
     var topo = F.TOPO[F.AGENT_TOPO[a.id]] || [];
     var used = {};
@@ -2298,23 +2297,6 @@
       '<div class="as-side-b"><div class="as-one">' +
       rs.length + ' 轮 · ' + acts + ' 个动作 · ' + h.fmt.int(tok) + ' token · 平均 ' + durCn(avg) +
       '</div></div></div>';
-  }
-
-  function auditPanel(a, h) {
-    var list = [];
-    try { list = (global.V10UI && global.V10UI.auditList) ? global.V10UI.auditList() : []; } catch (e) { }
-    var mine = list.filter(function (x) { return x && x.target && String(x.target).indexOf(a.id) >= 0; });
-    mine = mine.slice(-3).reverse();
-    if (!mine.length) return '';
-    return '<div class="as-side-p"><div class="as-side-hd">最近处置<span class="as-cnt">' + mine.length + '</span>' +
-      '<span class="grow"></span><span class="muted">来自审计</span></div>' +
-      '<div class="as-side-b">' + mine.map(function (x) {
-        var t = String(x.at || '');
-        var hhmm = t.length >= 16 ? t.slice(5, 10) + ' ' + t.slice(11, 16) : t;
-        return '<div class="as-hint-i"><span class="as-hint-r">' + h.esc(hhmm) + '</span>' +
-          '<span>' + h.esc(x.action || '') + '</span>' +
-          (x.actor ? '<i>' + h.esc(x.actor) + '</i>' : '') + '</div>';
-      }).join('') + '</div></div>';
   }
 
   function hintPanel(a, se, h) {
@@ -2697,7 +2679,7 @@
     /* v45：右栏不再重复渲染「待处理」—— 它已经搬到消息流末尾的审批卡里（approvalInline）。
        两处同时出现同一张 P2 卡，读起来像系统重复计了一次。右栏保留：执行状态 / Agent 说明 /
        口径与说明 / 你的提示（这些 dsh 没有，是本原型的业务件）。 */
-    var side = changePanel(a, se, h, st) + hintPanel(a, se, h) + svcPanel(a, se, h) + usagePanel(a, se, h) + auditPanel(a, h);
+    var side = changePanel(a, se, h, st) + hintPanel(a, se, h) + svcPanel(a, se, h) + usagePanel(a, se, h);
     var dm = (global.SESSION_ENGINE && global.SESSION_ENGINE.view()) ? global.SESSION_ENGINE.view().displayMode : 'standard';
     pumpEngine(a, state, h);
     /* .as-view 是 DSH 令牌（--d-*）的作用域：变量只在这一屏生效，不动设计稿既有变量 */
@@ -2928,7 +2910,7 @@
      而且这个确认层用的是 dangerConfirm（高危动作闸门），语义被错配了 ——
      「发一句话」不是高危动作，真正的闸门是「停止 / 接管 / 批准高危动作」，那些各有自己的确认。
      现在：Enter 直接发，落点仍由引擎按 dsh 规则决定（空闲→正文 / 繁忙+排队→排队坞 /
-     繁忙+插话→待生效），**审计照写**（只是不再用弹层拦人）。 */
+     繁忙+插话→待生效），不再用弹层拦人。 */
   A['as-hint'] = function (id, btn, h, mode) {
     var a = agentOf(id); if (!a) return;
     var root = (btn && btn.closest && btn.closest('.as-composer')) || document.querySelector('.as-composer');
@@ -2948,14 +2930,6 @@
        「往下添加」就看不到了。这与 DSH 的滚动归属同规则（离开底部才显示「回到底部」），
        只在**确实进正文**（transcript）时恢复跟随；排队/插话不改变读者的滚动位置。 */
     if (placed && placed.placed === 'transcript') sessUI(h.state, a).follow = true;
-    /* 留痕不靠弹层：审计照写（谁、对哪个 Agent、落在哪），事后在审计里可查 */
-    try {
-      h.audit({
-        action: '向 Agent 发送消息',
-        target: a.id + ' · ' + a.name,
-        impact: (placed && placed.placed === 'transcript' ? '直接进入对话' : (placed && placed.placed === 'queue' ? '排队（空闲后自动发送）' : '本轮结束后生效（插话）')) + '：' + txt.slice(0, 60)
-      });
-    } catch (e) { }
     h.toast(placed && placed.placed === 'queue' ? '已排队（Agent 空闲后自动发送）'
       : (placed && placed.placed === 'transcript' ? '已发送' : '已送达（本轮结束后生效，Agent 继续执行）'), 'ok');
     refresh(h);
@@ -2990,19 +2964,17 @@
     h.toast('已清空已结束任务（只影响本屏展示）', 'info'); refresh(h);
   };
   /* 停止当前任务：**单击即停**（DSH §9.1.11 的 Stop 是单次点击；500ms 双 Esc 是另一条快捷键路径）。
-     与 DSH 的唯一差别是保留了本原型的权限门禁与审计 —— 但**不再弹二次确认层**，避免把一步操作放大成三步。 */
+     与 DSH 的唯一差别是保留了本原型的权限门禁 —— 但**不弹二次确认层**，避免把一步操作放大成三步。 */
   A['as-stop'] = function (id, btn, h) {
     var a = agentOf(id); if (!a) return;
     var chk = global.V10UI.checkPerm('agent:intervene');
     if (!chk || !chk.ok) {
-      h.audit({ action: '停止 Agent 任务（被拦）', target: a.id + ' · ' + a.name, impact: '缺 agent:intervene' });
       h.toast('没有停止权限（agent:intervene）—— 找平台管理员授权', 'warn');
       return;
     }
     var E = global.SESSION_ENGINE;
     if (E) { E.open(a, { history: 3 }); E.kill(); }
     store().setStatus(a.id, 'paused');
-    h.audit({ action: '停止 Agent 任务', target: a.id + ' · ' + a.name, impact: '当前轮中断，在跑节点标为已取消' });
     h.toast('已停止（在跑的节点标为已取消）', 'warn');
     refresh(h);
   };
@@ -3394,7 +3366,7 @@
     }).join('');
     global.V10UI.openSheet({
       title: '权限',
-      bodyHtml: '<div class="v10-sheet-desc">选择新会话的默认权限模式（当前会话立即生效，记审计）</div>' +
+      bodyHtml: '<div class="v10-sheet-desc">选择新会话的默认权限模式（当前会话立即生效）</div>' +
         '<div class="as-pmlist">' + rows + '</div>' +
         '<label class="as-risk"><input type="checkbox" data-asrisk> 我已了解风险，并愿意继续（选「完全权限」时必须勾选）</label>' +
         '<div class="bt-note">对应权限点 agent:session:autonomy —— 无权限会被拦下并提示找谁授权。</div>',
@@ -3433,7 +3405,7 @@
     if (paused) { var E0 = global.SESSION_ENGINE; if (E0) { E0.open(a, { history: 3 }); E0.setStatus('running'); } store().setStatus(a.id, 'running'); h.toast('已恢复执行', 'ok'); refresh(h); return; }
     h.dangerConfirm(h, {
       title: '暂停这个会话？', desc: '注意：常规干预是"中途引导"（不打断）。暂停会让 Agent 停在当前这一步，属于强干预。',
-      tone: 'warn', perm: 'agent:intervene', confirmText: '暂停', action: '暂停 Agent 会话', target: a.id + ' · ' + a.name,
+      tone: 'warn', perm: 'agent:intervene', confirmText: '暂停',
       impacts: [{ label: '影响', value: 'Agent 停手，直到你点恢复' }, { label: '可恢复', value: '是；已给的中途引导保留' }],
       onConfirm: function (reason) { var E = global.SESSION_ENGINE; if (E) { E.open(a, { history: 3 }); E.setStatus('paused'); } store().setStatus(a.id, 'paused'); h.toast('已暂停', 'warn'); refresh(h); }
     });
@@ -3441,8 +3413,8 @@
   A['as-takeover'] = function (id, btn, h) {
     var a = agentOf(id); if (!a) return;
     h.dangerConfirm(h, {
-      title: '接管这个会话？', desc: 'Agent 停手，剩下的由你人工处理，责任转到你（记审计）。',
-      tone: 'danger', perm: 'agent:takeover', confirmText: '确认接管', action: '接管 Agent 会话', target: a.id + ' · ' + a.name,
+      title: '接管这个会话？', desc: 'Agent 停手，剩下的由你人工处理，责任转到你。',
+      tone: 'danger', perm: 'agent:takeover', confirmText: '确认接管',
       impacts: [{ label: '接管人', value: (S.ME && S.ME.name) || '我' }, { label: 'Agent', value: '停止自动动作' }],
       onConfirm: function (reason) { var E = global.SESSION_ENGINE; if (E) { E.open(a, { history: 3 }); E.setStatus('takenOver'); } store().setStatus(a.id, 'takenOver'); h.toast('已接管', 'ok'); refresh(h); }
     });
@@ -3455,7 +3427,6 @@
       title: '把 Agent 权限调成「' + m.label + '」？', desc: m.hint,
       tone: m.risk ? 'danger' : 'warn',
       perm: 'agent:session:autonomy', confirmText: m.risk ? '确认风险并调整' : '调整',
-      action: '调整 Agent 权限预设', target: a.id + ' · ' + a.name + ' → ' + m.label,
       impacts: [{ label: '对后续动作', value: m.hint },
                 { label: '风险', value: m.risk ? '写动作与高危动作将直接执行，不再逐次要人确认' : '高危动作仍需逐次确认' },
                 { label: '对已发生的轮次', value: '不改写' }],
@@ -3471,7 +3442,7 @@
     h.dangerConfirm(h, {
       title: '回滚第 ' + (no || r.no) + ' 轮的改动？',
       desc: '要撤销：' + r.writes.map(function (x) { return x.name; }).join('、'),
-      tone: 'danger', perm: 'agent:round:rollback', confirmText: '回滚这一轮', action: '回滚 Agent 本轮改动', target: a.id + ' · ' + traceId,
+      tone: 'danger', perm: 'agent:round:rollback', confirmText: '回滚这一轮',
       impacts: [{ label: '轮次', value: '第 ' + r.no + ' 轮 · ' + r.when }, { label: '写动作', value: r.writes.length + ' 个' }, { label: '不可逆', value: '回滚本身也是一次写操作' }],
       onConfirm: function (reason) { store().markRolled(traceId); h.toast('已回滚（右栏该轮改动显示为不可用）', 'ok'); refresh(h); }
     });
@@ -3483,7 +3454,6 @@
       title: decision === 'approve' ? '批准这个动作继续？' : '驳回这个动作？',
       desc: itemId, tone: decision === 'approve' ? 'warn' : 'danger', perm: 'agent:approve',
       confirmText: decision === 'approve' ? '批准并继续' : '驳回',
-      action: decision === 'approve' ? '批准 Agent 高危动作' : '驳回 Agent 高危动作', target: a.id + ' · ' + itemId,
       impacts: [{ label: '处置人', value: (S.ME && S.ME.name) || '我' },
                 { label: '后续', value: decision === 'approve' ? '动作放行，Agent 继续执行' : '动作终止并按规则回退' }],
       onConfirm: function (reason) { store().decide(a.id, itemId, decision); h.toast(decision === 'approve' ? '已批准' : '已驳回', decision === 'approve' ? 'ok' : 'warn'); refresh(h); }
@@ -3504,14 +3474,11 @@
       title: decision === 'approve' ? '保留这一轮的结果，继续跑？' : '回滚这一轮，按规则收场？',
       desc: '第 ' + ((r && r.no) || '?') + ' 轮 · ' + why, tone: 'warn', perm: 'agent:round:rollback',
       confirmText: decision === 'approve' ? '保留并继续' : '回滚这一轮',
-      action: decision === 'approve' ? '保留失败轮结果' : '回滚失败轮',
-      target: a.id + ' · ' + traceId,
       impacts: [
         { label: '这一轮', value: '以「' + why + '」结束，不可自动重试' },
         { label: '保留', value: '结果留在会话与链路记录里；右栏「待处理」不再计它' },
         { label: '回滚', value: '本轮写动作按规则回退（既有动作 as-rollback 的同一套影响面）' }
       ],
-      requireReason: true,
       onConfirm: function (reason) {
         if (decision === 'reject') {
           var rb = A['as-rollback'];

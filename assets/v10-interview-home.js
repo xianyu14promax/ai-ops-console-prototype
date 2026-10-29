@@ -111,7 +111,7 @@
       '<button class="btn-ghost sm" data-act="iv-pack" data-id="' + esc(h, row.id) + '">打包 4 件套</button>' +
       '<button class="btn-ghost sm" data-act="iv-open-plan" data-id="' + esc(h, row.id) + '">看完整分析 →</button></div></div>' +
       /* 结论条 */
-      '<div style="font-size:14.5px;font-weight:600;line-height:1.8;background:#f8fafc;border:1px solid var(--line);border-left:3px solid #2563eb;border-radius:8px;padding:10px 12px;margin-bottom:12px">' +
+      '<div style="font-size:14.5px;font-weight:600;line-height:1.8;background:#f8fafc;border:1px solid #CFE0FF;border-radius:8px;padding:10px 12px;margin-bottom:12px">' +
       esc(h, an.headline || '—') + '</div>' +
       /* KPI 块 —— 这四个是**执行质量**，与「结论与分析」页同名同口径（那一页叫「本次访谈执行质量」） */
       '<div class="sub-h">执行质量</div>' +
@@ -143,7 +143,7 @@
          这里只是不用点开就看得见；点「采纳」在本会话留痕，两处状态一致。 */
       (rv ? '<div class="sub-h">问卷评价</div>' +
         '<div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:#fbfcfe;margin-bottom:14px">' +
-        '<div style="font-size:13.5px;font-weight:600;line-height:1.8;background:#fff;border:1px solid var(--line);border-left:3px solid #2563eb;border-radius:8px;padding:9px 11px">' +
+        '<div style="font-size:13.5px;font-weight:600;line-height:1.8;background:#fff;border:1px solid #CFE0FF;border-radius:8px;padding:9px 11px">' +
         esc(h, rv.verdict) + '</div>' +
         '<div class="grid2 why-cols" style="margin-top:12px">' +
         '<div><div class="sub-h">保持</div>' + rv.good.map(function (x) {
@@ -248,7 +248,7 @@
       }).join('');
       var est = tagFilter ? ((TAGS.filter(function (t) { return t.n === tagFilter; })[0] || {}).c || 0) : 0;
       srcBody = '<div class="sub-h">标签（带覆盖数与口径）</div><div class="chips">' + tagList + '</div>' +
-        '<div class="bt-note" style="margin-top:8px">标签人数是标签自己的口径（来源 / 责任人 / 更新频率随标签展示），<b>不拿画像的"覆盖企业数"顶替</b>。' +
+        '<div class="bt-note" style="margin-top:8px">标签人数是标签自己的口径（来源 / 更新频率随标签展示），<b>不拿画像的"覆盖企业数"顶替</b>。' +
         (tagFilter ? '当前选中「' + esc(h, tagFilter) + '」覆盖 ' + est.toLocaleString('zh-CN') + ' 位，可派发 ' + est.toLocaleString('zh-CN') + ' 位。' : '选一个标签看覆盖数。') + '</div>';
     } else if (src === 'segment') {
       srcBody = '<div class="sub-h">运营分群（复用圈人结果）</div><div class="fc-steps">' +

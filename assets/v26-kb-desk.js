@@ -220,6 +220,105 @@
       '</div></div>';
   }
 
+  /* ========================================================== ①b 全部知识库 · 列表视图 */
+  /* 2026-10-28（业主：「外面列表也这样搞」→「为什么还是这样子」）：
+     库内文档区的「列表」早就是文件管理器三栏（左分类树 / 中带表头清单 / 右预览），
+     但「全部知识库」这一层的列表还是那张十列大宽表 —— 同一个列表页按个视图切换就像两套产品。
+     这里把那套壳照搬过来：分组树 / 库清单 / 库详情预览，样式全复用 .kb-cols 那一套
+     （直角、极淡分隔线、表头与行共用同一份 grid 列宽）。 */
+  function libColView(h, rows, opt) {
+    opt = opt || {};
+    var dis = opt.dis || {};
+    var verd = opt.verdict || function () { return { k: 'ok', t: '—' }; };
+    var zeroWarn = opt.zeroWarn || 0.05;
+    var docN = function (r) {
+      return (global.KB_SESSION && global.KB_SESSION.docCountOf) ? global.KB_SESSION.docCountOf(h, r) : (r.docs || 0);
+    };
+    var st = libS(h);
+    var GROUPS = [
+      { key: 'all', name: '全部', keep: function () { return true; } },
+      { key: 'on', name: '运行中', keep: function (r) { return !dis[r.id] && r.status === 'ok'; } },
+      { key: 'focus', name: '需关注', keep: function (r) { return !dis[r.id] && (r.status !== 'ok' || Number(r.zeroRate) >= zeroWarn); } },
+      { key: 'off', name: '已停用', keep: function (r) { return !!dis[r.id]; } }
+    ];
+    var g = GROUPS.filter(function (x) { return x.key === st.group; })[0] || GROUPS[0];
+    st.group = g.key;
+    var slice = rows.filter(g.keep);
+    /* 当前选中项跟着分组走：切换分组后原选中项可能不在这一组里，退回第一条 */
+    if (st.cur && !slice.some(function (r) { return r.id === st.cur; })) st.cur = null;
+    if (!st.cur && slice.length) st.cur = slice[0].id;
+    var pick = null;
+    slice.forEach(function (r) { if (r.id === st.cur) pick = r; });
+
+    /* —— 左栏：库是根，下面挂四个分组（计数与中栏同源，不另算一套） */
+    var c1 = '<button class="kb-tree-row kb-tree-root" data-act="kb-lib-group" data-id="all" aria-expanded="true">' +
+      '<span class="kb-tw" aria-hidden="true">\u25be</span>' + folderIco(16) +
+      '<span class="kb-tree-nm">企业知识库</span><b>' + h.fmt.int(rows.length) + '</b></button>' +
+      '<div class="kb-tree-kids">' + GROUPS.map(function (x) {
+        var n = rows.filter(x.keep).length;
+        return '<button class="kb-col-row' + (x.key === g.key ? ' on' : '') +
+          '" data-act="kb-lib-group" data-id="' + e(h, x.key) + '">' +
+          folderIco(16) + '<span>' + e(h, x.name) + '</span><b>' + h.fmt.int(n) + '</b>' +
+          '<span class="kb-cv" aria-hidden="true">›</span></button>';
+      }).join('') + '</div>';
+
+    /* —— 中栏：表头 + 行，同一套 grid（22 / 1fr / 56 / 76 / 8） */
+    var c2 = '<div class="kb-col-h kblib"><span></span><span>名称</span>' +
+      '<span class="kb-ch-r">文档</span><span class="kb-ch-r">最近同步</span><span></span></div>' +
+      (slice.length ? slice.map(function (r) {
+        var v = verd(r), on = pick && r.id === pick.id;
+        var dot = v.k === 'ok' ? 'ok' : (v.k === 'warn' ? 'warn' : (v.k === 'bad' ? 'bad' : 'idle'));
+        return '<button class="kb-col-doc kblib' + (on ? ' on' : '') + '"' +
+          ' data-act="kb-lib-pick" data-id="' + e(h, r.id) + '"' +
+          ' aria-pressed="' + on + '" title="' + e(h, r.name) + ' · ' + e(h, v.t) + '">' +
+          '<span class="kb-col-dot ' + dot + '" aria-hidden="true"></span>' +
+          '<span class="kb-col-nm">' + e(h, r.name) + '</span>' +
+          '<span class="kb-ch-r">' + h.fmt.int(docN(r)) + '</span>' +
+          '<span class="kb-ch-r">' + e(h, h.fmt.rel(r.lastSyncText)) + '</span>' +
+          '<span></span></button>';
+      }).join('') : '<div class="kb-col-empty">这一组里没有知识库</div>');
+
+    /* —— 右栏：选中库的预览 + 详细信息 + 动作 */
+    var c3 = '';
+    if (pick) {
+      var pv = verd(pick);
+      var hue = pick.hue || 'blue';
+      c3 = '<div class="kb-pv">' +
+        '<div class="kb-ico kb-pv-lib h-' + e(h, hue) + '">' + h.icon('doc', 32) + '</div>' +
+        '<div class="kb-pv-nm">' + e(h, pick.name) + '</div>' +
+        '<div class="kb-pv-sub">' + e(h, pick.scene || '企业知识库') + ' · 最近同步 ' + e(h, h.fmt.rel(pick.lastSyncText)) + '</div>' +
+        '</div>' +
+        '<div class="kb-pv-body">' +
+        '<div class="sub-h">详细信息</div>' +
+        '<dl class="dl dl-inline">' +
+        '<dt>文档 / 向量</dt><dd>' + h.fmt.int(docN(pick)) + ' 篇 · ' + h.fmt.int(pick.chunks) + ' 条</dd>' +
+        '<dt>切片策略</dt><dd>' + h.fmt.int(pick.chunkSize) + ' 字</dd>' +
+        '<dt>被引用</dt><dd>' + h.fmt.int(pick.refAgents) + ' 个 Agent</dd>' +
+        '<dt>周命中</dt><dd>' + h.fmt.int(pick.hits) + ' 次</dd>' +
+        '<dt>零结果率</dt><dd>' + h.fmt.pct1(pick.zeroRate) + '</dd>' +
+        '<dt>状态</dt><dd>' + h.pill(dis[pick.id] ? 'idle' : pick.status, dis[pick.id] ? '已停用' : pick.statusText) + '</dd>' +
+        '<dt>结论</dt><dd>' + h.pill(pv.k, pv.t) + '</dd>' +
+        '</dl></div>' +
+        '<div class="kb-col-3act">' +
+        '<button class="btn-ghost" data-act="go-detail" data-id="' + e(h, 'knowledge|' + pick.id) + '">打开</button>' +
+        '<button class="btn-ghost" data-act="kb-open-test" data-id="' + e(h, pick.id) + '">检索测试</button>' +
+        '</div>';
+    }
+
+    return '<div class="kb-desk kblib-desk" data-kbdesk="libcol">' +
+      '<div class="kb-cols">' +
+      '<div class="kb-col kb-col-1">' + c1 + '</div>' +
+      '<div class="kb-col kb-col-2">' + c2 + '</div>' +
+      '<div class="kb-col kb-col-3">' + c3 + '</div>' +
+      '</div>' +
+      '<div class="kb-status">' +
+      '<span>共 <b>' + h.fmt.int(slice.length) + '</b> 个知识库</span>' +
+      '<span>文档合计 <b>' + h.fmt.int(slice.reduce(function (s, r) { return s + docN(r); }, 0)) + '</b> 篇</span>' +
+      '<span>周命中 <b>' + h.fmt.int(slice.reduce(function (s, r) { return s + (r.hits || 0); }, 0)) + '</b></span>' +
+      '<span class="kb-st-hint">单击看详情 · 双击进库 · 右键更多</span>' +
+      '</div></div>';
+  }
+
   /* ========================================================== ② 库内桌面 */
   /* 文档图标取色：**按「方案」取，不按文档类型**。
      同一份文档的不同版本（《退货政策 v1 / v2 / v3》）必须同色 —— 它们是一个方案的迭代；
@@ -291,19 +390,22 @@
       c1 += '</div>';
     }
 
-    /* —— 中栏：表头 + 行。表头与行用同一套 grid 列宽，否则永远对不齐。 */
-    var c2 = '<div class="kb-col-h"><span></span><span>名称</span>' +
-      '<span class="kb-ch-r">修改时间</span><span class="kb-ch-r">大小</span><span></span></div>' +
+    /* —— 中栏：表头 + 行。表头与行用同一套 grid 列宽，否则永远对不齐。
+       2026-10-28（业主对比外面那栏「里面就不会做了？」）：索引状态点从行尾挪到行首 ——
+       外面（全部知识库）的点在最前，里面藏在行尾 62px 的右侧，扫一眼根本看不到。
+       现在：点 | 类型图标 | 名称 | 修改时间 | 大小，与外面同一节奏。 */
+    var c2 = '<div class="kb-col-h"><span></span><span></span><span>名称</span>' +
+      '<span class="kb-ch-r">修改时间</span><span class="kb-ch-r">大小</span></div>' +
       slice.map(function (d) {
         var t = typeOf(h, d), s2 = statusOf(h, d), on = pick && d.id === pick.id;
         return '<button class="kb-col-doc' + (on ? ' on' : '') + '"' +
           ' data-act="kb-desk-pick" data-id="' + e(h, kbLike.id) + '|' + e(h, d.id) + '"' +
           ' aria-pressed="' + on + '" title="' + e(h, d.name) + '">' +
+          '<i class="kb-col-dot ' + e(h, s2.k) + '" title="' + e(h, s2.t) + '"></i>' +
           '<span class="kb-tico ico-i' + (t.hue ? ' t-' + t.hue : '') + '">' + h.icon(t.icon, 15) + '</span>' +
           '<span class="kb-col-nm">' + e(h, d.name) + '</span>' +
           '<span class="kb-ch-r">' + e(h, h.fmt.rel(d.updatedDay)) + '</span>' +
           '<span class="kb-ch-r">' + e(h, Math.round(d.sizeKB) + ' KB') + '</span>' +
-          '<i class="kb-col-dot ' + e(h, s2.k) + '" title="' + e(h, s2.t) + '"></i>' +
           '</button>';
       }).join('');
 
@@ -333,7 +435,6 @@
         '<dt>索引状态</dt><dd>' + h.pill(s3.k, s3.t) + '</dd>' +
         '<dt>更新时间</dt><dd>' + e(h, h.fmt.rel(d3.updatedDay)) + '</dd>' +
         '<dt>有效期</dt><dd>' + e(h, d3.validUntil) + '</dd>' +
-        '<dt>责任人</dt><dd>' + h.avatar(d3.owner) + '</dd>' +
         '</dl>' +
         '<div class="kb-pv-note">预览正文为确定性派生演示内容，与「检索测试」同一套语料；生产环境这里是真实文档页。</div>' +
         '<div class="kb-col-3act">' +
@@ -690,7 +791,7 @@
   }
 
   /* ========================================================== 动作调用 */
-  /* 走 global.ACTIONS 而不是自己重写一遍 —— 权限门禁、确认层、审计都在那些实现里 */
+  /* 走 global.ACTIONS 而不是自己重写一遍 —— 权限门禁、确认层都在那些实现里 */
   function run(h, act, id) {
     var A = global.ACTIONS || {};
     if (A[act]) { A[act](id, null, h); return true; }
@@ -756,7 +857,40 @@
   };
   ACTIONS['kb-desk-pick'] = function (id, btn, h) {
     var p = String(id || '').split('|');
-    docS(h, p[0]).cur = p[1];
+    var st = docS(h, p[0]);
+    /* 2026-10-28（业主「不会？」）：列表行的双击也等不到原生 dblclick ——
+       第一次点击就 h.navigate() 重渲染，第二下落在新行上。和网格那边同一套判定：
+       450ms 内点同一行第二次 = 打开文档（否则只是换右栏预览）。 */
+    var now = Date.now();
+    if (st._lastClickId === p[1] && now - (st._lastClickT || 0) < 450) {
+      st._lastClickId = null; st._lastClickT = 0;
+      try { var g = window.getSelection(); if (g) g.removeAllRanges(); } catch (e) {}
+      run(h, 'kb-doc-open', p[0] + '|' + p[1]);
+      return;
+    }
+    st._lastClickId = p[1]; st._lastClickT = now;
+    st.cur = p[1];
+    h.navigate({}, { scroll: false });
+  };
+  /* 全部知识库 · 三栏视图的两个动作（2026-10-28） */
+  ACTIONS['kb-lib-group'] = function (id, btn, h) {
+    libS(h).group = id || 'all';
+    libS(h).cur = null;              /* 换分组后选中项要重算，否则右栏停在上一个分组的那条 */
+    h.navigate({}, { scroll: false });
+  };
+  ACTIONS['kb-lib-pick'] = function (id, btn, h) {
+    var st = libS(h);
+    /* 双击判定同库内：单击只换右栏预览；450ms 内点同一行第二次 = 进库。
+       不用原生 dblclick —— 单击就重渲染，第二下落在新行上，浏览器凑不出来。 */
+    var now = Date.now();
+    if (st._lastClickId === id && now - (st._lastClickT || 0) < 450) {
+      st._lastClickId = null; st._lastClickT = 0;
+      try { var g = window.getSelection(); if (g) g.removeAllRanges(); } catch (e) {}
+      run(h, 'go-detail', 'knowledge|' + id);
+      return;
+    }
+    st._lastClickId = id; st._lastClickT = now;
+    st.cur = id;
     h.navigate({}, { scroll: false });
   };
   ACTIONS['kb-desk-root'] = function (id, btn, h) {
@@ -909,14 +1043,12 @@
         : '把选中的 ' + sel.length + ' 篇文档从检索范围下线？',
       tone: isDel ? 'danger' : 'warn',
       perm: isDel ? 'knowledge:doc:delete' : 'knowledge:doc:offline',
-      requireReason: true, confirmText: isDel ? '确认删除' : '确认下线',
+      confirmText: isDel ? '确认删除' : '确认下线',
       impacts: [
         { label: '文档数', value: sel.length + ' 篇' },
         { label: '所属知识库', value: kb.name },
         { label: isDel ? '删除后' : '下线后', value: isDel ? '不可恢复，检索不再命中' : '不再被检索到，可在列表视图查看', tone: isDel ? 'danger' : 'warn' }
       ],
-      action: isDel ? '批量删除文档' : '批量下线文档',
-      target: kbId + ' · ' + sel.length + ' 篇', auditImpact: sel.length + ' 篇',
       onConfirm: function () {
         /* 逐条走 KB_SESSION 的唯一写入口（与单篇下线/删除同一个函数），不在这里另开一份会话态写入 */
         var applied = 0;
@@ -943,6 +1075,10 @@
     function selNow() { return (deskSelS(h, desk).sel || []).slice(); }
 
     function openItem(parts) {
+      /* 双击卡片 / 双击列表行都会顺手把屏幕上那段文字选中 —— 弹层一开左栏原文整片蓝底。
+         preventDefault 拦不住（选区在 mousedown/mouseup 阶段就形成了，早于 dblclick），
+         所以在唯一的开文档入口这里统一清一次。 */
+      try { var g = window.getSelection(); if (g) g.removeAllRanges(); } catch (e) {}
       if (parts[0] === 'kb') openKb(h, parts[1]);
       else if (parts[0] === 'folder') openFolder(h, kbId, parts[1]);
       else if (parts[0] === 'doc') run(h, 'kb-doc-open', kbId + '|' + parts[2]);
@@ -957,6 +1093,21 @@
         if (el.getAttribute('data-dragged')) return;
         var id = itemSelId(el);
         var cur = selNow();
+        /* 2026-10-28（业主「不会？」）：原生 dblclick 在这个桌面里**永远等不到** ——
+           单击会走 applySel → h.navigate() 整页重渲染，第二下落在新元素上，
+           浏览器凑不成"同一个元素上的两次 click"，dblclick 就不派发。
+           （Playwright 的 dblclick 在旧句柄上连发，所以自动化能过、真人点不出来 —— 别拿它当验收。）
+           改成自己判：450ms 内点同一项第二次 = 打开。时间戳必须存在会话态里，
+           存 DOM 属性没意义 —— 第一次点击之后这个元素就没了。 */
+        if (!ev.shiftKey && !ev.ctrlKey && !ev.metaKey && kindOfItem) {
+          var _ds = docS(h, kbId), _t = Date.now();
+          if (_ds._lastClickId === id && _t - (_ds._lastClickT || 0) < 450) {
+            _ds._lastClickId = null; _ds._lastClickT = 0;
+            openItem(parts);
+            return;
+          }
+          _ds._lastClickId = id; _ds._lastClickT = _t;
+        }
         if (ev.shiftKey && desk.__kbAnchor != null) {
           var all = items(), ia = -1, ib = -1;
           all.forEach(function (x, i) { if (itemSelId(x) === desk.__kbAnchor) ia = i; if (itemSelId(x) === id) ib = i; });
@@ -1274,6 +1425,7 @@
 
   global.KBDESK = {
     libHtml: libHtml,
+    libColView: libColView,
     docsDeskHtml: docsDeskHtml,
     foldersOf: foldersOf,
     libLayout: function (h) { return libS(h).layout; },

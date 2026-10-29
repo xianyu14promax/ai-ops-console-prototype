@@ -555,6 +555,78 @@
   }
   function mcpById(id) { return mcpHealth().filter(function (s) { return s.id === id; })[0] || null; }
 
+  /* SECTION: host-health
+   * 服务器资源取数口（2026-10-27 业主「也要服务器状态」）。
+   * 与 mcpHealth 同一条纪律：**页面不自己算数**，资源水位只有这一处算。
+   * 判红阈值读 decisions.js 的「可观测.资源水位_告警」；真源取不到就一律不判红 ——
+   * 宁可少标一个黄，也不在页面里内联一条可能与真源漂移的线。
+   * series 是最近 12 小时的 CPU 序列，与当前 cpu 同源，最后一个点就是 now。
+   */
+  function hostHealth() {
+    var D = global.DECISIONS;
+    var TH = (D && D.value) ? D.value('可观测', '资源水位_告警') : null;
+    var warn = (TH && typeof TH === 'object' && TH.warn != null) ? TH.warn : null;
+    var bad = (TH && typeof TH === 'object' && TH.bad != null) ? TH.bad : null;
+    var inc = openIncidents()[0] || null;
+    function clamp(v) { return v < 0.02 ? 0.02 : (v > 0.99 ? 0.99 : v); }
+
+    return (S.HOSTS || []).map(function (x) {
+      /* 事故放大：单机部署时重试的压力没有别处可去，全落在这台上。
+         0.16 是保守估计 —— 接口层重试会把 QPS 抬上去，但不至于打满 CPU。 */
+      var spike = inc ? 0.16 : 0;
+      var r = S.R.of('host|' + x.id + '|' + currentHour());
+      var cpu = clamp(x.cpuBase + (r() - 0.5) * 0.14 + spike);
+      var mem = clamp(x.memBase + (r() - 0.5) * 0.05 + spike * 0.4);
+      var disk = clamp(x.diskBase + (r() - 0.5) * 0.02);
+      /* 1 分钟平均负载（load average）。宝塔面板把它换算成「负载 ÷ 核数」的百分比，
+         那是"排队长度相对于处理能力"的水位，和 CPU 利用率不是一回事：
+         CPU 90% 但队列短 ⇒ 算得动；CPU 60% 但队列长 ⇒ 卡在 IO。
+         所以两个都要有，不能互相顶替。 */
+      var load1 = Math.max(0.02, x.loadBase * (0.82 + r() * 0.36) + spike * 4);
+      var loadRatio = load1 / x.cores;
+      /* 加速卡。显存是 LLM 推理**最先见底**的资源：显存打满时进程直接 OOM，
+         而 CPU / 内存看起来可能还好。所以显存水位必须进主机状态判定（见下面 worst）。 */
+      var gpu = null;
+      if (x.gpu) {
+        gpu = {
+          model: x.gpu.model, count: x.gpu.count,
+          vramTotal: x.gpu.vramGB * x.gpu.count,
+          util: clamp(x.gpu.utilBase + (r() - 0.5) * 0.10 + spike * 0.5),
+          vram: clamp(x.gpu.vramBase + (r() - 0.5) * 0.05 + spike * 0.4),
+          temp: Math.round(48 + x.gpu.utilBase * 24 + (r() - 0.5) * 6)
+        };
+        gpu.vramUsed = gpu.vram * gpu.vramTotal;
+      }
+
+      /* 最近 12 小时的 CPU：键里带相对小时，同一小时内反复渲染得到同一条线 */
+      var series = [];
+      for (var i = -11; i <= 0; i++) {
+        var rr = S.R.of('host|' + x.id + '|h' + i);
+        var sp = (inc && i >= -2) ? 0.16 : 0;
+        series.push(clamp(x.cpuBase + (rr() - 0.5) * 0.18 + sp));
+      }
+
+      /* 主机状态取三项里**最严重**的那一项。取平均会让「一项打满、两项空闲」
+         看起来正常 —— 那是最危险的一种假绿。 */
+      var worst = Math.max(cpu, mem, disk, gpu ? gpu.vram : 0);
+      var status = 'ok', statusText = '正常';
+      if (bad != null && worst >= bad) { status = 'bad'; statusText = '资源告警'; }
+      else if (warn != null && worst >= warn) { status = 'warn'; statusText = '水位偏高'; }
+
+      return {
+        id: x.id, name: x.name, role: x.role, load: x.load,
+        cpuModel: x.cpuModel, cores: x.cores, ghz: x.ghz,
+        memGB: x.memGB, diskTB: x.diskTB, diskModel: x.diskModel, volumes: x.volumes,
+        cpu: cpu, mem: mem, disk: disk,
+        load1: load1, loadRatio: loadRatio, gpu: gpu,
+        memUsedGB: mem * x.memGB,
+        series: series, status: status, statusText: statusText,
+        threshold: { warn: warn, bad: bad },
+        incidentBoost: !!spike
+      };
+    });
+  }
+
   /** LLM 路由：模型维度聚合（调用/成本/token/P99）与模型档位、计价表 join */
   function llmRoutes(rangeKey) {
     var rows = groupBy(rangeKey, 'model').rows;
@@ -1234,6 +1306,7 @@
     freshness: freshness,
     /* 网关三个 Tab 的取数口（MCP 服务健康 / LLM 路由 / 技能包） */
     mcpHealth: mcpHealth,
+    hostHealth: hostHealth,
     mcpById: mcpById,
     openIncidents: openIncidents,
     incidentOf: incidentOf,

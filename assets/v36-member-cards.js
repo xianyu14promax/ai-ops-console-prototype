@@ -237,7 +237,6 @@
          直接改要 rbac:role:write（平台管理员独占），而且绕过了审批 —— 那正是这套要堵的洞。
          所以这里走 approval:create，生成一张待批单；批完才真的失效。 */
       perm: 'approval:create',
-      requireReason: true,
       impacts: [
         { label: '收回后', value: '本人下一次调用这项能力会被拦下', tone: 'danger' },
         isRole
@@ -247,7 +246,6 @@
       ],
       confirmText: '提交审批',
       action: '申请收回权限', target: uid + ' · ' + perm,
-      auditImpact: '生成一条待批的收回申请',
       onConfirm: function (reason) {
         h.state.mcPending = h.state.mcPending || {};
         var arr = (h.state.mcPending[uid] || []).slice();
@@ -268,7 +266,6 @@
       desc: '',
       tone: 'normal',
       perm: 'approval:create',
-      requireReason: true,
       impacts: [
         { label: '续期', value: '在现有到期日上加 90 天' },
         { label: '性质', value: '这是一次新的决定，不是把旧的拖着走', tone: 'warn' },
@@ -276,7 +273,6 @@
       ],
       confirmText: '提交审批',
       action: '申请续期', target: uid + ' · ' + gid,
-      auditImpact: '生成一条待批的续期申请',
       onConfirm: function (reason) {
         h.state.mcPending = h.state.mcPending || {};
         var arr = (h.state.mcPending[uid] || []).slice();
@@ -309,7 +305,6 @@
       desc: '',
       tone: 'danger',
       perm: 'approval:create',
-      requireReason: true,
       impacts: [
         { label: '权限', value: permLabel(pick) + '（' + pick + '）', tone: permRisk(pick) === 'high' ? 'danger' : '' },
         { label: '给谁', value: (mem ? mem.name : uid) + ' · 单独授予，不随角色变' },
@@ -318,7 +313,6 @@
       ],
       confirmText: '提交审批',
       action: '申请加权限', target: uid + ' · ' + pick,
-      auditImpact: '生成一条待批授权',
       onConfirm: function (reason) {
         h.state.mcPending = h.state.mcPending || {};
         var arr = (h.state.mcPending[uid] || []).slice();

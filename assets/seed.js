@@ -76,7 +76,12 @@
    * 原先是 8 个虚构同事（张三/王五/赵六/孙琪/周明/吴桐/郑楠/李四），
    * 由此带出成员卡片、角色分配、彼此审批、互相复核一整套组织戏 —— 单人场景下全是废动作。
    * 现在 OWNERS 只剩唯一账号；**引用旧 uid 的地方一律查不到人**，
-   * 查不到就显示「—」（见 nameOf），不再编造第二个人。 */
+   * 查不到就显示「—」（见 nameOf），不再编造第二个人。
+   *
+   * 2026-10-28 追加：业主拍板「删了，这系统目前只服务 1 人」——
+   * 界面上所有「负责人 / 责任人」字段、列、必填下拉、多角色审批链已一并删除。
+   * 一个人不需要"指派"，也不需要"上一级"；要区分责任，看业务线，不看人。
+   * 数据层仍留 owner 字段的只有 badcase 的认领人（谁认领这条反馈，是有意义的动作）。 */
   var OWNERS = [
     { id: 'u102', name: 'xianyu', dept: '—' }
   ];
@@ -155,6 +160,38 @@
       tools: ['send_im', 'send_wecom', 'send_sms', 'send_email', 'send_webhook', 'batch_send'],
       offTools: ['batch_send'] }
   ];
+
+  /* SECTION: dim-host
+   * 服务器（主机）资源：CPU / 内存 / 磁盘。
+   *
+   * 为什么单独要这一层：上面两组数据答的是「应用跑得怎么样」——
+   * 平台组件的成功率、MCP 服务的配额水位。它们答不了「机器本身还剩多少余量」。
+   * 而 OOM 与磁盘写满是最常见的线上事故，且在应用层往往只表现为「成功率抖了一下」，
+   * 事后复盘才发现根因在资源。
+   *
+   * 规格与基础水位是**静态事实声明**（这台机器平时就是这么忙），不随刷新变；
+   * 实时波动由 seed 的随机流按小时给（同一小时内刷新一致，换小时才变），
+   * 与调用量曲线同源 —— 不是另编一套数。
+   *
+   * 2026-10-28 业主：「目前先只考虑在一个服务器上运行，其他服务器换为＋号」。
+   * 所以这里只有**一台**真实主机，规格按"网关 + 运行时 + 检索全塞一台"配；
+   * HOST_SLOTS 声明规划上留几个位置（界面上剩下的位置渲染成「＋ 添加服务器」）。
+   * 单机阶段资源本来就紧：内存与显存都贴着 80% 那条线走，这不是数据编得悲观，
+   * 是把三台机器的活压到一台上的必然结果。
+   *
+   * 事故期间重试的压力全部落在这一台上（以前只压网关节点）。
+   */
+  var HOSTS = [
+    { id: 'host-main', name: 'node-01', role: '单机部署', load: 'all',
+      cpuModel: 'AMD EPYC 7313', cores: 16, ghz: 3.00,
+      memGB: 64,  diskTB: 2,
+      diskModel: 'SSD (NVMe)', volumes: ['C:', 'D:', 'X:'],
+      cpuBase: 0.54, memBase: 0.76, diskBase: 0.38, loadBase: 5.20,
+      /* 网关的合规预检、13 个 Agent 的推理、embed-v3 向量化，共用这两张卡。 */
+      gpu: { model: 'L20', count: 2, vramGB: 48, utilBase: 0.71, vramBase: 0.79 } }
+  ];
+  /* 规划上的主机槽位：界面上没接入的位置画成「＋」。改这个数字只影响空位个数。 */
+  var HOST_SLOTS = 3;
 
   /* SECTION: dim-kb */
   var KBS = [
@@ -528,7 +565,7 @@
    *            gateway:key:rotate · gateway:key:revoke
    *   act    each   每次都要批：不可逆 / 对外发送 / 权限与凭证变更 / 数据出口
    *          first  首次批、期内免：可逆的资源绑定与启停
-   *          auto   免批留痕：只读、计算、以及本身就是审批的动作
+   *          auto   免批：只读、计算、以及本身就是审批的动作
    */
   var PERM_POINTS = [
     /* 审批治理 */
@@ -600,7 +637,7 @@
     { p: 'persona:lifecycle:disable', label: '停用画像', grp: '知识经验', risk: 'high', plane: 'mgmt', tier: 1, act: 'first' },
     { p: 'persona:lifecycle:restore', label: '恢复画像', grp: '知识经验', risk: 'mid', plane: 'mgmt', tier: 1, act: 'first' },
     /* 画像内容编辑 —— 此前画像只能改「状态」（停用/恢复）与「登记更新」，
-       名称 / 类型 / 行业 / 负责人 / 标签这些**内容字段建完改不动**。
+       名称 / 类型 / 行业 / 标签这些**内容字段建完改不动**。
        管理型的「改」在画像库上缺的正是这一刀。 */
     { p: 'persona:content:edit', label: '编辑画像内容', grp: '知识经验', risk: 'mid', plane: 'mgmt', tier: 1, act: 'first' },
     /* 知识库整库停用/恢复 —— 此前只有**文档级**下线，已发布的库无法整体下架。
@@ -623,7 +660,7 @@
     { p: 'sandbox:destroy', label: '销毁沙盒', grp: '沙盒', risk: 'high', plane: 'mgmt', tier: 1, act: 'each' },
     { p: 'sandbox:network:write', label: '沙盒网络策略', grp: '沙盒', risk: 'high', plane: 'mgmt', tier: 1, act: 'each' },
     { p: 'sandbox:process:kill', label: '终止进程', grp: '沙盒', risk: 'high', plane: 'data', tier: 1, act: 'each' },
-    { p: 'sandbox:audit:read', label: '查看沙盒审计', grp: '沙盒', risk: 'low', plane: 'data', tier: 1, act: 'auto' },
+    /* 2026-10-28：`sandbox:audit:read`（查看沙盒审计）随审计删除；看事件明细改用 `sandbox:operate` */
     /* 🔴 补注册：这两个点在代码里被使用（v10-detail-sandbox.js 的 sbx-prio / 改模式），
        但此前未登记 ⇒ checkPerm 拿不到 meta、角色也不持有 ⇒ **对任何角色都点不通**（校验 12） */
     { p: 'sandbox:queue:write', label: '沙盒队列写', grp: '沙盒', risk: 'mid', plane: 'data', tier: 1, act: 'auto' },
@@ -637,7 +674,7 @@
     { p: 'gateway:log:raw', label: '查看原始日志', grp: '网关成本', risk: 'high', plane: 'data', tier: 1, act: 'each' },
     /* v29 补注册：技能启停此前借的是 gateway:global:degrade（全局降级）——
        「停用一个技能」与「把全部 MCP 服务切降级」不是同一个动作，影响面差着一个数量级；
-       而且那一个权限点只有架构负责人持有，于是"谁能停技能"被绑死在全局降级上。
+       而且那一个权限点过去假想由「架构负责人」持有 —— 单人系统里这等于把"谁能停技能"绑死在全局降级上。
        登记技能（写入）不设门禁，与其余「新建 X」一致；停用是**收走一个共享能力**，单独授权。 */
     { p: 'gateway:skill:toggle', label: '技能启停', grp: '网关成本', risk: 'high', plane: 'mgmt', tier: 1, act: 'first' },
     { p: 'cost:export', label: '导出成本报表', grp: '网关成本', risk: 'high', plane: 'data', tier: 1, act: 'each' },
@@ -667,7 +704,7 @@
     { p: 'rbac:member:read', label: '查看成员', grp: '账号权限', risk: 'low', plane: 'mgmt', tier: 2, act: 'auto' },
     { p: 'rbac:member:write', label: '成员增停', grp: '账号权限', risk: 'high', plane: 'mgmt', tier: 0, act: 'each' },
     { p: 'rbac:role:write', label: '角色与权限配置', grp: '账号权限', risk: 'high', plane: 'mgmt', tier: 0, act: 'each' },
-    { p: 'rbac:audit:read', label: '查看审计记录', grp: '账号权限', risk: 'low', plane: 'data', tier: 1, act: 'auto' },
+    /* 2026-10-28：`rbac:audit:read`（查看审计记录）随审计删除 */
     { p: 'session:logout', label: '退出登录', grp: '账号权限', risk: 'low', plane: 'mgmt', tier: 2, act: 'auto' },
     /* v26：访问复核需要一条**自己的**权限点。
        此前复核动作借 rbac:role:write（角色与权限配置）当门禁 —— 但按权限点命名约定
@@ -862,7 +899,7 @@
   };
 
   /* ── 权限来源：直接授予 / 经角色 / 经用户组 ────────────────────────────────
-     审计里最常被追问的一句是"他这个权限哪来的"。三种来源必须分得开：
+     复核时最常被追问的一句是"他这个权限哪来的"。三种来源必须分得开：
        角色 = 岗位决定的（换岗就该跟着变）
        用户组 = 临时职责（值班、专项），到期该退
        直接授予 = 例外，必须单独复核、单独标注 */
@@ -917,20 +954,6 @@
     if (d <= REVIEW_WARN_DAYS) return 'warn';
     return 'ok';
   }
-
-  /* ── 操作记录：类型化 + 可筛选（阿里云「操作记录」模块的做法）────────────
-     比"最近访问一个时间点"有用得多：复核时要看的是"他最近干了什么、
-     有没有越权尝试、有没有改过自己的凭证"。 */
-  var AUDIT_EVENTS = {
-    u102: [
-      { at: '2026-10-21 09:42', kind: 'login', text: 'Passkey 登录成功', ip: '127.0.0.1', result: 'ok' },
-      { at: '2026-10-21 09:38', kind: 'policy', text: '调整「客服助手 Agent」的工具白名单（加 mcp://ticket/create）', ip: '127.0.0.1', result: 'ok' },
-      { at: '2026-10-20 18:11', kind: 'key', text: '轮换模型网关密钥（qwen-*）', ip: '127.0.0.1', result: 'ok' },
-      { at: '2026-10-20 15:03', kind: 'denied', text: 'Agent「合同初审」尝试读取客户联系方式，被工具白名单拦下', ip: '—', result: 'denied' },
-      { at: '2026-10-19 11:20', kind: 'login', text: 'Passkey 登录成功', ip: '127.0.0.1', result: 'ok' }
-    ]
-  };
-  function auditOf(uid) { return (AUDIT_EVENTS[uid] || []).slice(); }
 
   /* ── AccessKey / 凭证台账 ────────────────────────────────────────────────
      阿里云把 AccessKey 单独列一个模块（还有回收站）。我们不做云凭证托管，
@@ -996,7 +1019,7 @@
     { role: 'r-admin', scope: 'tenant', value: '本租户全部数据' },
     { role: 'r-ops', scope: 'dept', value: '本部门 + 下属部门' },
     { role: 'r-arch', scope: 'tenant', value: '本租户全部数据' },
-    { role: 'r-security', scope: 'tenant', value: '本租户全部数据（含跨部门审计）' },
+    { role: 'r-security', scope: 'tenant', value: '本租户全部数据（含跨部门）' },
     { role: 'r-compliance', scope: 'tenant', value: '本租户全部数据' },
     { role: 'r-viewer', scope: 'self', value: '仅与自己相关的数据' }
   ];
@@ -1041,6 +1064,8 @@
     scopeCrossDept: scopeCrossDept,
     AGENTS: AGENTS,
     MCP_SERVICES: MCP_SERVICES,
+    HOSTS: HOSTS,
+    HOST_SLOTS: HOST_SLOTS,
     SKILLS: SKILLS,
     KBS: KBS,
     KB_MISSES: KB_MISSES,
@@ -1071,7 +1096,7 @@
     DIRECT_GRANTS: DIRECT_GRANTS, permissionSources: permissionSources,
     nextReviewInDays: nextReviewInDays, reviewState: reviewState,
     REVIEW_CYCLE_DAYS: REVIEW_CYCLE_DAYS, REVIEW_WARN_DAYS: REVIEW_WARN_DAYS,
-    auditOf: auditOf, keysOf: keysOf, tagsOf: tagsOf, TAG_DICT: TAG_DICT,
+    keysOf: keysOf, tagsOf: tagsOf, TAG_DICT: TAG_DICT,
     roleOfUser: roleOfUser, setRoleOfUser: setRoleOfUser, roleOverrideOf: roleOverrideOf,
     permsOverrideOf: permsOverrideOf, setPermsOverride: setPermsOverride
   };

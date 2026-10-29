@@ -6,7 +6,6 @@
  * 页面下方「关系明细」逐条列出依据与出处，并可点进对应页面自行核对：
  *   exp      共用经验 —— LLM 经验库里同一条经验的 agents[] 同时覆盖两个 Agent
  *   conflict 经验冲突 —— 经验 A 的 conflicts[].withId 指向经验 B，且 A、B 归属不同 Agent
- *   owner    同一负责人 —— 两个 Agent 的负责人是同一人（一个人要为两条线同时负责）
  *   mcp      共用 MCP 工具 —— 两个 Agent 的节点拓扑（FACTS.TOPO）里出现同一个 mcp:// 服务
  *
  * 口径可切换（默认只开经验层的两类「强关系」）。切换后**图与隔离区实时重算**：
@@ -25,13 +24,12 @@
     { id: 'a2a', label: 'A2A 委派', desc: '一个 Agent 把任务交给另一个 Agent 办（有方向、跨业务线为主）' },
     { id: 'exp', label: '共用经验', desc: '同一条经验被两个 Agent 采纳 —— 一处改动，两边同时受影响' },
     { id: 'conflict', label: '经验冲突', desc: '两条经验互相冲突、分属不同 Agent —— 引用它们会给出互相矛盾的产出' },
-    { id: 'owner', label: '同一负责人', desc: '两个 Agent 的负责人是同一人，排期与变更要一起评估' },
     { id: 'mcp', label: '共用 MCP 工具', desc: '两个 Agent 的编排拓扑里出现同一个 mcp:// 服务，下游依赖一起挂' }
   ];
-  var DEFAULT_ON = { a2a: true, exp: true, conflict: true, owner: false, mcp: false };
-  var TYPE_LABEL = { a2a: 'A2A 委派', exp: '共用经验', conflict: '经验冲突', owner: '同一负责人', mcp: '共用 MCP 工具' };
-  var TYPE_CAP = { exp: 'llm-exp', conflict: 'llm-exp', owner: 'agent-wb', mcp: 'gateway' };
-  var TYPE_CAP_TEXT = { exp: '经验库 · 该条经验', conflict: '经验库 · 冲突双方', owner: 'Agent 工作台 · 同一负责人的 Agent', mcp: '网关 · 该 MCP 服务' };
+  var DEFAULT_ON = { a2a: true, exp: true, conflict: true, mcp: false };
+  var TYPE_LABEL = { a2a: 'A2A 委派', exp: '共用经验', conflict: '经验冲突', mcp: '共用 MCP 工具' };
+  var TYPE_CAP = { exp: 'llm-exp', conflict: 'llm-exp', mcp: 'gateway' };
+  var TYPE_CAP_TEXT = { exp: '经验库 · 该条经验', conflict: '经验库 · 冲突双方', mcp: '网关 · 该 MCP 服务' };
   /* A2A 的核对目标不是某个能力页，而是「这条边的两端在 Agent 详情里怎么写的」 */
   var TYPE_EV = { a2a: { act: 'goto-agent-tab', text: 'Agent 详情 ·「引用与依赖」的 A2A 卡片' } };
   var TASK_TEXT = {
@@ -50,7 +48,6 @@
   function aOf(id) { var i = idxOf(id); return i < 0 ? null : S.AGENTS[i]; }
   function aName(id) { var a = aOf(id); return a ? a.name : id; }
   function aBiz(id) { var a = aOf(id); if (!a) return '—'; var b = S.BIZ_LINES[S.idx.biz[a.biz]]; return b ? b.name : a.biz; }
-  function ownerOf(id) { for (var i = 0; i < S.OWNERS.length; i++) if (S.OWNERS[i].id === id) return S.OWNERS[i]; return { id: id, name: id, dept: '—' }; }
   function num(n) { return Number(n || 0).toLocaleString('zh-CN'); }
   function pct1(x) { return x == null ? '—' : (Math.round(x * 1000) / 10) + '%'; }
   function clip(s, n) { s = String(s == null ? '' : s); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
@@ -116,25 +113,6 @@
     return out;
   }
 
-  function ownerEdges() {
-    var byOwner = {};
-    S.AGENTS.forEach(function (a) { (byOwner[a.owner] = byOwner[a.owner] || []).push(a.id); });
-    var out = [];
-    Object.keys(byOwner).forEach(function (oid) {
-      var ids = byOwner[oid];
-      if (ids.length < 2) return;
-      var o = ownerOf(oid);
-      out = out.concat(pairs(ids, function (x, y) {
-        return {
-          type: 'owner', a: x, b: y,
-          basis: '同一负责人：' + o.name + '（' + o.dept + '）',
-          scale: o.name + ' 名下共 ' + ids.length + ' 个 Agent'
-        };
-      }));
-    });
-    return out;
-  }
-
   function mcpEdges() {
     var byMcp = {}, svcName = {};
     (S.MCP_SERVICES || []).forEach(function (m) { svcName[m.id] = m; });
@@ -165,7 +143,7 @@
 
   /* A2A：真实的对等委派边。data.js 已按 A2A v1.0.0 建好（Agent Card / Task / Message / Artifact），
      这里只取「谁委派给谁、办什么技能、任务进行到哪一步、量有多大」。
-     与其余四类不同，它是**有向**的（对等但有方向），所以 dedupe 与渲染都要保方向。 */
+     与其余三类不同，它是**有向**的（对等但有方向），所以 dedupe 与渲染都要保方向。 */
   function a2aEdges() {
     var list = (APP && APP.a2aEdges) ? APP.a2aEdges() : [];
     var out = [];
@@ -194,7 +172,7 @@
     return out;
   }
 
-  var BUILDERS = { a2a: a2aEdges, exp: expEdges, conflict: conflictEdges, owner: ownerEdges, mcp: mcpEdges };
+  var BUILDERS = { a2a: a2aEdges, exp: expEdges, conflict: conflictEdges, mcp: mcpEdges };
 
   /* SECTION: graph
    * 建图 + 连通分量（并查集）。隔离区 = 分量为 1 的那些 Agent。
@@ -257,7 +235,10 @@
   var AZ = {
     CW: 118, CH: 92, BIZ_W: 118, BIZ_H: 42, ROOT_W: 176, ROOT_H: 44,
     PAD: 24, SIB: 18, BLOCK: 46, Y_TITLE: 20, Y_ROOT: 70, Y_BIZ: 184, Y_ROW0: 264,
-    TAG_DY: 12, ROWGAP: 82, LANE_H: 18, ROW_LAB_W: 112, LABEL_BASE: 20,   /* LANE_H 必须 > 标签高 14，否则相邻车道差 13px 时标签差 1px 相碰 */
+    /* ROWGAP 64：行距原来 82，配上 92 高的卡，一层里一半是空气 —— 13 张卡要滚两屏。
+       64 仍容得下两层标签车道（有标签的行走 max(ROWGAP, 车道数×20+26)，自动长高，不会相碰）。
+       LANE_H 必须 > 标签高 14，否则相邻车道差 13px 时标签差 1px 相碰；提到 20 给足 6px 缝。 */
+    TAG_DY: 12, ROWGAP: 64, LANE_H: 20, ROW_LAB_W: 112, LABEL_BASE: 20,
     /* 隔离区在**画布里面**（世界层里的一块），所以它的宽度要算进布局，否则图表会压在面板上。
        它在世界层里，缩放/平移时和连线、卡片一起走 —— 位置是同一个坐标系。 */
     ISO_X: 24, ISO_Y: 70, ISO_W: 210, ISO_GAP: 26, ISO_CARD_GAP: 28, ISO_HEAD: 126
@@ -279,7 +260,9 @@
   var DEF_LABEL_MODE = 'hover';
 
   var ISO_COPY = {
-    sub: '当前口径下与任何 Agent 都没有直接联系 —— 既没被别的 Agent 引用，也没共用任何经验或工具。孤岛本身不是错，没人复核才是风险。',
+    /* 2026-10-28 业主指出这段是"自述腔"（产品在自言自语解释自己的设计），改成人话：
+       只说**图上是什么情况**，不解释"口径"，也不发表"孤岛不是错"这种议论。 */
+    sub: '图上跟其他 Agent 没有任何连线：没人调用它们，也没有共用经验或工具。',
   };
   /**
    * 隔离区头部高度：按文案**实际换行行数**算。
@@ -288,9 +271,18 @@
    */
   function isoHeadHeight(width) {
     var lw = (width || AZ.ISO_W) - 24;                       /* 面板 padding 12×2 */
-    function lines(t, size) { return Math.max(1, Math.ceil(azTw(t, size) / lw)); }
+    /* 行数要按"每行能放几个字"算，不能拿总宽除以行宽：
+       总宽 350 ÷ 行宽 186 = 1.9 → 向上取整 2 行，但断行是按**字数**发生的 ——
+       33 个字每行只放得下 16 个，实际要 3 行。少算一行，面板就压住最后一张卡
+       （实测隔离区那段说明被切掉一截）。 */
+    function lines(t, size) {
+      var perLine = Math.max(1, Math.floor(lw / size));
+      var chars = 0;
+      for (var i = 0; i < t.length; i++) chars += (t.charCodeAt(i) > 0x2e80 ? 1 : 0.55);
+      return Math.max(1, Math.ceil(chars / perLine));
+    }
     return 30                                                /* 标题行 */
-      + lines(ISO_COPY.sub, 11.5) * 18 + 8
+      + lines(ISO_COPY.sub, 11.5) * 18 + 10
       + 10;                                                  /* 与首张卡的间距 */
   }
   /* 根节点副标题：**引擎按它撑框宽、渲染按它出文字**（同一份字符串）。
@@ -316,7 +308,7 @@
     var a2a = {}, rel = {}, ref = {}, all = {};
     g.edges.forEach(function (e) {
       all[e.a] = 1; all[e.b] = 1;          /* ⚠ 隔离区看**所有类型**：只看 A2A 会把
-                                              全开口径下已被「同一负责人/共用 MCP」连上的 Agent 仍当成孤岛 */
+                                              全开口径下已被「共用经验/共用 MCP」连上的 Agent 仍当成孤岛 */
       if (e.type === 'a2a') { (a2a[e.a] = a2a[e.a] || []).push(e.b); }
       else { (rel[e.a] = rel[e.a] || []).push(e.b); (rel[e.b] = rel[e.b] || []).push(e.a); }
     });
@@ -442,9 +434,8 @@
       var wid;
       if (cached && cached.n === nCards) wid = Math.max(cached.wid, need);   /* 只许变宽，不许变窄：窄了卡片会溢到隔壁列 */
       else { wid = need; _COLW[bl.id] = { n: nCards, wid: wid }; }
-      var owns = {}; inCol.forEach(function (a) { owns[a.owner] = 1; });
       COLS.push({ biz: bl.id, name: bl.name, x: x, w: wid * AZ.CW + (wid - 1) * AZ.SIB, per: per,
-                  slot: slotOf, owners: Object.keys(owns), n: inCol.length });
+                  slot: slotOf, n: inCol.length });
       x += (wid * AZ.CW + (wid - 1) * AZ.SIB) + AZ.BLOCK;
     });
     var chartR = x - AZ.BLOCK;
@@ -478,6 +469,20 @@
     Object.keys(tgt).forEach(function (b) {
       var srcs = tgt[b].slice().sort(function (p, q) { return cxOf[p] - cxOf[q]; });
       srcs.forEach(function (a, k) { entry[a + '>' + b] = cxOf[b] + (k - (srcs.length - 1) / 2) * 16; });
+    });
+    /* ── 出口分槽（2026-10-28）──────────────────────────────────────────────
+       同一张卡的多条边原来**都从底边正中出**，出卡后的竖线完全重合，看起来像
+       "只有一条线从这儿走"；而卡片底下又写着「汇聚3」，两边对不上。
+       按目标 x 排序均分，每条边占一个槽；步长夹在 0–12px —— 卡宽 118，
+       4 条边也只占 ±18，不会跑出卡边。 */
+    var exitOff = {};
+    var bySrc = {};
+    E.forEach(function (e) { (bySrc[e[0]] = bySrc[e[0]] || []).push(e); });
+    Object.keys(bySrc).forEach(function (a) {
+      var list = bySrc[a].slice().sort(function (p, q) { return cxOf[p[1]] - cxOf[q[1]]; });
+      if (list.length < 2) { exitOff[list[0].join('>')] = 0; return; }
+      var step = Math.min(12, (AZ.CW - 40) / (list.length - 1));
+      list.forEach(function (e, k) { exitOff[e.join('>')] = (k - (list.length - 1) / 2) * step; });
     });
     var labelMode = (h && h.state && h.state.anetLabelMode) || DEF_LABEL_MODE;
     var byRow = {}, laneY = {}, laneOf = {}, lanesPerRow = {}, labelText = {};
@@ -517,29 +522,42 @@
       lanesPerRow[rr] = lanes.length;
     });
 
-    /* 行高按该行**实际用掉的车道数**长出来：标签一多车道就多，行距不变就会压到下一行 */
+    /* ── 行高：**全图统一且定死**（2026-10-28 业主"12"改）────────────────────
+       原来"每行按自己用掉的车道数长高"。拖一张卡到别的层，那一行的车道数可能 +1，
+       行高 +20，**它下面的每一行整排下移** —— 业主看到的就是"我只拖了一张，
+       另外三张也跟着挪"。实测：拖「标书生成」上移一层，线索评分 / 合规问答 /
+       知识问答 各下移 19px。
+       现在直接按"预留 3 条车道"定死一个行距，谁都不许改它；某行真需要更多车道时
+       不是涨行高，而是**压缩车道间距**（见 laneStep，20px 起，最窄 12px）。
+       代价：车道少的那几行底下留白，整图高约 60px —— 换来拖动时"除了我拖的那张，
+       一个像素都不动"。 */
+    var LANE_ROOM = 3;
+    var rowPitch = AZ.CH + AZ.TAG_DY + 4 + Math.max(AZ.ROWGAP, LANE_ROOM * AZ.LANE_H + 26);
     var Y_ROW = {}, _yy = AZ.Y_ROW0;
+    rows.forEach(function (rr) { Y_ROW[rr] = _yy; _yy += rowPitch; });
+    /* 每行的车道间距：够装就 20px，车道挤不下就压窄（下限 12px），绝不撑破行距 */
+    var laneStep = {};
     rows.forEach(function (rr) {
-      Y_ROW[rr] = _yy;
-      _yy += AZ.CH + AZ.TAG_DY + 4 + Math.max(AZ.ROWGAP, (lanesPerRow[rr] || 0) * AZ.LANE_H + 26);
+      var n = lanesPerRow[rr] || 0;
+      var room = rowPitch - AZ.CH - AZ.TAG_DY - 4 - AZ.LABEL_BASE - 16;
+      laneStep[rr] = (n > 1) ? Math.max(12, Math.min(AZ.LANE_H, room / (n - 1))) : AZ.LANE_H;
     });
     cards.forEach(function (c) { c.y = Y_ROW[c.row] + AZ.CH / 2; });
     E.forEach(function (e) {
       var key = e.join('>');
-      if (laneOf[key] !== undefined) laneY[key] = Y_ROW[rowOf[e[0]]] + AZ.CH + AZ.TAG_DY + 4 + AZ.LABEL_BASE + laneOf[key] * AZ.LANE_H;
+      if (laneOf[key] !== undefined) laneY[key] = Y_ROW[rowOf[e[0]]] + AZ.CH + AZ.TAG_DY + 4 + AZ.LABEL_BASE + laneOf[key] * (laneStep[rowOf[e[0]]] || AZ.LANE_H);
     });
     var rowBottom = Y_ROW[rows[rows.length - 1]] + AZ.CH + AZ.TAG_DY;
     /* 画布高度要同时容得下图表和隔离区：全关口径下 13 个孤岛全堆在面板里，它会比图表高得多 */
-    var H = Math.max(isoOn ? AZ.ISO_Y + isoH : 0, AZ.Y_ROW0 + 320, rowBottom + 152) + AZ.PAD;
+    var H = Math.max(isoOn ? AZ.ISO_Y + isoH : 0, AZ.Y_ROW0 + 260, rowBottom + 116) + AZ.PAD;
     var isoCards = isolated.map(function (id, k) {
       return { id: id, x: isoX + isoW / 2, y: AZ.ISO_Y + isoHead + k * (AZ.CH + AZ.ISO_CARD_GAP) + AZ.CH / 2,
                row: -1, biz: aOf(id) ? aOf(id).biz : null, iso: true };
     });
-    /* 业务线表头框宽度按内容撑开：固定 118px 装不下「2 个 Agent · 2 位负责人」（约 120px，实测被切） */
+    /* 业务线表头框宽度按内容撑开：固定 118px 装不下较长的业务线名（实测被切） */
     var bizW = AZ.BIZ_W;
     COLS.forEach(function (c) {
-      var own = c.owners.length === 1 ? ('负责人 ' + ownerOf(c.owners[0]).name) : (c.owners.length + ' 位负责人');
-      var sub = c.n + ' 个 Agent · ' + own;
+      var sub = c.n + ' 个 Agent';
       bizW = Math.max(bizW, Math.round(azTw(c.name + ' ⇄', 12)) + 22, Math.round(azTw(sub, 9.5)) + 22);
     });
     var rootSub = rootSubText(COLS.length, cards.length, isolated.length);
@@ -552,18 +570,25 @@
       return (pos[p[0]].row - pos[q[0]].row) || (cxOf[p[0]] - cxOf[q[0]]);
     }).forEach(function (e) {
       var a = e[0], b = e[1], key = a + '>' + b;
-      var xa = cxOf[a], xb = entry[key], ra = pos[a].row, rb = pos[b].row;
+      var xa = cxOf[a], xo = xa + (exitOff[key] || 0), xb = entry[key], ra = pos[a].row, rb = pos[b].row;
       var ybot = pos[a].y + AZ.CH / 2, ly, segs = [];
+      var tTop = pos[b].y - AZ.CH / 2, tBot = pos[b].y + AZ.CH / 2;
+      /* 箭头落在**哪条边、朝哪边**由"最后一段线从哪来"决定，不能一律贴顶边朝下。
+         一律朝下的话，把上游拖到下游下面（rb < ra）或同层走车道时，线明明是从卡片
+         **下方**爬上来的，箭头却扎在顶边朝下 —— 看起来像"从天上掉下来一条线"，
+         方向和真实的委派方向是反的。 */
+      var arrowPt = { x: xb, y: tTop - 1, dir: 'down' };
       function seg(x1, y1, x2, y2) { segs.push([x1, y1, x2, y2]); segsAll.push([x1, y1, x2, y2]); }
       if (laneY[key] !== undefined) {
         ly = laneY[key];
-        seg(xa, ybot, xa, ly); seg(xa, ly, xb, ly); seg(xb, ly, xb, pos[b].y - AZ.CH / 2 - 1);
+        if (ly >= tBot + 1) arrowPt = { x: xb, y: tBot + 1, dir: 'up' };   /* 车道在目标卡下方 → 从下往上进卡 */
+        seg(xo, ybot, xo, ly); seg(xo, ly, xb, ly); seg(xb, ly, xb, arrowPt.y);
       } else {
         /* 跨层边走列间空隙，但它的**标签**同样要在本行的车道里排（否则压同层标签） */
         ly = (laneY[key] !== undefined) ? laneY[key] : (pos[a].y + AZ.CH / 2 + AZ.TAG_DY + 4 + AZ.LABEL_BASE);
-        var preY = pos[b].y - AZ.CH / 2 - 20 - multi * 11, best = null;
+        var preY = pos[b].y - AZ.CH / 2 - 20 - multi * 13, best = null;
         GUT.forEach(function (gg) {
-          if (usedCh.some(function (u) { return Math.abs(gg - u) < 11; })) return;
+          if (usedCh.some(function (u) { return Math.abs(gg - u) < 14; })) return;
           var n = 0;
           segsAll.forEach(function (s) {
             if (Math.abs(s[1] - s[3]) < 0.5 && Math.min(s[1], s[3]) < preY && Math.max(s[1], s[3]) > ly &&
@@ -574,8 +599,8 @@
         });
         var xc = best ? best.g : (GUT[0] || xb);
         usedCh.push(xc); multi++;
-        seg(xa, ybot, xa, ly); seg(xa, ly, xc, ly); seg(xc, ly, xc, preY);
-        seg(xc, preY, xb, preY); seg(xb, preY, xb, pos[b].y - AZ.CH / 2 - 1);
+        seg(xo, ybot, xo, ly); seg(xo, ly, xc, ly); seg(xc, ly, xc, preY);
+        seg(xc, preY, xb, preY); seg(xb, preY, xb, arrowPt.y);
       }
       var lab = labelText[key] || '委派';
       var showLab = (labelMode !== 'off');
@@ -585,7 +610,7 @@
         calls: e3CallsNum(key),
         label: { text: lab, w: lw, y: ly - 8, x: flip ? xa - 3 - lw : xa + 3, anchor: flip ? 'end' : 'start',
                  tx: flip ? xa - 8 : xa + 8 },
-        arrow: { x: xb, y: pos[b].y - AZ.CH / 2 - 1 }
+        arrow: arrowPt
       });
     });
     /* 边都建完了才知道量级范围，这里统一算宽度（相对刻度，见 edgeWidth 注释） */
@@ -608,7 +633,7 @@
     var cxs = COLS.map(function (c) { return c.x + c.w / 2; });
     return {
       labelMode: labelMode,
-      w: W, h: H, cols: COLS, rows: rows, yRow: Y_ROW, rowBottom: rowBottom, rowLab: ROW_LAB,
+      w: W, h: H, cols: COLS, rows: rows, yRow: Y_ROW, rowPitch: rowPitch, rowBottom: rowBottom, rowLab: ROW_LAB,
       cards: cards, pos: pos, cxOf: cxOf, isoIds: isolated, edges: edges, crossings: inter,
       isoX: isoX, isoY: AZ.ISO_Y, isoW: isoW, isoH: isoH, isoHead: isoHead, isoOn: isoOn,
       rowStripL: rowStripL, isoCards: isoCards,
@@ -684,8 +709,8 @@
    * 于是所有既有几何（收边、芯片避让、箭头、拖动换算）都还在"未变换的画布坐标"里，
    * 一处都不用改；需要反变换的只有"鼠标屏幕坐标 → 画布坐标"那几处（拖动、平移、缩放锚点）。
    *
-   * 历史用**整份快照**而不是逆操作：五类边分别来自 data.js 的 A2A_EDGES、经验队列的 agents[]、
-   * AGENTS[].owner、FACTS.TOPO 的节点表 —— 逆操作要按类型各写一套，写错一处就是"回退不干净"。
+   * 历史用**整份快照**而不是逆操作：四类边分别来自 data.js 的 A2A_EDGES、经验队列的 agents[]、
+   * FACTS.TOPO 的节点表 —— 逆操作要按类型各写一套，写错一处就是"回退不干净"。
    * 快照只存**引用 + 浅拷贝**（几个 KB），换整份最稳，也最容易被核对。
    * ⚠ 经验类边只改到本页缓存（v24 的 experiences() 首次取到队列后一直复用）；
    *    经验库页面每次都重新现算队列，看不到这个改动 —— 界面里如实标注，不假装是全局生效。
@@ -715,7 +740,6 @@
       exps: experiences().map(function (ex) {
         return { ex: ex, had: !!ex.agents, agents: (ex.agents || []).slice() };
       }),
-      owners: S.AGENTS.map(function (a) { return { a: a, owner: a.owner }; }),
       /* 组织架构视图里「横向拖到别的业务线列」改的是 a.biz，快照必须带上，否则撤销回不去 */
       bizs: S.AGENTS.map(function (a) { return { a: a, biz: a.biz }; }),
       /* 名字也要能回退：就地改名改的是 a.name / 业务线 name，撤销必须能还原 */
@@ -740,7 +764,6 @@
         r.agents.forEach(function (id) { r.ex.agents.push(id); });
       } else if (r.ex.agents) { delete r.ex.agents; }
     });
-    snap.owners.forEach(function (r) { r.a.owner = r.owner; });
     (snap.bizs || []).forEach(function (r) { r.a.biz = r.biz; });
     (snap.names || []).forEach(function (r) { r.o.name = r.name; });
     snap.topos.forEach(function (r) { r.arr.length = 0; r.nodes.forEach(function (n) { r.arr.push(n); }); });
@@ -764,7 +787,9 @@
     Object.keys(snap.pos || {}).forEach(function (k) { pos[k] = { x: snap.pos[k].x, y: snap.pos[k].y }; });
     h.state.agentNetPos = pos;
     global.__anetManual = pos;                     /* 拖动路径读的是它（整屏重渲染时坐标才不丢） */
-    h.state.agentNetView = { k: snap.view.k, tx: snap.view.tx, ty: snap.view.ty };
+    /* ⚠ **视图（缩放/平移）不进撤销**：页面进来会自动"适应窗口"（k 0.72），
+       而初始快照是在 fit 之前拍的（k=1）—— 以前撤销一次就把画面放大回 1 倍，
+       看着像"整张图突然跳了"。撤销是撤**内容**的，缩放不是内容。 */
     h.state.anetRowOverride = Object.assign({}, snap.rowOv || {});
     applyRel(snap.rel);
   }
@@ -830,12 +855,11 @@
   /* ============================================================ SECTION: v26c-rels
    * 关系变更：把一条边"真断开"要改哪份数据
    * ----------------------------------------------------------------------------
-   * 五类边的来源各不相同（见 edge-builders），所以"断开"必须按类型各写一份 ——
-   * 这也是为什么变更要配**整份快照**：逆操作散在五处，靠快照兜底才不会出现"回退不干净"。
+   * 四类边的来源各不相同（见 edge-builders），所以"断开"必须按类型各写一份 ——
+   * 这也是为什么变更要配**整份快照**：逆操作散在四处，靠快照兜底才不会出现"回退不干净"。
    *   a2a      → data.js 的 A2A 边表（全站共享，删了别处也变）
    *   exp      → 经验对象的 agents[]（⚠ 经验队列每次现算，只改到本页缓存）
    *   conflict → 由 experiences 的 agents[] 派生，跟着 exp 一起解
-   *   owner    → AGENTS[].owner（组织事实，**不给"断开"**：只能去账号页换负责人）
    *   mcp      → F.TOPO 的编排模板节点表；模板是共用的，所以先**复制一份专属模板**再删节点，
    *              这样不会连带影响同模板的其它 Agent
    * ========================================================================== */
@@ -865,19 +889,6 @@
           apply: function () { var i = ex.agents.indexOf(id); if (i >= 0) ex.agents.splice(i, 1); }
         });
       });
-    }
-    if (rules.owner) {
-      var self = aOf(id);
-      /* 2026-10-21：责任人字段已清空（单人系统，没有第二个人），「同一负责人」这一维不再成立 */
-      var mates = [];
-      if (mates.length) {
-        blocked.push({
-          type: 'owner', typeLabel: '同一负责人',
-          why: '「' + (self ? ownerOf(self.owner).name : '—') + '」是组织事实（他名下还有 ' + mates.length + ' 个 Agent）——' +
-            '断开这两个人要去「账号与权限」给该 Agent 换负责人',
-          jump: { act: 'rbac-jump', text: '去账号与权限' }
-        });
-      }
     }
     if (rules.mcp) {
       var tplKey = F.AGENT_TOPO ? F.AGENT_TOPO[id] : null;
@@ -947,11 +958,6 @@
           apply: function () { var i = ex.agents.indexOf(e.a); if (i >= 0) ex.agents.splice(i, 1); }
         });
       });
-    } else if (e.type === 'owner') {
-      blocked.push({
-        type: 'owner', typeLabel: '同一负责人',
-        why: '这条边来自组织事实（同一个负责人名下两个 Agent），不能在关系图上删 —— 要解耦请去账号与权限改负责人归属'
-      });
     } else if (e.type === 'mcp') {
       var mid = null;
       var tplK = F.AGENT_TOPO ? F.AGENT_TOPO[e.a] : null;
@@ -994,10 +1000,8 @@
     h.dangerConfirm(h, {
       title: '删除这条边？',
       desc: '删的是**真实数据**里让这条边成立的那一项，不是只把它藏起来。',
-      tone: 'danger', perm: 'agent:rel:detach', requireReason: true, confirmText: '确认删除',
+      tone: 'danger', perm: 'agent:rel:detach', confirmText: '确认删除',
       impacts: impacts,
-      action: '删除关系边', target: aName(e.a) + ' ↔ ' + aName(e.b) + ' · ' + (TYPE_LABEL[e.type] || e.type),
-      auditImpact: plan.patches.length + ' 项数据改动',
       onConfirm: function (reason) {
         var done = 0;
         plan.patches.forEach(function (p) { try { p.apply(); done++; } catch (err) { if (global.console) global.console.error(err); } });
@@ -1039,7 +1043,7 @@
         '<div id="anet-lk-exp" style="display:none"><label class="sub-h" style="display:block;margin-top:10px">选一条目标已在用、它还没采纳的经验</label>' +
         '<select id="anet-lk-pick" style="width:100%;height:34px;border:1px solid var(--line);border-radius:8px;padding:0 8px"></select>' +
         '<div class="bt-note" id="anet-lk-exp-note" style="margin-top:6px"></div></div>' +
-        '<label class="sub-h" style="display:block;margin-top:10px">理由（必填，进审计）</label>' +
+        '<label class="sub-h" style="display:block;margin-top:10px">理由（选填）</label>' +
         '<textarea id="anet-lk-reason" placeholder="例如：招标流程要求合同先过初审，已在流程里生效" ' +
         'style="width:100%;height:56px;border:1px solid var(--line);border-radius:8px;padding:6px 8px"></textarea>' +
         '<div class="err" id="anet-lk-err" style="display:none">理由必填</div>',
@@ -1183,7 +1187,7 @@
     ];
     return '<div class="tabs" role="tablist">' + T.map(function (t) {
       var tip = t.id === 'net'
-        ? (g.isolated.length ? g.isolated.length + ' 个 Agent 在当前口径下没有任何直接联系（孤岛）' : '当前口径下没有孤立 Agent')
+        ? (g.isolated.length ? g.isolated.length + ' 个 Agent 跟谁都没有连线' : '没有孤立的 Agent')
         : '卡片 / 表格两种视图的 Agent 清单';
       return '<button role="tab" class="tab' + (t.id === active ? ' on' : '') + '" data-act="agentw-tab" data-id="' + t.id + '"' +
         ' data-tip="' + h.esc(tip) + '"' + (t.id === active ? ' aria-selected="true"' : ' aria-selected="false"') + '>' + h.esc(t.label) +
@@ -1206,7 +1210,7 @@
       },
       {
         label: '孤立隔离', value: String(g.isolated.length), alert: g.isolated.length > 0,
-        sub: g.isolated.length ? '当前口径下 0 条直接联系' : '当前口径下无孤岛',
+        sub: g.isolated.length ? '一条联系都没有' : '没有孤立的 Agent',
         act: 'agentw-iso', actId: '1', actTitle: '定位到左侧隔离区',
         definition: '当前口径下一条联系都没有的 Agent；切换口径后这个数字会变'
       },
@@ -1248,7 +1252,7 @@
    * 卡片走 HTML 按钮（复用现网 .anet-tile，健康边框/图标/指标都还在）。
    * 世界层是**自然尺寸**（W×H 像素）—— 连线和卡片同一坐标系，不需要任何单位换算。
    * ========================================================================== */
-  var _L = null, _DEG = {}, _NOTE = {}, _SCALE = 1, _FOCUS = null, _NBR = {}, _CONTENT_BB = null, _GEO = {}, _CARD_BY_ID = null;
+  var _L = null, _DEG = {}, _SCALE = 1, _FOCUS = null, _NBR = {}, _CONTENT_BB = null, _GEO = {}, _CARD_BY_ID = null;
   /* 纯按委派推导出来的层（不含用户手摆的覆盖值）—— 只用于提示文案：
      "手动指定，按委派应在第 N 层"，让用户一眼看出自己把它挪了几层。 */
   var _AUTOROW = {};
@@ -1270,10 +1274,11 @@
   /** 背景层 SVG：底纹 → 母线 → 层号条 → 连线 → 标签（标签最后画，免得被线穿过） */
   function azBgSvg(L, g, h) {
     var s = '';
-    /* 列底纹（归属靠它表达，不给卡片连线） */
+    /* 列底纹（归属靠它表达，不给卡片连线）
+       底边只多留 12：卡片下方那行小字 2026-10-28 已按业主要求删除，不需要再为它预留。 */
     L.cols.forEach(function (c) {
       s += '<rect x="' + r1(c.x - 13) + '" y="' + (AZ.Y_BIZ + AZ.BIZ_H + 12) + '" width="' + r1(c.w + 26) +
-        '" height="' + r1(L.rowBottom - (AZ.Y_BIZ + AZ.BIZ_H + 12) + 10) + '" rx="12" class="anet-lane"/>';
+        '" height="' + r1(L.rowBottom - (AZ.Y_BIZ + AZ.BIZ_H + 12) + 12) + '" rx="12" class="anet-lane"/>';
     });
     /* 根 + 直角母线 */
     var bus = AZ.Y_ROOT + AZ.ROOT_H + 22;
@@ -1292,7 +1297,8 @@
       '" height="' + r1(L.rowBottom + 12 - sy) + '" rx="10" class="anet-rowstrip"/>';
     L.rows.forEach(function (r, k) {
       if (k) {
-        var ys = L.yRow[r] - (AZ.ROWGAP + AZ.TAG_DY) / 2;
+        /* 行分隔线落在两行卡片的正中：行高现在是全图统一的 rowPitch，不能再用 ROWGAP 估 */
+        var ys = L.yRow[r] - ((L.rowPitch || (AZ.CH + AZ.TAG_DY + 4 + AZ.ROWGAP)) - AZ.CH) / 2;
         s += '<line class="anet-rowsep" x1="' + r1(L.rowStripL + 8) + '" y1="' + r1(ys) + '" x2="' + r1(L.rowStripL + AZ.ROW_LAB_W - 22) + '" y2="' + r1(ys) + '"/>';
       }
     });
@@ -1316,8 +1322,10 @@
       s += '<path class="anet-flow' + (e.manual ? ' manual' : '') + (h.state.agentNetFocus && !(_near(e.a) && _near(e.b)) ? ' far' : '') +
         '" stroke-width="' + (e.width || 1.6) + '" d="' + d + '" data-e="' + h.esc(e.a + '>' + e.b) + '"/>';
       s += '<path class="anet-flowhit" d="' + d + '" data-e="' + h.esc(e.a + '>' + e.b) + '"/>';
+      /* 箭头按 dir 翻转：up = 尖端朝上（线从下方进卡），down = 尖端朝下（线从上方进卡） */
+      var ab = (e.arrow && e.arrow.dir === 'up') ? 5 : -5;
       s += '<polygon class="anet-flowarrow" points="' + r1(e.arrow.x) + ',' + r1(e.arrow.y) + ' ' +
-        r1(e.arrow.x - 3.6) + ',' + r1(e.arrow.y - 5) + ' ' + r1(e.arrow.x + 3.6) + ',' + r1(e.arrow.y - 5) + '"/>';
+        r1(e.arrow.x - 3.6) + ',' + r1(e.arrow.y + ab) + ' ' + r1(e.arrow.x + 3.6) + ',' + r1(e.arrow.y + ab) + '"/>';
     });
     /* 边的标签 */
     if (L.labelMode !== 'off') {
@@ -1332,21 +1340,39 @@
     return s;
   }
 
+  /* 健康判据：**只在这里定义一处** —— 卡片边框、数字染色、图例说明全取它。
+     「错」和「慢」分两个档：正常 / 关注（琥珀）/ 异常（红）。
+     ⚠ 99% 不是分界线：98.x% 在业务上还叫"能用"，只有掉到 97% 以下才值得停手。 */
+  var HEALTH = { srWarn: 0.99, srBad: 0.97, p99Warn: 4000, p99Bad: 8000 };
+
   /** 卡片（HTML 按钮，绝对像素定位；.anet-tile 的结构与现网一致） */
   function azCardHtml(a, c, h, iso) {
     var card = cardData()[a.id] || {};
     var retired = a.retiredAt !== undefined;
-    var bad = !!card.abnormal || (card.successRate != null && card.successRate < 0.99) || (card.p99 != null && card.p99 > 4000);
-    var health = retired || a.status === 'offline' ? 'off' : (bad ? 'bad' : (a.status === 'gray' ? 'gray' : 'ok'));
+    /* ── 健康判据（2026-10-28 改）────────────────────────────────────────────
+       原来一条线：成功率 < 99% **或** P99 > 4s 就算"异常"，红框一刀切。结果 9 张卡
+       4 张红 —— 售前咨询 98.8% 和合同初审 13.86s 是两种完全不同的病，却同一个颜色，
+       扫一眼像"全线出事"，红色就此失效。
+       现在：错和慢**分开判**，各自一个档位，边框取两者中更严重的那个；
+       哪一项的数字变色，就是哪一维出事（成功率变色 = 答错，P99 变色 = 答慢）。
+       ⚠ 档位优先取 query.js 已经算好的 card.severity（ok/warn/bad），
+       跨屏口径必须同源 —— 这里只保留一份**同阈值的**本地兜底，不另立标准。 */
+    var srIss = (card.successRate == null) ? 0
+      : (card.successRate < HEALTH.srBad ? 2 : (card.successRate < HEALTH.srWarn ? 1 : 0));
+    var p99Iss = (card.p99 == null) ? 0
+      : (card.p99 > HEALTH.p99Bad ? 2 : (card.p99 > HEALTH.p99Warn ? 1 : 0));
+    var sev = (card.severity === 'bad' || card.severity === 'warn' || card.severity === 'ok')
+      ? card.severity : (Math.max(srIss, p99Iss) === 2 ? 'bad' : (Math.max(srIss, p99Iss) === 1 ? 'warn' : 'ok'));
+    var health = retired || a.status === 'offline' ? 'off'
+      : (sev === 'bad' ? 'bad' : (sev === 'warn' ? 'warn' : (a.status === 'gray' ? 'gray' : 'ok')));
     /* 隔离区卡片不参与聚焦淡化：它不在聚焦图里是常态，不该看起来像被禁用 */
     var isFocus = (_FOCUS === a.id), dim = !!(_FOCUS && !_near(a.id) && !iso);
     var deg = _DEG[a.id] || 0;
-    var tip = a.name + '\n' + (a.desc || '') + '\n版本 ' + (a.online || '—') + ' · 负责人 ' + ownerOf(a.owner).name +
+    var tip = a.name + '\n' + (a.desc || '') + '\n版本 ' + (a.online || '—') +
       ' · ' + aBiz(a.id) + '\n调用 ' + (card.calls == null ? '—' : h.fmt.compact(card.calls)) +
       ' · 成功率 ' + (card.successRate == null ? '—' : h.fmt.pct2(card.successRate)) +
       ' · P99 ' + (card.p99 == null ? '—' : h.fmt.dur(card.p99)) + '\n当前口径下 ' + deg + ' 条联系 · 第 ' + c.row + ' 层' +
       (rowManual(h, a.id) != null ? '（手动指定，按委派应在第 ' + (_AUTOROW[a.id] == null ? '?' : _AUTOROW[a.id]) + ' 层）' : '');
-    var note = _NOTE[a.id] || '';
     return '<button class="anet-tile ' + health + (iso ? ' iso' : '') + (isFocus ? ' focus' : '') + (dim ? ' dim' : '') +
       '" style="left:' + pxv(c.x) + ';top:' + pxv(c.y) + '"' +
       ' data-act="net-focus" data-id="' + h.esc(a.id) + '" data-x="' + r1(c.x) + '" data-y="' + r1(c.y) + '"' +
@@ -1354,37 +1380,24 @@
       (isFocus ? '<span class="anet-tile-go" data-act="goto-agent" data-id="' + h.esc(a.id) + '" data-tip="进入该 Agent 详情">详情 →</span>' : '') +
       '<span class="anet-tile-ico">' + h.icon('bot', 22) + '</span>' +
       '<span class="anet-tile-nm" data-rename="agent|' + h.esc(a.id) + '" title="双击改名">' + h.esc(a.name) + '</span>' +
-      /* 已下线的卡片不写「— · —」：灰色虚线边框已经表达了"没数据"，再写两个破折号是重复 */
+      /* 已下线的卡片不写「— · —」：灰色虚线边框已经表达了"没数据"，再写两个破折号是重复。
+         两个数字各自按自己的档位染色：只有一个数字变色，才看得出是"答错"还是"答慢"。 */
       '<span class="anet-tile-m">' + ((retired || a.status === 'offline') ? '已下线'
-        : (card.successRate == null ? '—' : h.fmt.pct2(card.successRate)) + ' · ' +
-          (card.p99 == null ? '—' : h.fmt.dur(card.p99))) + '</span>' +
+        : (card.successRate == null ? '—' : '<i class="' + (srIss ? ' hz' + srIss : '') + '">' + h.fmt.pct2(card.successRate) + '</i>') + ' · ' +
+          (card.p99 == null ? '—' : '<i class="' + (p99Iss ? ' hz' + p99Iss : '') + '">' + h.fmt.dur(card.p99) + '</i>')) + '</span>' +
       /* 联系数为 0 不显示徽标：孤立卡片上挂个「0」既没信息量，还会让人以为"这是它的编号" */
       (deg > 0 ? '<span class="anet-tile-deg" title="当前口径下的直接联系数">' + deg + '</span>' : '') +
-      '</button>' + (note ? '<span class="anet-tile-note" data-drag="' + h.esc(a.id) +
-      '" style="left:' + pxv(c.x - AZ.CW / 2 + 4) + ';top:' + pxv(c.y + AZ.CH / 2 + 12) + '">' + h.esc(note) + '</span>' : '');
+      '</button>';
   }
 
 
   function canvasHtml(g, h) {
     var L = _L = anetLayout(g, h);
-    _DEG = {}; _NOTE = {};
+    _DEG = {};
     L.cards.forEach(function (c) {
-      var a = aOf(c.id); if (!a) return;
       var d = 0;
       g.edges.forEach(function (e) { if (e.a === c.id || e.b === c.id) d++; });
       _DEG[c.id] = d;
-      var out = (azRels(g).a2a[c.id] || []).length;
-      var inc = g.edges.filter(function (e) { return e.type === 'a2a' && e.b === c.id; }).length;
-      var p = [];
-      if (out && !inc) p.push('入口');
-      if (inc >= 2) p.push('汇聚' + inc);
-      if (!out && !inc) p.push('无委派');
-      var rel = g.edges.filter(function (e) { return (e.type === 'exp' || e.type === 'conflict') && (e.a === c.id || e.b === c.id); });
-      if (rel.length) p.push('关系' + rel.length);
-      /* 层级/归属被手动改过的卡要留痕：图和"自动推导"不一致时，用户得看得出是自己摆的，
-         否则下次会以为图算错了（这两类标记也是「恢复自动」入口的提示）。 */
-      if (rowManual(h, c.id) != null) p.push('层级手动');
-      _NOTE[c.id] = p.join(' · ');
     });
     _GEO = {}; L.edges.forEach(function (e) { _GEO[e.a + '>' + e.b] = { e: e, a1: e.segs[0], a2: e.arrow }; });
     _CONTENT_BB = { x1: 0, y1: 0, x2: L.w, y2: L.h };
@@ -1401,9 +1414,10 @@
       isoBox = '<div class="anet-iso anet-iso-inworld" style="left:' + pxv(L.isoX) + ';top:' + pxv(L.isoY) +
         ';width:' + pxv(L.isoW) + ';height:' + pxv(L.isoH) + '">' +
         '<div class="anet-iso-h"><b>隔离区</b><span class="muted">' + L.isoIds.length + ' 个</span></div>' +
-        '<div class="anet-iso-sub">当前口径下与任何 Agent 都没有直接联系 —— 既没被别的 Agent 引用，' +
-        '也没共用任何经验或工具。孤岛本身不是错，没人复核才是风险。</div>' +
-        (L.isoIds.length ? '' : '<div class="anet-iso-sub" style="margin-top:8px">当前口径下没有孤岛。</div>') +
+        /* ⚠ 文案只从 ISO_COPY 取（引擎估行高也用它）——原来这里又硬写了一份，
+           改一处漏一处就会「量的高度」和「画出来的文字」对不上。 */
+        '<div class="anet-iso-sub">' + h.esc(ISO_COPY.sub) + '</div>' +
+        (L.isoIds.length ? '' : '<div class="anet-iso-sub" style="margin-top:8px">现在没有孤岛。</div>') +
         '<div class="anet-iso-grip" title="拖我调整隔离区宽度"></div></div>';
     }
     /* 孤岛卡片要在这里拼：空态（全关口径）走的是下面的提前返回，
@@ -1411,7 +1425,6 @@
     var isoTiles = '';
     L.isoCards.forEach(function (c) {
       var a = aOf(c.id); if (!a) return;
-      _NOTE[c.id] = aBiz(c.id) + ' · 当前口径 0 条联系';
       isoTiles += azCardHtml(a, c, h, true);
     });
     if (!L.cards.length) {
@@ -1420,7 +1433,7 @@
         isoBox + isoTiles +
         '<div class="anet-empty-note" style="left:' + pxv(L.chartL) + ';top:' + pxv(AZ.Y_ROW0) + '">' +
         '<div class="empty-title">当前口径下没有任何直接联系</div>' +
-        '<div class="empty-sub">五类关系都被关掉了，所以 ' + L.isoIds.length +
+        '<div class="empty-sub">四类关系都被关掉了，所以 ' + L.isoIds.length +
         ' 个 Agent 全在隔离区。打开任意一类就能看到图。</div>' +
         /* 空态不能是死路：原来这里只有一句话，除了撤销没有别的出口 */
         '<div class="anet-empty-acts">' + RULES.map(function (r) {
@@ -1434,9 +1447,8 @@
     L.cols.forEach(function (c, i) {
       caps += '<text class="anet-cap" data-rename="biz|' + h.esc(c.biz) + '" x="' + r1(L.cxs[i]) + '" y="' + (AZ.Y_BIZ + 15) +
         '" text-anchor="middle" style="cursor:text">' + h.esc(c.name) + ' ⇄</text>';      /* ⇄ = 这一列可以拖进来（列 = 归属，可改） */
-      var own = c.owners.length === 1 ? ('负责人 ' + ownerOf(c.owners[0]).name) : (c.owners.length + ' 位负责人');
       caps += '<text class="anet-cap2" x="' + r1(L.cxs[i]) + '" y="' + (AZ.Y_BIZ + 30) + '" text-anchor="middle">' +
-        h.esc(c.n + ' 个 Agent · ' + own) + '</text>';
+        h.esc(c.n + ' 个 Agent') + '</text>';
     });
     caps += '<text class="anet-root-t" x="' + r1(L.rootCx) + '" y="' + (AZ.Y_ROOT + 15) + '" text-anchor="middle">Agent 平台</text>';
     caps += '<text class="anet-root-s" x="' + r1(L.rootCx) + '" y="' + (AZ.Y_ROOT + 32) + '" text-anchor="middle">' +
@@ -1505,6 +1517,9 @@
     var rows = [
       ['图例', '<b>实线</b> = A2A 委派（有方向，越粗 = 今日互通越多）· <b>虚线</b> = 共用关系（无方向）· ' +
         '<b>图标外环</b> = 失败占比 · <b>右上角数字</b> = 直接联系数'],
+      ['边框颜色', '<b>绿</b> 正常（成功率 ≥ 99% 且 P99 ≤ 4 秒）· <b>琥珀</b> 关注（成功率 97–99% 或 P99 4–8 秒）· ' +
+        '<b>红</b> 异常（成功率 < 97% 或 P99 > 8 秒）· <b>灰</b> 已下线 / 停用。<br>' +
+        '卡片上两个数字各自染色：<b>成功率变色 = 答错</b>，<b>P99 变色 = 答慢</b> —— 哪种病，看哪个数字红。'],
       ['看连线细节', '鼠标移到线上，显示技能名与今日互通次数（工具条「标签」可切成常显 / 隐藏）'],
       ['平移 / 缩放', '空白处或中键拖动平移 · Ctrl + 滚轮缩放（触控板捏合同理）'],
       ['改归属', '把卡片横向拖到别的业务线列'],
@@ -1521,7 +1536,7 @@
 
   /**
    * 就地改名：id 形如 "agent|ag-cs-pre" / "biz|support"。改的是**数据**（a.name / 业务线 name），
-   * 所以全站展示（aName、列头、明细、审计）自动同步；并进历史，可撤销。
+   * 所以全站展示（aName、列头、明细）自动同步；并进历史，可撤销。
    * 名字不参与布局，只有列头框宽度按文案重算 —— 所以改名不会让图跳。
    */
   /**
@@ -1531,7 +1546,7 @@
    * 关系变了是你的问题」）：
    *   旧行为 = 拖到第 R 层就**改数据** —— 删掉原上游、再凭空新建一条「第 R-1 层最近的一张 → 它」，
    *            技能记「待补充」。结果是用户只想摆位置，回来发现图上多了一条没人认领的委派，
-   *            下游整条链跟着沉一层，且这条边会进全站（引用与依赖、审计）。
+   *            下游整条链跟着沉一层，且这条边会进全站（引用与依赖）。
    *   新行为 = 只写**层级覆盖**（state.anetRowOverride），A2A 边一条不增、一条不减。
    *            要改"谁叫它"就去拖到具体那张卡上建联系 —— 那条路有输入、有理由，是显式动作。
    * 覆盖是内存态（和其它编辑一样进撤销栈），刷新回自动推导。
@@ -1649,7 +1664,7 @@
   }
 
   function detailCard(g, state, h) {
-    var order = { a2a: 0, exp: 1, conflict: 2, owner: 3, mcp: 4 };
+    var order = { a2a: 0, exp: 1, conflict: 2, mcp: 3 };
     var rows = g.edges.slice().sort(function (x, y) {
       return (order[x.type] - order[y.type]) || (aName(x.a) < aName(y.a) ? -1 : 1);
     }).map(function (e) {
@@ -1720,7 +1735,7 @@
         },
         {
           k: '关系来源',
-          v: 'Agent 委派日志、LLM 经验库、Agent 负责人、编排拓扑里的 MCP 服务'
+          v: 'Agent 委派日志、LLM 经验库、编排拓扑里的 MCP 服务'
         },
         {
           k: '隔离区口径',
@@ -1728,7 +1743,7 @@
         },
         {
           k: '时间范围',
-          v: '关系是配置态事实（谁委派给谁、谁跟谁共用经验/工具/负责人），与所选时间范围无关，本屏不提供时间筛选'
+          v: '关系是配置态事实（谁委派给谁、谁跟谁共用经验/工具），与所选时间范围无关，本屏不提供时间筛选'
         }
       ]);
   };
@@ -1813,13 +1828,12 @@
     var ax = r ? r.width / 2 : 500, ay = r ? r.height / 2 : 200;
     if (id === 'reset') {
       h.state.agentNetView = { k: 1, tx: 0, ty: 0 };
-      pushStep(h, '视图回到 1:1', 'view');
+      /* 缩放/平移是**纯显示**，不进历史：撤销是撤内容，不是撤"我把图放大了" */
       h.navigate({}, { scroll: false });
       return;
     }
     var f = (id === 'in') ? 1.25 : 1 / 1.25;
     zoomTo(h, viewS(h).k * f, ax, ay);
-    pushStep(h, (id === 'in' ? '放大到 ' : '缩小到 ') + Math.round(viewS(h).k * 100) + '%', 'view');
     h.navigate({}, { scroll: false });
   };
   ACTIONS['anet-fit'] = function (id, btn, h) {
@@ -1832,7 +1846,6 @@
     v.k = k;
     v.tx = (r.width - cw * k) / 2 - bb.x1 * k;
     v.ty = (r.height - ch * k) / 2 - bb.y1 * k;
-    pushStep(h, '适应窗口（' + Math.round(k * 100) + '%）', 'view');
     h.navigate({}, { scroll: false });
   };
   ACTIONS['anet-undo'] = function (id, btn, h) {
@@ -1870,7 +1883,7 @@
         impacts: [
           { label: '目标状态', value: '第 ' + i + ' 步 · ' + H.steps[i].label },
           { label: '丢弃步骤', value: discards + ' 步' },
-          { label: '涉及', value: '节点位置 / 视图缩放平移 / 关系改动（A2A、经验、负责人、MCP）' }
+          { label: '涉及', value: '节点位置 / 关系改动（A2A、经验、MCP）' }
         ],
         action: '回退操作历史', target: 'step ' + i,
         onConfirm: function () {
@@ -1888,7 +1901,7 @@
   };
   ACTIONS['anet-history'] = function (id, btn, h) {
     var H = histS(h);
-    var relKinds = { 'rel-a2a': 1, 'rel-exp': 1, 'rel-owner': 1, 'rel-mcp': 1 };
+    var relKinds = { 'rel-a2a': 1, 'rel-exp': 1, 'rel-mcp': 1 };
     var rows = H.steps.map(function (s, i) {
       var t = new Date(s.at);
       var hh = String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') +
@@ -1904,11 +1917,11 @@
     }).reverse().join('');
     global.V10UI.openSheet({
       title: '操作历史（共 ' + H.steps.length + ' 步）',
-      bodyHtml: '<div class="v10-sheet-desc">每一步都是**整份快照**（节点位置 + 视图 + 五类关系的源数据）。' +
+      bodyHtml: '<div class="v10-sheet-desc">每一步都是**整份快照**（节点位置 + 四类关系的源数据）。' +
         '回退到某一步 = 把当时那份快照整体写回，不是"反向执行一遍"—— 所以能落到任意版本，不留中间态。</div>' +
         '<div class="anet-hist">' + rows + '</div>' +
-        '<div class="bt-note">位置与视图只在本会话有效（刷新回自动布局）；' +
-        'A2A / 负责人 / MCP 三类关系取自种子数据，改动在本次会话内对全站生效；' +
+        '<div class="bt-note">节点位置只在本会话有效（刷新回自动布局）；缩放平移不进历史 —— 撤销只撤内容，不动你现在的视角；' +
+        'A2A / MCP 两类关系取自种子数据，改动在本次会话内对全站生效；' +
         '经验类边改的是本页缓存，经验库页面重新取数看不到（原型里经验队列每次现算）。</div>',
       footHtml: '<button class="btn-ghost" data-v10="close">关闭</button>'
     });
@@ -1920,10 +1933,9 @@
     if (!a) return;
     var plan = planDetach(h, id);
     var edges = curEdgesOf(h, id);
+    /* 四类关系都是可断开的数据事实，没有"只能去别处改"的不可断开项 */
     if (!plan.patches.length) {
-      h.toast(plan.blocked.length
-        ? '「' + a.name + '」当前口径下只有「同一负责人」这类不可断开的关系'
-        : '「' + a.name + '」当前口径下本来就没有直接联系', 'info');
+      h.toast('「' + a.name + '」当前口径下本来就没有直接联系', 'info');
       return;
     }
     var byType = {};
@@ -1939,16 +1951,14 @@
       title: '把「' + a.name + '」在当前口径下断开？',
       desc: '会按联系类型改动对应的真实数据（委派关系、经验采纳名单、编排模板里的 MCP 节点）。' +
         '断开后它在当前口径下成为孤岛、进入左侧隔离区；随时可在操作历史里回退。',
-      tone: 'danger', perm: 'agent:rel:detach', requireReason: true, confirmText: '确认断开',
+      tone: 'danger', perm: 'agent:rel:detach', confirmText: '确认断开',
       impacts: impacts,
-      action: '断开 Agent 关系', target: id + ' · ' + a.name,
-      auditImpact: plan.patches.length + ' 条 · ' + Object.keys(byType).join('/'),
-      onConfirm: function (reason) {
+      onConfirm: function () {
         var done = 0;
         plan.patches.forEach(function (p) { try { p.apply(); done++; } catch (e) { if (global.console) global.console.error(e); } });
         var H = pushStep(h, '断开「' + a.name + '」的 ' + done + ' 条关系', 'rel-detach');
         H.steps[H.cur].detached = [id];
-        h.toast('已断开 ' + done + ' 条关系（' + reason.slice(0, 12) + '…） · Ctrl+Z 可还原', 'ok');
+        h.toast('已断开 ' + done + ' 条关系 · Ctrl+Z 可还原', 'ok');
         h.navigate({}, { scroll: false });
       }
     });
@@ -2037,7 +2047,7 @@
         el.__panMv = null; el.__panUp = null;
         el.classList.remove('panning');
         if (!moved) return;
-        pushStep(h, '平移画布', 'view');
+        /* 平移是纯显示，不进历史（撤销只撤内容） */
         h.navigate({}, { scroll: false });        /* 落定后重渲染一次，工具栏与几何基准同步 */
       }
       el.__panMv = mv; el.__panUp = up;
@@ -2059,8 +2069,8 @@
       applyWorldStyle(h);
       global.clearTimeout(_wheelTimer);
       _wheelTimer = global.setTimeout(function () {
-        pushStep(h, '缩放到 ' + Math.round(viewS(h).k * 100) + '%', 'view');
-        h.navigate({}, { scroll: false });        /* 手势停下来才落历史，避免滚动一次记几十步 */
+        /* 滚轮缩放也是纯显示，不进历史 */
+        h.navigate({}, { scroll: false });        /* 手势停下来才重渲染一次 */
       }, 260);
     }, { passive: false });
   }
@@ -2236,6 +2246,13 @@
         var col = _L.cols[i];
         anetDropHl(h, { k: 'col', col: col });
         srSay(h, '目标：' + col.name + '，回车确认，Esc 取消');
+        return true;
+      }
+      /* ↑/↓ 也要吃掉：浏览器默认会用方向键**滚动页面**，
+         画布会跟着往上/下跳（实测按一下 ↓ 整块画布移了 40px）——
+         拿着卡片的时候页面不该动。上下换层目前只有鼠标纵向拖，键盘给个说明。 */
+      if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
+        srSay(h, '左右方向键换业务线，回车确认，Esc 取消；上下换层请用鼠标纵向拖动');
         return true;
       }
       if (ev.key === 'Enter' || ev.key === ' ') {

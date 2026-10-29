@@ -65,7 +65,9 @@
       if (!ref) return null;
       var c = ref.collection, row = ref.row || {};
       if (c === 'agent') return { act: 'goto-agent', id: ref.id, to: 'Agent 详情' };
-      if (c === 'incident') return { act: 'goto-cap', id: 'overview', to: '工作台总览 › 事故流水' };
+      /* 2026-10-27：总览换屏后没有「事故流水」列表了，改为落到顶部的「未恢复事故」汇总块 ——
+         文案跟着落点改，不能再说一个已经不存在的地方。 */
+      if (c === 'incident') return { act: 'goto-cap', id: 'overview', to: '工作台总览 › 未恢复事故' };
       if (c === 'deploy') return { act: 'goto-cap', id: 'agent-wb', to: 'Agent 工作台' };
       if (c === 'badcase') return { act: 'goto-cap', id: 'obs', to: '可观测 › badcase 管理' };
       if (c === 'userops') return { act: 'goto-cap', id: 'user-ops', to: '用户运营' };
@@ -227,19 +229,15 @@
         desc: target ? '影响对象：' + target : '',
         tone: isRollback ? 'warn' : 'normal',
         perm: 'agent:publish',
-        requireReason: true,
         impacts: [
           { label: '版本', value: ver + (target ? '（' + target + '）' : '') },
           { label: '影响', value: isRollback ? '流量切回上一版，当前版本保留可再切回' : '该版本承接线上流量', tone: isRollback ? 'warn' : '' },
           { label: '可回滚', value: '是 —— 上一版保留' },
-          { label: '这一步', value: '确认后立即生效，理由写进审计' }
+          { label: '这一步', value: '确认后立即生效' }
         ],
         confirmText: isRollback ? '确认回滚' : '确认采用',
-        action: title, target: target || ver,
-        auditImpact: '版本切换 · ' + ver,
         onConfirm: function (reason) {
-          /* 审计由 dangerConfirm 统一写，这里不重复记 */
-          h.toast('已' + (isRollback ? '回滚到 ' : '采用 ') + ver + ' · 已写审计', 'ok');
+          h.toast('已' + (isRollback ? '回滚到 ' : '采用 ') + ver, 'ok');
           h.navigate({}, { scroll: 'keep' });
         }
       });

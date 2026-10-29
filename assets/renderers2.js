@@ -71,10 +71,10 @@
     var fmt = h.fmt;
     /* 版本记录只用真实存在的那几条（a.online / a.grayVersion），不编更早的历史 */
     var rows = [];
-    if (a.grayVersion) rows.push({ v: a.grayVersion, status: 'gray', at: null, by: a.owner, note: '灰度中 · 升级模型 + 新增合规检查节点' });
-    rows.push({ v: a.online, status: 'online', at: a.publishedAt, by: a.owner, note: '当前线上版本' });
+    if (a.grayVersion) rows.push({ v: a.grayVersion, status: 'gray', at: null, note: '灰度中 · 升级模型 + 新增合规检查节点' });
+    rows.push({ v: a.online, status: 'online', at: a.publishedAt, note: '当前线上版本' });
     var m = /^v(\d+)\.(\d+)$/.exec(a.online);
-    if (m) rows.push({ v: 'v' + m[1] + '.' + (Number(m[2]) - 1), status: 'history', at: a.publishedAt - 42, by: a.owner, note: '已被 ' + a.online + ' 替换' });
+    if (m) rows.push({ v: 'v' + m[1] + '.' + (Number(m[2]) - 1), status: 'history', at: a.publishedAt - 42, note: '已被 ' + a.online + ' 替换' });
     return '<div class="card"><div class="card-h"><h3>发布历史</h3>' +
       '<span class="card-sub">' + rows.length + ' 条记录 · 仅保留最近几次，更早记录按 90 天保留策略归档 · 点行看变更说明</span></div>' +
       h.table({
@@ -82,14 +82,12 @@
           { key: 'v', label: '版本', render: function (r) { return '<b>' + h.esc(r.v) + '</b>'; } },
           { key: 'status', label: '状态', render: function (r) { return h.pill(r.status === 'gray' ? 'info' : (r.status === 'online' ? 'ok' : 'idle'), r.status === 'gray' ? '灰度中' : (r.status === 'online' ? '线上' : '历史')); } },
           { key: 'at', label: '发布时间', render: function (r) { return r.at == null ? '<span class="muted">灰度中</span>' : h.esc(F.fmtDate(S.TODAY_START + r.at * S.DAY)); } },
-          { key: 'by', label: '发布人', render: function (r) { return h.esc(Q.ownerName(r.by)); } },
           { key: 'note', label: '变更说明' }
         ],
         /* 出口：点版本行展开该版本自己的字段（发布人/时间/变更说明），内容取自该行，不另编。 */
         rowAction: 'row-detail', rowIdKey: 'v',
         detailHtml: function (r) {
           return '版本 ' + r.v + ' · ' + (r.status === 'gray' ? '灰度中' : (r.status === 'online' ? '当前线上' : '历史版本')) +
-            ' · 发布人 ' + Q.ownerName(r.by) +
             (r.at == null ? '' : ' · ' + F.fmtDate(S.TODAY_START + r.at * S.DAY)) +
             ' · 变更说明：' + (r.note || '—');
         },
@@ -337,7 +335,7 @@
        · 上游依赖卡（我依赖谁）已删 —— MCP 服务 / 知识库按对象逐条列在「联系」里，
          拓扑 chip 又标了每个节点用哪个服务，第三遍换成表格没有新信息；
        · 影响面速览卡已删 —— 下游 子 Agent 数就在上面那张下游引用卡里，
-         日均调用在「运行监控」，负责人在页头；四个数字全都有第二处出处。
+         日均调用在「运行监控」；四个数字全都有第二处出处。
        留下的是全站唯一一处「谁依赖我」的反向关系，也是下线前必须处理的出口。 */
 
   };
@@ -514,9 +512,9 @@
          ⚠ .card-h 是 flex 容器，直接塞按钮会被压窄 —— 包一层并 margin-left:auto。 */
       '<span style="margin:0 0 0 auto;display:flex;gap:8px;align-items:center;flex-shrink:0">' +
       '<button class="btn-ghost sm" data-act="eval-version-adopt" data-id="' + h.esc(cmp.candVer + '|' + cmp.agentName + '|adopt') + '"' +
-      ' title="点击即生效，并写一条审计">采用 ' + h.esc(cmp.candVer) + ' →</button>' +
+      ' title="点击即生效">采用 ' + h.esc(cmp.candVer) + ' →</button>' +
       '<button class="btn-ghost sm" data-act="eval-version-adopt" data-id="' + h.esc(cmp.baseVer + '|' + cmp.agentName + '|rollback') + '"' +
-      ' title="点击即生效，并写一条审计">回滚到 ' + h.esc(cmp.baseVer) + ' →</button>' +
+      ' title="点击即生效">回滚到 ' + h.esc(cmp.baseVer) + ' →</button>' +
       '</span></div>' +
       '<div class="dim-cmp">' + cmp.dims.map(function (d) {
         var f2 = d.fmt === 'dur' ? fmt.dur : (d.fmt === 'money4' ? fmt.money4 : fmt.pct1);
@@ -542,7 +540,7 @@
       '发布确认页会强制列出这 8 例并要求勾选「我已知晓退化」才能继续。</div>' +
       '<div class="sig-note">显著性：得分差异 6.4pp，n=1,414，p &lt; 0.001 —— 差异可信，但退化项需先修复。</div>' +
       /* 这里把两个出口的去向写清（工单要求：块内说明点击后到哪），并且不暗示"已发布"。 */
-      '<div class="bt-note">右上两个按钮点击即生效，并写一条审计。' +
+      '<div class="bt-note">右上两个按钮点击即生效。' +
       '退化用例未修复前，采用仍会在发布确认页被拦。</div>' +
       '</div>';
   }
@@ -553,7 +551,7 @@
     var pending = items.filter(function (b) { return b.status === 'warn'; });
     return '<div class="metrics">' + [
       { label: '待认领', value: String(pending.length), alert: pending.length > 0, sub: '最长等待 ' + fmt.wait(Math.max.apply(null, pending.map(function (b) { return b.waitMin; }).concat([0]))) },
-      { label: '处理中', value: String(items.length - pending.length), sub: '已分配责任人' },
+      { label: '处理中', value: String(items.length - pending.length), sub: '已在处理' },
       { label: '已转测试用例', value: '0', alert: true, sub: '闭环未完成', definition: 'badcase 必须走到「已修复并回归通过」或「确认不修复（填理由）」才算关闭' }
     ].map(h.metricCard).join('') + '</div>' +
       '<div class="card"><div class="card-h"><h3>badcase 队列（全平台）</h3>' +
@@ -721,7 +719,7 @@
          成功节点不挂（它没有"同类失败"可看）；本 trace 一个失败节点都没有时，卡头给
          「看这些节点的编排配置 →」(goto-agent-tab | orchestrate)，保证这张卡永远有真出口。 */
       '<div class="card"><div class="card-h"><h3>逐节点输入输出</h3>' +
-      '<span class="card-sub">敏感字段已脱敏，查看明文需 obs:trace:detail 权限并留审计</span>' +
+      '<span class="card-sub">敏感字段已脱敏，查看明文需 obs:trace:detail 权限</span>' +
       (_failSpans.length ? ''
         : '<button class="btn-ghost sm" data-act="goto-agent-tab" data-id="' + h.esc(t.agentId) + '|orchestrate">看这些节点的编排配置 →</button>') +
       '</div>' +
@@ -938,13 +936,26 @@
           var tokArr = mSer.points.map(function (p) {
             var v = p.by[r.key]; return v ? v.tokIn + v.tokOut : 0;
           });
+          /* 两张小图的 hover 数据：日期 + 指标名 + 值（对标 DeepSeek 面积图的浮层形态）。
+             单序列不给色块 —— 只一行，配色块反而像还有别的系列。 */
+          var callTips = mSer.points.map(function (p, i) {
+            return { title: tipTitle(p.ts, mSer.granularity),
+              rows: [{ label: 'API 请求次数', valueText: fmt.int(callsArr[i]) }] };
+          });
+          /* 2026-10-28 23:00 业主「撤回」：Tokens 恢复单色面积图 + 单行浮层。
+             此前的尝试（浮层拆输入/输出两行带色块 → 图改两段堆叠柱）整体回退 ——
+             教训留在 git 之外：要给浮层加分项色块，图里就得真有那几段，二者只能一起动或一起不动。 */
+          var tokTips = mSer.points.map(function (p, i) {
+            return { title: tipTitle(p.ts, mSer.granularity),
+              rows: [{ label: 'Tokens', valueText: fmt.compact(tokArr[i]) }] };
+          });
           return '<div class="ds-group-h">' + h.esc(r.label) + '<em>' + fmt.int(r.calls) + ' 次 · ' +
             fmt.money(r.cost) + ' · ' + fmt.compact(r.tokens) + ' token</em></div>' +
             '<div class="ds-grid2">' +
             '<div class="ds-panel" style="margin:0"><div class="ds-mini"><span>API 请求次数</span><b>' + fmt.int(r.calls) + '</b></div>' +
-            C.areaChart(mSer.points, callsArr, { width: C.gridWidth(2), height: 150, padL: 56, granularity: mSer.granularity, color: color, aria: r.label + ' 的请求次数趋势', fmt: function (v) { return fmt.compact(v); } }) + '</div>' +
+            C.areaChart(mSer.points, callsArr, { width: C.gridWidth(2), height: 150, padL: 56, granularity: mSer.granularity, color: color, colTips: callTips, aria: r.label + ' 的请求次数趋势', fmt: function (v) { return fmt.compact(v); } }) + '</div>' +
             '<div class="ds-panel" style="margin:0"><div class="ds-mini"><span>Tokens</span><b>' + fmt.compact(r.tokens) + '</b></div>' +
-            C.areaChart(mSer.points, tokArr, { width: C.gridWidth(2), height: 150, padL: 64, granularity: mSer.granularity, color: color, aria: r.label + ' 的 tokens 趋势', fmt: function (v) { return fmt.compact(v); } }) + '</div>' +
+            C.areaChart(mSer.points, tokArr, { width: C.gridWidth(2), height: 150, padL: 64, granularity: mSer.granularity, color: color, colTips: tokTips, aria: r.label + ' 的 tokens 趋势', fmt: function (v) { return fmt.compact(v); } }) + '</div>' +
             '</div>';
         }).join('') + '</div>'
       : '';
@@ -1036,7 +1047,7 @@
     var ruleCard = '<div class="card"><div class="card-h"><h3>分摊规则</h3></div>' +
       '<div class="bt-note">公共成本（网关、沙盒、评估任务）按各业务线调用量占比分摊，规则透明可查。' +
       '当前公共成本池 ' + fmt.money2(unknownCaller.cost) +
-      '，将在月度账单中单独列出。导出账单需 cost:export 权限，导出行为留审计。</div>' +
+      '，将在月度账单中单独列出。导出账单需 cost:export 权限。</div>' +
       '<button class="btn-ghost sm" data-act="export-report" data-id="month">导出月度账单</button></div>';
 
     /* 页头右侧不再放时间选择器/导出：那两件在下面的 DS 筛选行里，一处一套就够。
@@ -1114,8 +1125,8 @@
   /* ── 角色权限只读（v26，重写）────────────────────────────────────────
      v25c 曾把矩阵做成可编辑（会话内 基线 ⊕ 增 − 删），但那条路有三个致命问题：
        · 与同屏角色卡「本页只读、改角色走审批」的文案互相打架；
-       · 用的是 `h.dangerConfirm({...})` 而不是 `(h, opts)`，perm/requireReason/onConfirm
-         全被丢掉 —— 既不过门禁、点了也不生效、还不留审计（假前台）；
+       · 用的是 `h.dangerConfirm({...})` 而不是 `(h, opts)`，perm/onConfirm
+         全被丢掉 —— 既不过门禁、点了也不生效（假前台）；
        · 「只在这次会话里改一改」这种状态既不生效、也留不了痕，不该出现在权限体系里。
      现在只读：本页只表达事实，改权限只有一条路 —— 走二次确认。 */
   function rbacEffPerms(S, roleId, state) {
@@ -1132,7 +1143,7 @@
 
   /* ── 访问复核的三个动作 ────────────────────────────────────────────────
      口径照 Okta / SailPoint：
-       · 决定先暂存（不产生效果、可撤回），统一提交后写审计并改变授权状态；
+       · 决定先暂存（不产生效果、可撤回），统一提交后才改变授权状态；
        · 提交即最终，此后不可改；
        · 不能复核自己的授权（职责分离，与「不得自审自己的变更」同一条约束）。 */
   ACTIONS['rbac-review-decide'] = function (id, btn, h) {
@@ -1155,11 +1166,6 @@
       title: action === 'revoke' ? '复核判定：撤销该授权' : '复核判定：该授权继续有效',
       desc: (action === 'revoke' ? '撤销' : '通过复核') + '「' + o.name + '」的' + what + '？',
       perm: 'rbac:review:decide',
-      action: action === 'revoke' ? '复核判定：撤销授权' : '复核判定：通过复核',
-      target: o.name + ' · ' + what,
-      auditImpact: action === 'revoke' ? '授权回收，相关操作立即被拦' : '授权延期 ' + g.ttlDays + ' 天',
-      requireReason: true,
-      reasonLabel: '复核理由（必填，留审计）',
       confirmText: action === 'revoke' ? '暂存「撤销」决定' : '暂存「通过」决定',
       danger: action === 'revoke',
       impacts: [
@@ -1170,7 +1176,7 @@
         { label: '上次复核', value: lr != null ? h.fmt.date(new Date(lr).toISOString()) : '从未复核',
           tone: lr == null ? 'warn' : '' },
         { label: '若不处理', value: '到期后自动降级为只读，相关操作被拦', tone: 'warn' },
-        { label: '生效时机', value: '此决定仅暂存 —— 在「已决待提交」统一提交后才生效并写审计' }
+        { label: '生效时机', value: '此决定仅暂存 —— 在「已决待提交」统一提交后才生效' }
       ],
       onConfirm: function (reason) {
         h.state.rbacReview = h.state.rbacReview || {};
@@ -1206,19 +1212,10 @@
     }
     var revokeN = grants.filter(function (g) { return log[g.id].action === 'revoke'; }).length;
     var approveN = grants.length - revokeN;
-    var reasons = grants.map(function (g) {
-      var o = S.OWNERS.filter(function (x) { return x.id === g.member; })[0] || { name: g.member };
-      return o.name + '：' + (log[g.id].action === 'revoke' ? '撤销' : '通过');
-    }).join('；');
     h.dangerConfirm(h, {
       title: '提交本轮复核决定',
       desc: '提交 ' + grants.length + ' 条决定（通过 ' + approveN + ' 条 / 撤销 ' + revokeN + ' 条）？提交后不可更改。',
       perm: 'rbac:review:decide',
-      action: '提交访问复核决定',
-      target: grants.length + ' 条授权 · 通过 ' + approveN + ' / 撤销 ' + revokeN,
-      auditImpact: reasons,
-      requireReason: true,
-      reasonLabel: '本轮复核说明（必填，写进审计）',
       confirmText: '提交 ' + grants.length + ' 条决定',
       danger: true,
       impacts: [
@@ -1228,7 +1225,7 @@
             var o = S.OWNERS.filter(function (x) { return x.id === g.member; })[0] || {};
             return o.name || g.member;
           }).join('、') },
-        { label: '提交后', value: '写审计并改变授权状态；本轮决定不可再改，需下一轮复核', tone: 'warn' }
+        { label: '提交后', value: '改变授权状态；本轮决定不可再改，需下一轮复核', tone: 'warn' }
       ],
       onConfirm: function (reason) {
         var ov = h.state.rbacReview;
@@ -1248,7 +1245,7 @@
     /* KPI 卡与页面说明里的入口：切到复核对应视图。
        2026-10-21：账号页已删、审批下线 —— 原本的 approval 分支改成一句说明，不再往存档页跳。 */
     if (id === 'approval') {
-      h.toast('审批流程已下线，改动确认后即时生效并写审计', 'info');
+      h.toast('审批流程已下线，改动确认后即时生效', 'info');
       return;
     }
     if (id === 'matrix') {
@@ -1365,7 +1362,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
 
     /* ── 访问复核的数据（Okta / SailPoint 口径）────────────────────────────
        复核不是「权限配置的一部分」，是一条独立流程：待复核 → 已决待提交 → 已完成。
-       决定先落在 state.rbacReview[grantId]，再由「提交本轮决定」写进审计 ——
+       决定先落在 state.rbacReview[grantId]，再由「提交本轮决定」落定 ——
        未提交前不产生任何效果、可逐条撤回。 */
     var WARN_DAYS = 15;
     var revLog = state.rbacReview || {};
@@ -1406,7 +1403,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         act: 'rbac-review-tab', actId: 'todo', actTitle: '看待复核清单' },
       { label: '已决待提交', value: String(stagedRev.length), alert: stagedRev.length > 0,
         sub: stagedRev.length ? '提交前可逐条撤回' : '没有未提交的决定',
-        definition: '决定先暂存，统一提交才写审计并改变授权状态；未提交前不产生任何效果。',
+        definition: '决定先暂存，统一提交才改变授权状态；未提交前不产生任何效果。',
         act: 'rbac-review-tab', actId: 'staged', actTitle: '看已决待提交' },
       { label: '长期未使用', value: String(dormant.length), alert: dormant.length > 0,
         sub: dormant.length ? '超过 ' + UNUSED_DAYS + ' 天没有访问，应复核或回收' : '没有长期未使用的账号',
@@ -1472,7 +1469,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
 
     /* ── 访问复核：待复核 → 已决待提交 → 已完成 ──────────────────────────
        Okta / SailPoint 的口径：复核是一条独立流程，决定分「暂存」与「提交」两步 ——
-       提交前不产生任何效果、可逐条撤回；提交即最终，写审计并改变授权状态。
+       提交前不产生任何效果、可逐条撤回；提交即最终，改变授权状态。
        三个视图各自的理由：待办要能清空（复核是赶截止日期的活，不是浏览）；
        暂存要能改主意；已完成要能回答「这人上次是什么时候被复核的」。 */
     function actLink(g) {
@@ -1535,7 +1532,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         definition: '超期不等于没有权限：复核通过即刻恢复，判定撤销才回收。' },
       { label: '本轮已决', value: String(stagedRev.length), alert: stagedRev.length > 0,
         sub: stagedRev.length ? '提交后才生效' : '尚未做任何决定',
-        definition: '决定先暂存（不产生效果、可逐条撤回），统一提交后才写审计并改变授权状态。' }
+        definition: '决定先暂存（不产生效果、可逐条撤回），统一提交后才改变授权状态。' }
     ].map(h.metricCard).join('') + '</div>';
     var reviewTabs = '<div class="tabs" role="tablist">' + [
       { id: 'todo', label: '待我复核', n: pendingRev.length },
@@ -1564,7 +1561,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     var reviewStaged = '<div class="card pad0"><div class="card-h pad"><h3>已决待提交</h3>' +
       '<button class="btn-primary sm" data-act="rbac-review-commit"' +
       (stagedRev.length ? '' : ' disabled') + '>提交本轮决定（' + stagedRev.length + '）</button></div>' +
-      '<div class="bt-note" style="margin:0 14px 12px">提交前逐条可撤回；提交即写审计并改变授权状态，此后不再可改。' +
+      '<div class="bt-note" style="margin:0 14px 12px">提交前逐条可撤回；提交即改变授权状态，此后不再可改。' +
       (selfStaged.length ? '<br><b class="bad">其中 ' + selfStaged.length + ' 条是你自己的授权 —— 不能自己复核自己，提交会被拒。</b>' : '') +
       '</div>' +
       h.table({ columns: [
@@ -1636,7 +1633,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
 
     /* 成员视图（嵌在「身份与权限」卡片内的第一个页签，不再自带卡片外壳） */
     var memberTableOld = '<div class="card-sub" style="padding:10px var(--space-3) 0">' + members.length + ' 人 · 在职 ' + activeMembers.length + ' 人' +
-        (members.length - activeMembers.length ? ' · 已停用 ' + (members.length - activeMembers.length) + ' 人（权限已回收，仍保留审计记录）' : '') +
+        (members.length - activeMembers.length ? ' · 已停用 ' + (members.length - activeMembers.length) + ' 人（权限已回收）' : '') +
         ' · 角色决定可见范围与可执行动作</div>' +
       h.table({
         columns: [
@@ -1747,7 +1744,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
                 h.esc(m.label) + '</span>';
             }).join('') + '</div>';
         }).join('') + '</div>' +
-        '<div class="bt-note">改角色是高危动作：需提交变更前后差异、走审批、留审计，' +
+        '<div class="bt-note">改角色是高危动作：需提交变更前后差异、走审批，' +
         '且不得由本人审批自己提出的变更。本页只读，不给直改入口。</div>' +
         '</div></details>';
     }).join('');
@@ -1788,7 +1785,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           '</tbody></table></div></details>';
       }).join('') +
       '<div class="bt-note">高亮行为你持有的权限点。' +
-      '<b>本页不提供任何改权限的入口</b>：权限变更一律走「审批存档」，需提交变更前后差异、填理由、留审计，' +
+      '<b>本页不提供任何改权限的入口</b>：权限变更一律走「审批存档」，需提交变更前后差异、填理由，' +
       '且不得由本人审批自己提出的变更。高危权限每 90 天须重新确认，逾期自动降级为只读。<br>' +
       '访问复核由独立权限点 <span class="mono">rbac:review:decide</span> 把门 —— ' +
       '复核的对象是「授权实例」，配置的对象是「角色模板」，两者不是同一个动作，因此不共用权限点。' +
@@ -1817,7 +1814,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           ? '<div class="card-sub" style="padding:10px var(--space-3) 0">' + roles.length +
             ' 个角色 · 权限随角色授予，不随人授予 · 点开看该角色的全部权限点</div><div>' + roleCards + '</div>' +
             '<div class="bt-note" style="margin:0 var(--space-3) var(--space-3)">' +
-            '改角色是高危动作：需提交变更前后差异、走审批、留审计，且不得由本人审批自己提出的变更。</div>'
+            '改角色是高危动作：需提交变更前后差异、走审批，且不得由本人审批自己提出的变更。</div>'
           : matrix);
     var identityCard = '<div class="card pad0"><div class="card-h pad"><h3>身份与权限</h3>' +
       '<span class="card-sub">谁在这个租户里、什么角色、能做什么 · 三个视角同一份口径</span></div>' +
@@ -1852,10 +1849,10 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       h.metaBar({}, [
         { k: '数据来源', v: '成员来自企业目录（OWNERS 维度表），角色与权限点为平台配置（PERM_POINTS / ROLES），' + ME.name + ' 的权限由角色「' + ME.role + '」推导，不是手工维护' },
         { k: '权限口径', v: 'perms 由 rolePerms(roleId) 展开通配得出（如 approval:decide:* 命中该前缀全部）；' + ME.role + ' 当前持有 ' + myPerms.length + ' 个' },
-        { k: '复核口径', v: '待复核 = 授权已超期，或落在 ' + WARN_DAYS + ' 天预警窗口内。决定分两步：先暂存（不产生效果、可撤回），提交后写审计并改变授权状态；提交即最终' },
+        { k: '复核口径', v: '待复核 = 授权已超期，或落在 ' + WARN_DAYS + ' 天预警窗口内。决定分两步：先暂存（不产生效果、可撤回），提交后改变授权状态；提交即最终' },
         { k: '复核依据字段', v: '最近访问（lastAccessDays）与上次复核（lastReviewAt）按工号确定性生成，刷新与重放一致；「上次复核」为空表示该账号从未被任何一次复核覆盖' },
         { k: '门禁口径', v: '复核走独立权限点 rbac:review:decide（复用 rbac:role:write 会把「谁能复核」绑死在超管身上），' +
-            '权限变更的唯一入口是审批链，本页不提供直改入口；checkPerm 在危险操作确认弹层入口校验，未授权直接拦截并留审计' },
+            '权限变更的唯一入口是审批链，本页不提供直改入口；checkPerm 在危险操作确认弹层入口校验，未授权直接拦截' },
         { k: '职责分离', v: '同一人不得既申请又审批同一单据，也不得复核自己的授权。' + (myConflict ? '⚠ 你当前同时持有申请权与审批权，靠数据层过滤兜底，建议移交申请权' : '你当前不冲突') },
         { k: '演示边界', v: '本页的判定与门禁都必须由服务端完成 —— 前端置灰只是体验，前端可写即门禁可绕过。此处改动仅本会话，刷新还原' }
       ]);
@@ -1881,8 +1878,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       return ps.some(function (p) { return p.indexOf(o.perm) === 0; });
     });
     if (revoked) {
-      return '<div class="sub-h">操作历史</div><div class="bt-note">账号已停用，权限全部回收，' +
-        '历史操作记录仍保留（审计要求：记录只可追加、不可删除）。</div>';
+      return '<div class="sub-h">操作历史</div><div class="bt-note">账号已停用，权限全部回收。</div>';
     }
     var AG = (S.AGENTS || []).slice(0, 6);
     var RULES = [{ name: '敏感表述-广告法 v12' }, { name: '数据出境-个人信息 v5' }, { name: '金融宣传-收益承诺 v3' }];
@@ -1946,7 +1942,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       }).join('') +
       '</tbody></table></div>' +
       '<div class="bt-note">操作类型取自该成员的权限点 —— <b>没有某权限就不会出现那类操作</b>，' +
-      '与上方权限矩阵、角色卡三处自洽。记录只可追加、不可修改删除。</div>';
+      '与上方权限矩阵、角色卡三处自洽。</div>';
   }
   /* ── v29 权限编辑器接线 ────────────────────────────────────────────────
      待提交的勾选状态**只存在 DOM 上**，不进 state —— 保存前不产生任何状态变更，
@@ -2024,11 +2020,9 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       if (!hi) { apply(null); return; }   /* 全低危 → 保存即生效 */
       global.V10UI.dangerConfirm(h, {
         title: '提交权限变更单',
-        desc: '对「' + m.name + '」的权限改动含高危项，需要说明理由并二次确认。',
-        tone: 'danger', perm: 'rbac:role:write', requireReason: true,
+        desc: '对「' + m.name + '」的权限改动含高危项，需要二次确认。',
+        tone: 'danger', perm: 'rbac:role:write',
         confirmText: '提交变更单',
-        action: '调整权限', target: m.name + ' · ' + mid,
-        auditImpact: '高危权限改动需二次审批，审批通过才生效',
         impacts: [
           { label: '新增权限', value: d.add.length ? d.add.length + ' 个' + (d.addHigh ? '（含高危 ' + d.addHigh + '）' : '') : '无', tone: d.addHigh ? 'danger' : '' },
           { label: '收回权限', value: d.rm.length ? d.rm.length + ' 个' + (d.rmHigh ? '（含高危 ' + d.rmHigh + '）' : '') : '无', tone: d.rmHigh ? 'warn' : '' },
@@ -2179,7 +2173,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     };
     /* 顶部一句话：让"该不该留这份权限"不用读完所有块才能判断 */
     var headLine = revoked
-      ? '账号已停用，权限全部回收（操作记录按审计要求保留，只可追加不可删除）'
+      ? '账号已停用，权限全部回收'
       : (idn.mfa === 'none'
           ? '未启用多因素认证 · 这是本账号最大的风险点'
           : (revState === 'overdue'
@@ -2314,18 +2308,13 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
   /* 邀请成员（v26）——
      账号页的主按钮此前是空的，邀请入口整个丢失；v25c 补回了表单，但它**不过门禁**，
      是本页唯一能被任何角色直接打开的写入口。现在两件事分开：
-     先过 dangerConfirm → checkPerm（含强制理由与审计），通过了再填成员信息。 */
+     先过 dangerConfirm → checkPerm，通过了再填成员信息。 */
   ACTIONS['rbac-member-add'] = function (id, btn, h) {
     var S = global.DATA_SEED;
     h.dangerConfirm(h, {
       title: '邀请成员加入平台',
       desc: '邀请一个账号进入本租户：他的可见范围与可执行动作由所选角色决定，不单独授权。',
       perm: 'rbac:member:write',
-      action: '邀请成员',
-      target: '新成员',
-      auditImpact: '账号加入租户，权限随所选角色生效',
-      requireReason: true,
-      reasonLabel: '邀请理由（必填，写进审计）',
       confirmText: '下一步：填写成员信息',
       danger: false,
       impacts: [
@@ -2361,7 +2350,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           return '<option value="' + h.esc(r.id) + '">' + h.esc(r.name) + ' · ' + permN(r.id) + ' 个权限点'
             + (hn ? '（高危 ' + hn + '）' : '') + '</option>';
         }).join('') + '</select>' +
-        '<div class="sub-h" style="margin-top:12px">说明（写进审计，必填）</div>' +
+        '<div class="sub-h" style="margin-top:12px">说明（必填）</div>' +
         '<input class="inp" data-rb="reason" placeholder="例如：新入职客服组长，接手售后工单审批" />' +
         '<div class="bt-note" style="margin-top:10px">' +
         '<b>只给角色、不给单独授权</b> —— 授权一律走角色，避免出现"某人特批"这种事后说不清的口子。' +
@@ -2421,7 +2410,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           '<div class="muted" style="font-size:12px;line-height:var(--lh-body)">' +
           missing.map(function (m) { return h.esc(m.label) + '<span class="mono muted"> ' + h.esc(m.p) + '</span>'; }).join('　·　') + '</div>'
         : '<div class="bt-note">该角色已覆盖全部权限点。</div>') +
-      '<div class="bt-note">改角色需二次确认：需提交变更前后差异、留审计、且不得由本人审批自己提出的变更。</div>' +
+      '<div class="bt-note">改角色需二次确认：需提交变更前后差异，且不得由本人审批自己提出的变更。</div>' +
       '</div></div></div>');
   };
 
@@ -2431,9 +2420,9 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
      ② 强制理由
      ③ 必须看清差异：多出来的权限（尤其高危）、失去的权限
      ④ 不得自审：不能给自己改角色
-     ⑤ 留审计：写进 rbacOps，弹窗里"调整角色"变成"已提交变更单"
+     ⑤ 写进 rbacOps：弹窗里"调整角色"变成"已提交变更单"
    直接改存档听起来更省事，但那样就绕过了审批链 —— 权限体系里
-   "谁改的、凭什么改"必须留痕，"省事"不是理由。 */
+   "谁改的、凭什么改"必须能回答，"省事"不是理由。 */
 ACTIONS['rbac-role-change'] = function (id, btn, h) {
   var S = global.DATA_SEED, ME = S.ME;
   var m = S.OWNERS.filter(function (o) { return o.id === id; })[0];
@@ -2474,7 +2463,7 @@ ACTIONS['rbac-role-change'] = function (id, btn, h) {
         }).join('') +
       '</select>' +
       '<div class="p-diff" data-rb-diff></div>' +
-      '<div class="sub-h" style="margin-top:12px">理由（必填，留审计）</div>' +
+      '<div class="sub-h" style="margin-top:12px">理由（必填）</div>' +
       '<textarea class="inp" data-rb-reason rows="3" placeholder="例如：岗位已调整为数据合规，按最小权限原则随之变更"></textarea>' +
       '<div class="bt-note" data-rb-err style="display:none;color:var(--red)"></div>' +
       '<div class="bt-note">人事字段（姓名 / 部门 / 工号）来自' +
@@ -2510,7 +2499,7 @@ ACTIONS['rbac-role-change'] = function (id, btn, h) {
       }
       paint();
       sel.addEventListener('change', paint);
-      /* 提交：理由必填 → 过门禁 → 生效 → 留审计 */
+      /* 提交：过门禁 → 生效 */
       sheet.querySelector('[data-rb-role-submit]').addEventListener('click', function () {
         var toRid = sel.value;
         var reason = (sheet.querySelector('[data-rb-reason]').value || '').trim();
@@ -2521,20 +2510,13 @@ ACTIONS['rbac-role-change'] = function (id, btn, h) {
         /* 2026-10-21：理由改选填（单账号模式，直接执行并留记录） */
         var d3 = diffs[toRid] || {};
         var toName = (S.ROLES.filter(function (r) { return r.id === toRid; })[0] || {}).name || toRid;
-        /* 门禁与审计都走统一的 dangerConfirm（它一处收口了 20+ 个写操作的门禁） */
+        /* 门禁走统一的 dangerConfirm（它一处收口了 20+ 个写操作的门禁） */
         global.V10UI.dangerConfirm(h, {
           title: '提交角色变更单',
           desc: '把「' + m.name + '」从「' + curName + '」调整为「' + toName + '」？',
           tone: d3.addHigh ? 'danger' : 'warn',
           perm: 'rbac:role:write',
-          /* requireReason:false 且 skipReason:true —— 理由已经在上一层的表单里填过并校验过了。
-             第一版这里写 requireReason:false 但没跳过理由输入，确认层又画了一个理由框；
-             实测时它读到空值把人拦下，于是"填了理由也提交不了"（角色始终不变、审计为空）。
-             理由只该问一次：权限变更的每一步都重复问同一个问题，只会让人随手乱填。 */
-          requireReason: false, skipReason: true, reasonText: reason,
           confirmText: '确认提交',
-          action: '调整角色', target: m.name + ' · ' + m.id,
-          auditImpact: '提交后进入审批链，审批通过才生效',
           impacts: [
             { label: '角色变更', value: curName + ' → ' + toName, tone: 'warn' },
             { label: '新增权限', value: d3.added ? d3.added + ' 个' + (d3.addHigh ? '（含高危 ' + d3.addHigh + '）' : '') : '无', tone: d3.addHigh ? 'danger' : '' },
@@ -2576,9 +2558,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     S.AGENTS.forEach(function (a) { if (a.owner === m.id) owned.push(a.name); });
     h.dangerConfirm(h, {
       title: '停用成员账号', desc: '停用「' + m.name + '」？',
-      tone: 'danger', perm: 'rbac:member:write', requireReason: true, confirmText: '确认停用',
-      action: '停用成员', target: m.name + ' · ' + m.id,
-      auditImpact: '账号停用，权限立即回收',
+      tone: 'danger', perm: 'rbac:member:write', confirmText: '确认停用',
       impacts: [
         { label: '成员', value: m.name + '（' + m.dept + '）' },
         { label: '角色', value: r.name + ' · ' + ps.length + ' 个权限点', tone: 'danger' },
@@ -2886,7 +2866,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     var focusHtml = '<div class="card"><div class="card-h"><h3>该收紧什么</h3>' +
       (_highOn.length ? '<button class="btn-ghost sm" data-act="ar-toggle" data-id="' + h.esc(_highOn[0].id) + '|off" title="就在下方本页签的规则表里处置这些高风险授权">去处置 →</button>' : '') +
       '</div>' +
-      '<div class="bt-note">' + (_highOn.length ? '⚠ ' + _highOn.length + ' 条高风险授权正在启用：' + _highOn.map(function (x) { return h.esc(x.subject + '→' + x.agentCap); }).join('、') + '。建议加双审或限缩数据范围。' : '无启用中的高风险授权；仍应定期复核停用规则。') + '</div></div>';
+      '<div class="bt-note">' + (_highOn.length ? '⚠ ' + _highOn.length + ' 条高风险授权正在启用：' + _highOn.map(function (x) { return h.esc(x.subject + '→' + x.agentCap); }).join('、') + '。建议限缩数据范围或降低授权等级。' : '无启用中的高风险授权；仍应定期复核停用规则。') + '</div></div>';
     return focusHtml + '<div class="card pad0"><div class="card-h pad"><h3>授权规则</h3>' +
       '<span class="card-sub">谁能让 Agent 在什么条件下做什么 · ' + rules.length + ' 条（启用 ' + on + ' / 停用 ' + (rules.length - on) + '）</span>' +
       '<button class="btn-ghost sm" data-act="create-open" data-create="approval-rule">新建规则</button></div>' +
@@ -2942,15 +2922,19 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       /* ── 审批流配置可编辑（v25c，事故后重写）──────────────────────────
      此前这张表是**写死的 5 行字面量**：改不了、加不了、删不了 —— 而"审批流配置"本身
      就该是这一屏的「改」。
-     口径：审批链路的变更必须留痕，**硬删会丢掉"曾经配过什么"**。
+     口径：审批链路的变更要能回答「当时配的是什么」，**硬删会丢掉这个答案**。
      所以会话内状态是 state.aprFlow = { base, edit:{op:{...}}, added:[...], del:{op:{reason,by,at}} }，
      删除做**软删**（留原因 + 可恢复），不是从数组里抹掉。 */
+  /* 2026-10-28：审批链改「单人」—— 原先是「技术负责人 → 业务负责人」这类多人链路，
+     但这套系统只服务一个账号，那些角色根本不存在，链路永远走不通（点下去没人可审）。
+     现在每条链路都是「你一个人能走完」的路：提交 → 冷静期或二次确认 → 留痕生效。
+     敏感度靠两道东西区分，而不是靠加人：① 冷静期长短 ② 是否要写理由/附依据。 */
   var APR_FLOW_BASE = [
-    { op: 'Agent 发布', chain: '技术负责人 → 业务负责人', cond: '影响用户 > 10万 时增加安全负责人', sla: 'P1 4h' },
-    { op: '数据导出', chain: '数据安全负责人', cond: '含 PII 时必须双审', sla: 'P0 3h' },
-    { op: 'MCP 对外开放', chain: '安全负责人 → 架构负责人', cond: '涉及订单/客户数据强制双审', sla: 'P0 3h' },
-    { op: '合规规则发布', chain: '合规负责人', cond: '误报率 > 2% 时驳回并要求重灰度', sla: 'P1 4h' },
-    { op: '沙盒网络放开', chain: '安全负责人', cond: '全开网络需 CTO 审批', sla: 'P2 8h' }
+    { op: 'Agent 发布', chain: '本人提交 → 冷静期 24h 后生效', cond: '影响用户 > 10万 时二次确认并附影响评估', sla: 'P1 4h' },
+    { op: '数据导出', chain: '本人二次确认', cond: '含 PII 时必须附脱敏说明', sla: 'P0 3h' },
+    { op: 'MCP 对外开放', chain: '本人二次确认 + 冷静期 24h', cond: '涉及订单/客户数据必须说明访问范围', sla: 'P0 3h' },
+    { op: '合规规则发布', chain: '本人确认（附合规依据）', cond: '误报率 > 2% 时自动打回重灰度', sla: 'P1 4h' },
+    { op: '沙盒网络放开', chain: '本人确认', cond: '全开网络需附风险评估', sla: 'P2 8h' }
   ];
   function aprFlowState(state) {
     var st = state || {};
@@ -2976,16 +2960,17 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
   global.aprFlowRows = aprFlowRows;
 
   /* 审批流配置的三个动作：改链路 / 停用（软删）/ 恢复 / 新增。
-     全部走 dangerConfirm + 强制原因 —— 审批链路的变更必须留痕。 */
+     停用走 dangerConfirm；改/恢复/新增各写一条自己的变更日志（f.log）。 */
   ACTIONS['apr-flow-edit'] = function (id, btn, h) {
     var S = global.DATA_SEED, ME = S.ME;
     var op = String(id == null ? '' : id);
     var row = aprFlowRows(h.state).filter(function (r) { return r.op === op; })[0];
     if (!row) { h.toast('找不到该操作类型', 'bad'); return; }
+    /* 可选链路全部是「一个人能走完」的形态：不加人，只调冷静期与确认强度 */
     var chainOpts = [
-      '技术负责人 → 业务负责人', '数据安全负责人', '安全负责人 → 架构负责人',
-      '合规负责人', '安全负责人', '业务负责人 → 技术负责人 → CTO',
-      '法务负责人 → 合规负责人'
+      '本人提交 → 冷静期 24h 后生效', '本人二次确认', '本人二次确认 + 冷静期 24h',
+      '本人确认（附合规依据）', '本人确认', '本人提交 → 12h 冷静期 → 生效',
+      '本人二次确认 + 冷静期 72h'
     ];
     global.V10UI.openSheet({
       title: '改「' + op + '」的审批链路',
@@ -3005,7 +2990,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           return '<option value="' + s + '"' + (s === row.sla ? ' selected' : '') + '>' + s + '</option>';
         }).join('') + '</select>' +
         '<div class="sub-h" style="margin-top:12px">变更原因（必填）</div>' +
-        '<input class="inp" data-apr="reason" placeholder="例如：影响面扩大，需要加一道业务负责人审核" />' +
+        '<input class="inp" data-apr="reason" placeholder="例如：影响面扩大，需要加一道二次确认" />' +
         '<div class="bt-note" style="margin-top:10px">改动**影响此后所有该类单据的路由**；' +
         '已进入链路的在途单据按原链路走完，不追溯重排 —— 否则「谁批的」会说不清。</div>',
       footHtml: '<button class="btn-ghost" data-v10="cancel">取消</button>' +
@@ -3041,18 +3026,17 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
        ② 键名 `items` —— dangerConfirm 读 `impacts`（`v10-ui.js:496`），影响面 4 行渲染成空白
        ③ 键名 `warn`  —— dangerConfirm 不读它，那段"为什么不是删除"的解释整段丢失
        ④ 键名 `onOk`  —— dangerConfirm 只调 `onConfirm`（`v10-ui.js:551`）⇒ **确认后什么都不发生**
-          （实测：state.aprFlow.del 仍为 {}、auditList() 0 条 —— 审批流没停用、审计也没留痕）
+          （实测：state.aprFlow.del 仍为 {} —— 审批流没停用）
        ⑤ `perm:'approval:flow:write'` 未在 seed.js 登记 ⇒ 门禁必拦、风险等级回落"低"
-       实测修前弹层可见文本只有：`确认操作？ × 此操作会留审计记录。 取消 确认` */
+       实测修前弹层可见文本只有：`确认操作？ 取消 确认` */
     h.dangerConfirm(h, {
       title: '停用「' + op + '」的审批流',
       /* 原来那段"为什么不是删除"写在 `warn:` 键里（dangerConfirm 不读它，整段丢失）。
          现在并入 desc —— **只用实现真正会渲染的键**，不再自造键名。 */
       desc: '停用后该类操作不再走审批（或回落默认链路）—— 这是放行能力的变更，不是界面开关。' +
         '为什么不是「删除」：审批链路的变更要能回答「当时配的是什么」，硬删会把这个答案丢掉。' +
-        '所以只停用，配置与原因都留在表里，可随时恢复。',
+        '所以只停用，配置留在表里，可随时恢复。',
       perm: 'approval:flow:write',
-      requireReason: true,
       impacts: [
         { label: '操作类型', value: op },
         { label: '现有链路', value: row.chain },
@@ -3098,9 +3082,9 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           return '<option value="' + h.esc(o) + '">' + h.esc(o) + '</option>';
         }).join('') + '</select>' +
         '<div class="sub-h" style="margin-top:12px">审批链路</div>' +
-        '<input class="inp" data-apr="chain" placeholder="例如：技术负责人 → 业务负责人" />' +
+        '<input class="inp" data-apr="chain" placeholder="例如：本人提交 → 冷静期 24h 后生效" />' +
         '<div class="sub-h" style="margin-top:12px">条件路由</div>' +
-        '<input class="inp" data-apr="cond" placeholder="例如：影响用户 > 10万 时增加安全负责人" />' +
+        '<input class="inp" data-apr="cond" placeholder="例如：影响用户 > 10万 时二次确认并附影响评估" />' +
         '<div class="sub-h" style="margin-top:12px">SLA</div>' +
         '<select class="inp" data-apr="sla"><option>P0 3h</option><option selected>P1 4h</option><option>P2 8h</option><option>P3 24h</option></select>' +
         '<div class="sub-h" style="margin-top:12px">新增原因（必填）</div>' +
@@ -3136,9 +3120,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     var all = q.items.map(function (i) {
       var o = _aprOv[i.id];
       if (!o) return i;
-      /* v19：escalated 项带 escalated 标记（pending 过滤依赖）；pending-stage2 视为未决且不在我的待办 */
-      if (o.s === 'escalated') return Object.assign({}, i, { approver: '上级审批人（已转交）', escalated: true, decided: null });
-      if (o.s === 'pending-stage2') return Object.assign({}, i, { approver: '二级审批人（待终审）', stage2: true, decided: null, escalated: true });
+      /* 2026-10-28：删掉「已转交上级」「待二级终审」两个状态 —— 单人系统里没有上级可转、
+         也没有第二个人能做二级。留着这两个状态，单据会永远卡在 stage2 出不去。 */
       return Object.assign({}, i, {
         decided: o.s, decidedBy: '我', decidedDays: 0, handledMin: i.waitMin,
         reason: o.reason || '—'
@@ -3170,7 +3153,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
              与可观测页的 obsTabs / 账号页的 reviewTabs 同一套，不新造）
          ② 超 SLA 的审批单独置顶一条（ov-focus 焦点条），不再只压在一张 KPI 卡的副标题里
          ③ 全屏共用的 5 张 KPI 卡拆成「页签内指标带」（ov-strip，与总览屏健康带同一套类名）
-         ④ 表内操作**保留原有动作与 data-id 语义**：待我审批的 通过/驳回/转交 逐行仍在
+         ④ 表内操作**保留原有动作与 data-id 语义**：待我审批的 通过/驳回 逐行仍在
             （apr-decide，73→约 24 个按钮，降的是同屏密度而不是能力）
        风险提示（诚实边界）：五个页签**同屏不可见**是这次重排的代价 ——
        原来的"一屏扫全部"变成"一次看一件事"。判断依据是同屏互斥，而不是信息丢失：
@@ -3225,7 +3208,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { label: '已处理', value: String(decided.length), sub: '通过 ' + approvedN + ' / 驳回 ' + rejectedN },
         { label: '平均处理时长', value: avgHandled != null ? fmt.wait(Math.round(avgHandled)) : '—', sub: '已决单据从提交到结单的用时' }
       ]) +
-      '<div class="card pad0"><div class="card-h pad"><h3>已处理</h3><span class="card-sub">含驳回理由，全部留审计 · 点行看单据与处理链</span></div>' +
+      '<div class="card pad0"><div class="card-h pad"><h3>已处理</h3><span class="card-sub">含驳回理由 · 点行看单据与处理链</span></div>' +
       h.table({
         columns: [
           { key: 'level', label: '等级', render: function (r) { return h.pill(r.levelKind, r.level); } },
@@ -3239,15 +3222,13 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         /* 行内详情取**该单据自己的字段**，不另编内容 */
         detailHtml: function (r) {
           return '申请人：' + (r.applicant || '—') + ' · 等级 ' + (r.level || '—') +
-            ' · 影响面：' + (r.impact || '—') +
-            (r.escalateN ? ' · 转交 ' + r.escalateN + ' 次' : '') +
-            (r.stage2 ? ' · 二级审批：' + (r.stage2.byName || '—') : '');
+            ' · 影响面：' + (r.impact || '—');
         }
       }) + '</div>';
     } else if (aTab === 'apr-mine') {
       apBody = apStrip([
         { label: '我发起的', value: String(mine.length), sub: mine.filter(function (i) { return !i.decided; }).length + ' 个审批中 · ' + mine.filter(function (i) { return i.decided; }).length + ' 个已结单' },
-        { label: '待我审批', value: String(pending.length), alert: pending.length > 0, sub: '他人发起、等我处置' }
+        { label: '待我审批', value: String(pending.length), alert: pending.length > 0, sub: '等处置' }
       ]) +
       '<div class="card pad0"><div class="card-h pad"><h3>我发起的变更</h3><span class="card-sub">我提交的单据在链路中的进展，等待审批人处理 · 点行看影响面</span></div>' +
       h.table({
@@ -3314,7 +3295,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
                 (r.impact ? '<div class="td-sub impact-txt">' + h.esc(r.impact) + '</div>' : '');
             } },
           { key: 'waitMin', label: '等待', sortable: true, align: 'right', render: function (r) { var over = r.waitMin > r.slaMin; return '<span class="' + (over ? 'bad' : '') + '">' + fmt.wait(r.waitMin) + (over ? ' ⚠超时' : '') + '</span>'; } },
-          { key: 'act', label: '操作', render: function (r) { return '<button class="lnk ok" data-act="apr-decide" data-id="' + h.esc(r.id) + '|approve">通过</button> · <button class="lnk warn" data-act="apr-decide" data-id="' + h.esc(r.id) + '|reject">驳回</button> · <button class="lnk" data-act="apr-decide" data-id="' + h.esc(r.id) + '|escalate">转交</button>'; } }
+          { key: 'act', label: '操作', render: function (r) { return '<button class="lnk ok" data-act="apr-decide" data-id="' + h.esc(r.id) + '|approve">通过</button> · <button class="lnk warn" data-act="apr-decide" data-id="' + h.esc(r.id) + '|reject">驳回</button>'; } }
         ],
         rows: pendingSorted, noPaging: true,
         emptyTitle: '没有待处理的审批', emptySub: '所有单据均已处理完毕'
@@ -3325,9 +3306,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
 
       h.metaBar({}, [
         { k: '本页分区', v: '六件事分六个页签，同一时刻只展示一类（角标为该类条数）：待我审批 / 我发起的 / 已处理 / 授权规则 / 安全事件 / 审批流配置。页签是"同屏互斥"不是"数据折叠"—— 每类的表、列、动作与切分前逐字相同，分别在同一页签内可查；页头「发起审批」始终可用' },
-        { k: '审计', v: '所有权限变更与审批动作记录「谁 · 做了什么 · 对谁 · 何时」。生产要求：只可追加、不可修改删除，后端留存 ≥ 3 年。演示环境仅存浏览器会话存储、刷新即清空，不作为合规依据' },
         { k: '授权口径', v: '授权规则为配置态：主体 × Agent 能力 × 动作 × 数据范围 × 条件；启用 + 停用 = 规则总数' },
-        { k: '事件口径', v: '安全事件来自拦截/审计日志（近 14 天）；待处置/已阻断/已处置计数与列表一致' },
+        { k: '事件口径', v: '安全事件来自拦截日志（近 14 天）；待处置/已阻断/已处置计数与列表一致' },
         { k: '视角口径', v: '当前用户 = ' + h.esc((global.CURRENT_USER || {}).name || '—') + '（' + h.esc((global.CURRENT_USER || {}).role || '—') + '）：待我审批不含本人发起的单据；已处理由已决列表推导；我发起的单据标 mine，含审批中与已结单' }
       ]);
   }
@@ -3344,8 +3324,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
    *    负责桥接的 `global.__v19_complianceCover` 全仓无定义（v19-governance-fix.js 里只有注释 + 一处 guard）
    *    ⇒ 详情判定成功、列表条目照旧。用户以为没成功，就重复判定；以为已生效，就按旧状态办事。
    * 现在：读端一律走 compDecidedOf(state)；审阅台（鼠标按钮 + 键盘 A/D）也写同一份 aprOps。
-   * 合规三态取值与审批覆盖层（approved / rejected / escalated / pending-stage2）**天然不撞**，可共存于 aprOps。 */
-  var COMP_DECISION_LABEL = { pass: '通过（误报）', reject: '确认违规（驳回）', escalate: '升级至高级审核员' };
+   * 合规三态取值与审批覆盖层（approved / rejected）**天然不撞**，可共存于 aprOps。 */
+  var COMP_DECISION_LABEL = { pass: '通过（误报）', reject: '确认违规（驳回）', escalate: '存疑待核' };
   function compOpsOf(state) {
     var st = state || (global.APP_SHELL && global.APP_SHELL.state) || {};
     return (st && st.aprOps) || {};
@@ -3384,20 +3364,14 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
      同一界面两套行为（点按钮没反应、按键盘却生效）是最伤信任的一类缺陷，这里让鼠标走同一条通道。 */
   ACTIONS['review-decide'] = function (id, btn, h) {
     var p = String(id == null ? '' : id).split('|');
-    var label = { pass: '通过', reject: '驳回', escalate: '升级' }[p[1]] || '通过';
+    var label = { pass: '通过', reject: '驳回', escalate: '存疑待核' }[p[1]] || '通过';
     var it = (queues().compliance.items || []).filter(function (x) { return x.id === p[0]; })[0];
     /* 与详情页共写同一份结论（此前只写模块私有变量 ⇒ 详情页看不到、governance 覆盖层也看不到） */
     compDecide(h.state, p[0], COMP_DECISION_LABEL[p[1]] ? p[1] : 'pass', '合规审阅台判定');
-    /* v19：合规判定写审计（此前「未落库」是真话但治理上是缺陷 —— 判定必须留痕） */
-    if (global.V19GOV && global.V19GOV.auditDecide) {
-      global.V19GOV.auditDecide({ decision: label, title: it ? it.rule : p[0], target: p[0], reason: '合规审阅台判定' });
-    } else if (global.V10UI && global.V10UI.audit) {
-      global.V10UI.audit({ action: label + '「' + (it ? it.rule : p[0]) + '」', target: p[0], impact: '结论：' + label, at: null });
-    }
     reviewToast('已' + label + '：' + (it ? it.rule : p[0]) + '（本会话）', p[1] === 'reject' ? 'bad' : 'ok');
     reviewRerender();
   };
-  /* v15：审批列表的 通过/驳回/转交 —— 详情页早就做真了，列表却还是空动作。统一走确认+理由+审计。 */
+  /* v15：审批列表的 通过/驳回 —— 详情页早就做真了，列表却还是空动作。统一走确认层。 */
   ACTIONS['apr-decide'] = function (id, btn, h) {
     var p = String(id == null ? '' : id).split('|');
     var it = queues().approval.items.filter(function (x) { return x.id === p[0]; })[0];
@@ -3405,8 +3379,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     var op = p[1] || 'approve';
     var map = {
       approve: { t: '通过', s: 'approved', tone: 'normal', perm: 'approval:decide:approve', reason: true },
-      reject: { t: '驳回', s: 'rejected', tone: 'danger', perm: 'approval:decide:reject', reason: true },
-      escalate: { t: '转交上级', s: 'escalated', tone: 'warn', perm: 'approval:decide:escalate', reason: false }
+      reject: { t: '驳回', s: 'rejected', tone: 'danger', perm: 'approval:decide:reject', reason: true }
+      /* 2026-10-28：删「转交上级」—— 单人系统里没有上级可转交。 */
     };
     var m = map[op] || map.approve;
     h.dangerConfirm(h, {
@@ -3414,32 +3388,16 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       tone: m.tone, perm: m.perm,
       impacts: [
         { label: '影响面', value: it.impact },
-        { label: '等待时长', value: h.fmt.wait(it.waitMin) + (it.waitMin > it.slaMin ? '　已超 SLA' : '') },
-        { label: '留痕', value: m.reason ? '结论与理由写入审计' : '转交不写结论，由上级判定' }
+        { label: '等待时长', value: h.fmt.wait(it.waitMin) + (it.waitMin > it.slaMin ? '　已超 SLA' : '') }
       ],
-      requireReason: m.reason, confirmText: '确认' + m.t,
-      action: m.t, target: it.id + ' · ' + it.title, auditImpact: it.impact,
+      confirmText: '确认' + m.t,
       onConfirm: function (reason) {
         h.state.aprOps = h.state.aprOps || {};
-        /* v19：转交真离开我的待办（escalated 覆盖层由 getQueues 补丁消费，待办过滤 !x.escalated）；
-           P0/P1 单据双审两段：一级通过后进入 pending-stage2，仍待二级终审 */
-        var stages = (global.V19GOV && global.V19GOV.needStages) ? global.V19GOV.needStages(it.level) : 1;
-        var rec;
-        if (op === 'escalate') {
-          rec = { s: 'escalated', reason: reason || '', by: '我', at: Date.now(), escalated: true };
-        } else if (op === 'approve' && stages > 1 && !(it.stage2 || (h.state.aprOps[it.id] && h.state.aprOps[it.id].stage2))) {
-          rec = { s: 'pending-stage2', reason: reason || '', by: '我', stage2: true };
-        } else {
-          rec = { s: m.s, reason: reason || '', by: '我' };
-        }
-        h.state.aprOps[it.id] = rec;
-        if (global.V19GOV && global.V19GOV.auditDecide) {
-          global.V19GOV.auditDecide({ decision: m.t + (rec.s === 'pending-stage2' ? '（一级·待二级）' : ''), title: it.title, target: it.id, reason: reason || '' });
-        }
-        h.toast(rec.s === 'pending-stage2'
-          ? '已通过（一级）· 待二级审批终审'
-          : (op === 'escalate' ? '已转交上级 · 单据移出我的待办' : '演示环境：已' + m.t + '「' + it.title + '」（本会话）'),
-          op === 'reject' ? 'bad' : 'ok');
+        /* 2026-10-28：审批压成一级 —— 谁发起、谁审批、谁承担后果，都是同一个人。
+           P0 原先要「两级异人复审」，单人系统里那一级没人能签，单据会永远卡在 pending-stage2。
+           所以不再分两段：一次通过即生效，风险靠 SLA 与「影响面」在确认弹层里说清。 */
+        h.state.aprOps[it.id] = { s: m.s, reason: reason || '', by: '我' };
+        h.toast('演示环境：已' + m.t + '「' + it.title + '」（本会话）', op === 'reject' ? 'bad' : 'ok');
         h.navigate({}, { scroll: false });
       }
     });
@@ -3460,8 +3418,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { label: '风险等级', value: r.risk + (off && r.risk === '高' ? '　停用后该主体立即失去权限' : '') },
         { label: '可回滚', value: '是 —— 可再次切换' }
       ],
-      requireReason: off, confirmText: '确认' + (off ? '停用' : '启用'),
-      action: off ? '停用授权规则' : '启用授权规则', target: r.id + ' · ' + r.subject,
+      confirmText: '确认' + (off ? '停用' : '启用'),
       onConfirm: function () {
         h.state.arOps = h.state.arOps || {};
         h.state.arOps[r.id] = off ? 'off' : 'on';
@@ -3506,36 +3463,27 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       if (k === 'a' || k === 'A') {
         e.preventDefault();
         compDecide(sh.state, id, 'pass', '合规审阅台键盘判定');
-        if (global.V19GOV && global.V19GOV.auditDecide) {
-          var ruleTxt = (cur.querySelector('.rv-rule') || {}).textContent || id;
-          global.V19GOV.auditDecide({ decision: '通过', title: ruleTxt, target: id, reason: '合规审阅台键盘判定' });
-        }
         reviewToast('已通过：' + (cur.querySelector('.rv-rule') || {}).textContent + '（本会话）', 'ok');
         reviewCur = Math.min(reviewCur, Math.max(0, getItems().length - 1));
         reviewRerender();
       } else if (k === 'd' || k === 'D') {
         e.preventDefault();
         var ruleTxtD = (cur.querySelector('.rv-rule') || {}).textContent || id;
-        /* v19：驳回是负面决定，理由必填（键盘通道与鼠标通道同标准） */
+        /* v19：驳回是负面决定，两条通道都要问一句（键盘通道与鼠标通道同标准） */
+        /* 2026-10-28：理由框去掉 —— 审计删除后理由没有去处，鼠标通道（ap-decide）也不填了，
+           两条通道必须同一标准，否则键盘按 D 会被多要求一次。 */
         if (global.V10UI && global.V10UI.openSheet) {
           global.V10UI.openSheet({
             title: '驳回「' + ruleTxtD + '」？',
-            bodyHtml: '<div class="v10-sheet-desc">驳回为负面结论，必须说明理由（写入审计）。</div>' +
-              '<div class="v10-reason"><textarea data-v10="reason" placeholder="写明驳回理由"></textarea><div class="err" data-v10="err" style="display:none">理由必填</div></div>',
+            bodyHtml: '<div class="v10-sheet-desc">驳回是负面结论，会直接改变这条的判定。</div>',
             footHtml: '<button class="btn-ghost" data-v10="cancel">取消</button><button class="btn-danger" data-v10="ok">确认驳回</button>',
             onOpen: function (root) {
               root.addEventListener('click', function (ev) {
                 var g = ev.target.getAttribute && ev.target.getAttribute('data-v10');
                 if (g === 'cancel') { global.V10UI.closeSheet(); return; }
                 if (g !== 'ok') return;
-                var ta = root.querySelector('[data-v10="reason"]');
-                var rs = ta ? String(ta.value || '').trim() : '';
-                if (!rs) { var er = root.querySelector('[data-v10="err"]'); if (er) er.style.display = 'block'; if (ta) ta.focus(); return; }
                 global.V10UI.closeSheet();
-                compDecide(sh.state, id, 'reject', rs);
-                if (global.V19GOV && global.V19GOV.auditDecide) {
-                  global.V19GOV.auditDecide({ decision: '驳回', title: ruleTxtD, target: id, reason: rs });
-                }
+                compDecide(sh.state, id, 'reject', '');
                 reviewToast('已驳回：' + ruleTxtD + '（本会话）', 'bad');
                 reviewRerender();
               });
@@ -3626,7 +3574,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
              改横排 + 键帽印在按钮上（A 通过 / D 驳回），键盘提示与位置一一对应。 */
           '<button class="btn-ghost ok" data-act="review-decide" data-id="' + h.esc(it.id) + '|pass"><kbd class="kbd">A</kbd>通过（误报）</button>' +
           '<button class="btn-ghost danger" data-act="review-decide" data-id="' + h.esc(it.id) + '|reject"><kbd class="kbd">D</kbd>确认违规</button>' +
-          '<button class="btn-ghost sm" data-act="review-decide" data-id="' + h.esc(it.id) + '|escalate">升级</button>' +
+          '<button class="btn-ghost sm" data-act="review-decide" data-id="' + h.esc(it.id) + '|escalate">存疑待核</button>' +
           // 详情下钻：R.complianceDetail 早已实现（v10-detail-gov.js），此前无任何入口能到它
           '<button class="btn-ghost sm" data-act="comp-detail" data-id="' + h.esc(it.id) + '">详情</button>' +
           '<div class="rv-note">同类案例历史判定：' + (function () {
@@ -3666,30 +3614,6 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           } }
         ],
         rows: packsEff, noPaging: true
-      }) + '</div>' +
-
-      '<div class="card"><div class="card-h"><h3>审计日志</h3>' +
-      '<span class="card-sub">只可追加、不可修改删除 · 导出需最高权限并留痕</span></div>' +
-      h.table({
-        columns: [
-          { key: 'ts', label: '时间', mono: true }, { key: 'actor', label: '操作人' },
-          { key: 'action', label: '动作' }, { key: 'obj', label: '对象' },
-          { key: 'result', label: '结论' }, { key: 'reason', label: '理由' },
-          /* 出口：结论指向**具体合规条目**的行给真入口（comp-detail 按 id 查行）；
-             系统自动拦截 / 批量处理这类**没有单条对象**的行如实说明，不挂会落空的按钮。 */
-          { key: 'act', label: '', render: function (r) {
-            return r.objId
-              ? '<button class="lnk" data-act="comp-detail" data-id="' + h.esc(r.objId) + '">看对象 →</button>'
-              : '<span class="muted" title="' + h.esc(r.noObjWhy || '本行没有单条可跳转的对象') + '">批量 / 系统动作</span>';
-          } }
-        ],
-        rows: [
-          { ts: fmt.dt(S.NOW_TS - 42 * 60000), actor: '—', action: '判定违规', obj: 'cp-2 营销文案', objId: 'cp-2', result: '驳回', reason: '构成效果承诺，违反广告法 §9' },
-          { ts: fmt.dt(S.NOW_TS - 96 * 60000), actor: '—', action: '规则包灰度', obj: '广告法新增表述规则 v13', objId: null, noObjWhy: '规则包是配置对象，入口在「规则包」卡（上表）', result: '灰度 10%', reason: '观察误报率' },
-          { ts: fmt.dt(S.NOW_TS - 320 * 60000), actor: '—', action: '规则包发布', obj: '敏感表述-广告法 v12', objId: null, noObjWhy: '规则包是配置对象，入口在「规则包」卡（上表）', result: '通过', reason: '回测误报率 1.8% 达标' },
-          { ts: fmt.dt(S.NOW_TS - 1440 * 60000), actor: '系统', action: '自动拦截', obj: '批量 1,284 条', objId: null, noObjWhy: '自动拦截是批量动作，不存在单条对象；逐条核对走 trace 检索按 E_COMPLIANCE 下钻', result: '拦截', reason: '命中 §3.2 绝对化用语' }
-        ],
-        noPaging: true
       }) + '</div>' +
       h.metaBar(k.meta, [{ k: '拦截口径', v: '合规拦截数 = 错误码 E_COMPLIANCE 的调用数，可从 trace 检索页按该错误码下钻逐条核对' }]);
   }
@@ -3985,7 +3909,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         return '<div class="card pipe-card' + (uoOverride(it.id) ? ' uo-stopped' : '') + '"><div class="card-h">' +
           '<h3><button class="lnk" data-act="uo-detail" data-id="' + h.esc(it.id) + '" title="查看该策略的四个阶段明细与效果回收">' + h.esc(it.name) + '</button></h3>' +
           h.pill(uoOverride(it.id) ? (uoStatus(it) === 'paused' ? 'warn' : 'idle') : (it.status === 'running' ? 'ok' : (it.status === 'gray' ? 'info' : 'warn')), uoStatusText(it)) +
-          '<span class="card-sub">' + h.esc(it.owner) + ' · ' + h.esc(it.bizText) +
+          '<span class="card-sub">' + h.esc(it.bizText) +
           ' · 目标分群：' + (it.segName ? h.esc(it.segName) : '实时圈选（未引用分群）') + '</span></div>' +
           stageFlow(it.stages, h) +
           (it.stages[0].excluded ? '<div class="excl-row"><i>圈人排除</i>' +
@@ -3997,7 +3921,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           (it.stages[0].health ? '<div class="excl-row"><i>健康分</i>' +
             '<span class="ok">绿 ' + fmt.int(it.stages[0].health.green) + '（常规提醒）</span>' +
             '<span class="warn">黄 ' + fmt.int(it.stages[0].health.yellow) + '（客户经理介入）</span>' +
-            '<span class="bad">红 ' + fmt.int(it.stages[0].health.red) + '（升级主管）</span>' +
+            '<span class="bad">红 ' + fmt.int(it.stages[0].health.red) + '（优先人工介入）</span>' +
             '<span class="muted">圈人时点快照 —— 红/黄账户由客户成功跟进，触达只是兜底而非主力（B2B 续费口径）</span></div>' : '') +
           (r ? '<div class="result-box" id="uo-res-' + h.esc(it.id) + '">' +
             '<div class="rb-h"><b>效果回收</b><span>' + h.esc(r.window) + '</span></div>' +
@@ -4031,7 +3955,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           '</div>';
       }).join('') +
 
-      '<div class="card" data-static="1" title="只读说明：本卡是生效中的防护策略汇总（预算/冷却/实验纪律/用户偏好）。改动这些策略点击即生效，并写审计；单条策略在「能力与权限 › 授权规则」里改。"><div class="card-h"><h3>触达防护</h3>' +
+      '<div class="card" data-static="1" title="只读说明：本卡是生效中的防护策略汇总（预算/冷却/实验纪律/用户偏好）。改动这些策略点击即生效；单条策略在「能力与权限 › 授权规则」里改。"><div class="card-h"><h3>触达防护</h3>' +
       '<span class="card-sub">全中台唯一对真人用户产生副作用的链路（短信 / Push / 站内信触达真实用户），防护最重</span></div>' +
       (p.guardrails ? '<div class="excl-row"><i>全局预算</i><span>' + h.esc(p.guardrails.monthlyCapText) + '</span></div>' +
       '<div class="excl-row"><i>冷却静默</i><span>' + h.esc(p.guardrails.cooling) + '</span>' +
@@ -4067,7 +3991,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         return '<div class="card pipe-card"><div class="card-h"><h3>' + h.esc(it.name) + '</h3>' +
           h.pill(it.status === 'gray' ? 'info' : (it.status === 'evaluate' ? 'warn' : 'idle'), it.statusText) +
           '<span class="card-sub"><button class="lnk" data-act="goto-agent" data-id="' + h.esc(it.agentId) + '">' + h.esc(it.agentName) + '</button> · ' +
-          h.esc(it.triggerText) + ' · ' + h.esc(it.owner) + ' · 创建于 ' + fmt.rel(it.createdAt) + '</span></div>' +
+          h.esc(it.triggerText) + ' · 创建于 ' + fmt.rel(it.createdAt) + '</span></div>' +
           stageFlow(it.stages, h) +
 
           (it.stages[0].clusters ? '<div class="sub-h">badcase 聚类结果（' + it.stages[0].count + ' 例 → ' + it.stages[0].clusters.length + ' 类）</div>' +
@@ -4232,7 +4156,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       { key: 'ents', label: '覆盖企业', sortable: true, align: 'right', render: function (r) { return h.esc(fmt.int(r.ents)) + '<div class="td-sub">' + h.esc(r.entsScope || '') + '</div>'; } },
       { key: 'tags', label: '核心标签', render: function (r) { return (r.tags || []).map(function (x) { return '<span class="tag">' + h.esc(x) + '</span>'; }).join('') || '<span class="muted">未打标签</span>'; } },
       { key: 'refCount', label: '被引用', sortable: true, align: 'right', render: function (r) { return '<button class="lnk" data-act="persona-refs" data-id="' + h.esc(r.id) + '">' + h.esc(fmt.int(r.refCount)) + '</button><div class="td-sub">' + h.esc(r.heatText) + '</div>'; } },
-      { key: 'owner', label: '负责人', render: function (r) { return h.esc(r.owner); } },
+      /* 2026-10-28：负责人列已删 —— 5 行画像以前全是「—」，整列只有破折号。 */
       { key: 'updated', label: '更新时间', sortable: true, render: function (r) { return h.esc(fmt.rel(r.updated)) + (r.overdueDays > 0 ? '<div class="td-sub">超期 ' + r.overdueDays + ' 天</div>' : ''); } },
       { key: 'status', label: '状态', render: function (r) { return h.pill(r.status, r.statusText); } }
     ];
@@ -4316,7 +4240,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
               (tags.length ? '<span class="kb-pf-tags">' + tags.map(function (x) {
                 return '<span class="tag-mini">' + h.esc(x) + '</span>';
               }).join('') + '</span>' : '') +
-              '<span class="kb-mt">被引用 ' + h.fmt.int(r.refCount) + ' · ' + h.esc(r.owner) + ' · ' + h.esc(h.fmt.rel(r.updated)) + '</span>' +
+              '<span class="kb-mt">被引用 ' + h.fmt.int(r.refCount) + ' · ' + h.esc(h.fmt.rel(r.updated)) + '</span>' +
               '<span class="pill ' + st[0] + '">' + h.esc(st[1]) + '</span>' +
               '</div>';
           }).join('') + '</div>'
@@ -4370,7 +4294,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
 
     function installPersonaShape(rawPersonaDetail) {
     /* ⚠ 会话态读法：本包装器拿到的 `state` 与 `h.state` 在真实页面里是**同一个对象**
-       （app.js 把 APP_SHELL.state 直接传给渲染器），但审计脚本是"自造 state 直调渲染器"，
+       （app.js 把 APP_SHELL.state 直接传给渲染器），但走查脚本是"自造 state 直调渲染器"，
        两条路会分叉 —— 实测：探针把 personaFirmsOpen 写在 state 上、渲染器读 h.state，展开不起作用，
        于是"看全部 96 家"这条出口在质检里变成假出口。
        所以统一走这个读法：**先看传进来的 state，再看 h.state** —— 两条路都读得到，
@@ -4509,7 +4433,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       var bk = [['大型', scale['大型'] || 0], ['中型', scale['中型'] || 0], ['小型', scale['小型'] || 0]]
         .filter(function (x) { return x[1]; })
         .map(function (x) { return x[1] + ' 家' + x[0]; }).join('、');
-      return '<div class="ov-persona-strip" style="border:1px solid var(--line);border-left:3px solid var(--blue);' +
+      return '<div class="ov-persona-strip" style="border:1px solid #CFE0FF;' +
         'border-radius:8px;background:#fff;padding:10px 12px;margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">' +
         '<div style="min-width:0;flex:1 1 280px">' +
         '<div style="font-size:13px"><b>覆盖企业 ' + fmt.int(firms.length) + ' 家</b> · 平均意向分 ' + avg +
@@ -4648,7 +4572,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         return '<div class="ins"><i>' + h.esc(b.name) + '</i><b>' + fmt.pct0(b.max) + '</b><span>' +
           b.n + ' 个实例' + (b.warn ? ' · ⚠ ' + b.warn + ' 个需关注' : '') + '</span></div>';
       }).join('') + '</div>' +
-      '<div class="bt-note">抬升资源（扩容 / 放开网络白名单）会改变隔离边界，改动会写审计。</div></div>';
+      '<div class="bt-note">抬升资源（扩容 / 放开网络白名单）会改变隔离边界。</div></div>';
 
     return pageHead(h, cap, {
       side: '<span class="side-note" data-tip="沙盒实例为配置态资源，存在实时水位概念但无时间序列指标，不提供时间范围选择。">配置态数据 · 无时间维度</span>',
@@ -5826,7 +5750,6 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     var kbDis = (state && state.kbDisabled) || {};
     var kbOffN = rows.filter(function (r) { return kbDis[r.id]; }).length;
     /* 判据统一用 >=：原来这里用 >、verdict 用 >=，边界值上两处会分叉。 */
-    var kbAttention = rows.filter(function (r) { return !kbDis[r.id] && (r.zeroRate >= ZERO_WARN || r.status !== 'ok'); });
 
     function verdict(r) {
       if (kbDis[r.id]) return { k: 'idle', t: '已停用' };
@@ -5871,19 +5794,9 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       cols.push({ key: 'judge', label: '结论', render: function (r) { var v = verdict(r); return h.pill(v.k, v.t); } });
       cols.push({ key: 'act', label: '', render: function (r) { return '<button class="lnk" data-act="kb-open-test" data-id="' + h.esc(r.id) + '">检索测试</button>'; } });
 
-      var attHtml = '';
-      if (kbAttention.length) attHtml = '<div class="card"><div class="card-h"><h3>需关注的知识库</h3>' +
-        '<span class="card-sub">零结果率高 = 内容有缺口；同步滞后 = 索引旧 —— 都是「Agent 答错」的直接诱因</span></div>' +
-        '<div class="ab-list">' + kbAttention.map(function (r) {
-          var why = r.status !== 'ok' ? r.statusText : '零结果率 ' + fmt.pct1(r.zeroRate);
-          return '<button class="ab-item" data-act="kb-open-test" data-id="' + h.esc(r.id) + '">' +
-            '<b>' + h.esc(r.name) + '</b><span>' + h.esc(fmt.rel(r.lastSyncText)) + '</span>' +
-            '<span class="ab-why">' + why + '</span>' +
-            '<span class="ab-go">去检索测试 →</span></button>';
-        }).join('') + '</div></div>';
-
-      /* v26：列表页也桌面化 —— 每个库一个文件夹图标（网格，默认），顶部可切回表格。
-         网格与表格共用同一份 rows，不存在"两种视图两套数"。 */
+      /* 「需关注的知识库」卡片整块删除（2026-10-28 业主截图「删除这个」）。
+         它要回答的问题（哪个库有缺口、同步滞后）在下面三栏的状态点和结论里已经有答案，
+         重复一遍等于同一个信息给两个入口。要修哪个库，直接在清单里看红点。 */
       var kbLayout = (global.KBDESK && global.KBDESK.libLayout) ? global.KBDESK.libLayout(h) : 'grid';
       return head +
         '<div class="metrics">' + [
@@ -5892,18 +5805,21 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           { label: '平台调用总量（' + Q.RANGES[state.range].label + '）', value: fmt.compact(k.calls), sub: '全部 Agent 的调用之和', definition: k.meta.definitions.calls },
           { label: '平均零结果率（全库均值）', value: fmt.pct1(avgZero), alert: avgZero > ZERO_WARN, sub: '各库阈值 ' + fmt.pct1(ZERO_WARN) + '（注意线 ' + fmt.pct1(ZERO_NOTICE) + '）；此卡是全库均值，单库是否超标看结论列' }
         ].map(h.metricCard).join('') + '</div>' +
-        attHtml +
-        '<div class="card pad0' + (kbLayout === 'grid' ? ' kb-desk-card' : '') + '"><div class="card-h pad"><h3>全部知识库</h3>' +
-        '<span class="card-sub">' + rows.length + ' 个库' + (kbOffN ? ' · 已停用 ' + kbOffN + ' 个' : '') + ' · ' + (kbLayout === 'grid'
-          ? '双击进库，右键可停用 / 检索测试'
-          : '点击库名进详情') + '</span>' +
+        '<div class="card pad0 kb-desk-card"><div class="card-h pad"><h3>全部知识库</h3>' +
+        '<span class="card-sub">' + rows.length + ' 个库' + (kbOffN ? ' · 已停用 ' + kbOffN + ' 个' : '') +
+          ' · 单击看详情，双击进库</span>' +
         (global.KBDESK ? global.KBDESK.viewToggle('lib', kbLayout) : '') + '</div>' +
+        /* 2026-10-28（业主：「外面列表也这样搞」）：列表视图不再用十列大宽表，
+           换成和库内一致的文件管理器三栏（左侧分组树 / 中间库清单 / 右侧库详情预览）。
+           h.table 那条留作兜底 —— KBDESK 没加载时仍能出表。 */
         (kbLayout === 'grid' && global.KBDESK
           ? kbGridWithOffPill(global.KBDESK.libHtml(h, rows), kbDis)
-          : h.table({ columns: cols, rows: rows, sortBy: state.sortKey, sortDir: state.sortDir, page: state.page || 1, pageSize: 20,
+          : (global.KBDESK && global.KBDESK.libColView
+            ? global.KBDESK.libColView(h, rows, { dis: kbDis, verdict: verdict, zeroWarn: ZERO_WARN })
+            : h.table({ columns: cols, rows: rows, sortBy: state.sortKey, sortDir: state.sortDir, page: state.page || 1, pageSize: 20,
               emptyTitle: '还没有知识库',
               emptySub: '知识库给各 Agent 提供检索增强能力 —— 文档不进来，Agent 就答不准。先建一个，把产品、政策、话术、案例文档放进去。',
-              emptyAction: { act: 'create-open', create: 'knowledge', text: '新建知识库' } })) + '</div>' +
+              emptyAction: { act: 'create-open', create: 'knowledge', text: '新建知识库' } }))) + '</div>' +
         h.metaBar({}, [{ k: '数据性质', v: '库配置为维度数据；命中 / 零结果率为运行态聚合；「' + Q.RANGES[state.range].label + '」检索调用来自 QUERY（全站口径）' }]);
     }
 
@@ -6114,7 +6030,6 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       '<dt>行业</dt><dd>' + h.esc(r.industry || '—') + '</dd>' +
       '<dt>覆盖企业</dt><dd>' + fmt.int(r.ents) + ' 家（按 USCC 去重）</dd>' +
       '<dt>被引用</dt><dd>' + fmt.int(r.refCount) + ' 次 · ' + h.esc(r.heatText) + '</dd>' +
-      '<dt>负责人</dt><dd>' + h.esc(r.owner) + '</dd>' +
       '<dt>更新时间</dt><dd>' + fmt.rel(r.updated) + (r.overdueDays > 0 ? '（超期 ' + r.overdueDays + ' 天）' : '') + '</dd>' +
       '<dt>状态</dt><dd><span class="pill ' + r.status + '">' + h.esc(r.statusText) + '</span></dd>' +
       '</dl>' +
@@ -6132,7 +6047,6 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     var r = assets().persona.rows.filter(function (x) { return x.id === id; })[0];
     if (!r) { h.toast('画像不存在', 'bad'); return; }
     var ttl = assets().persona.ttlDays || 30;
-    var OWNERS = S.OWNERS || [];
     var REASONS = ['属性漂移', '企业组织变动', '标签口径调整', '例行刷新'];
     var ETAS = ['今天', '本周内', '本月内'];
     function opts(list, key) {
@@ -6151,12 +6065,10 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       '<label class="grow">更新原因<select id="pr-reason">' + opts(REASONS) + '</select></label>' +
       '<label>预计完成<select id="pr-eta">' + opts(ETAS) + '</select></label>' +
       '</div>' +
-      '<div class="filter-row">' +
-      '<label class="grow">负责人<select id="pr-owner">' + opts(OWNERS, 'name') + '</select></label>' +
-      '</div>' +
+      /* 2026-10-28：删掉「负责人」下拉 —— 单人系统里它只有一个选项（就是你自己），必选等于没选。 */
       '<div class="sub-h">更新后会怎样</div>' +
       '<div class="bt-note">登记后：本页列表的「需更新」计数会减 1，该画像状态变「更新中」；' +
-      '实际重新采集与复核由画像负责人线下发起，完成后状态回到「生效中」。</div>' +
+      '实际重新采集与复核要你自己线下发起，完成后状态回到「生效中」。</div>' +
       '<div class="gray-acts" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">' +
       '<button class="btn-ghost" data-act="close-modal">取消</button>' +
       '<button class="btn-primary" data-act="persona-refresh-submit" data-id="' + h.esc(r.id) + '">登记更新</button>' +
@@ -6168,7 +6080,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     var r = assets().persona.rows.filter(function (x) { return x.id === id; })[0];
     if (!r) { h.toast('画像不存在', 'bad'); return; }
     h.state.personaRefresh = h.state.personaRefresh || {};
-    h.state.personaRefresh[id] = { reason: val('#pr-reason'), eta: val('#pr-eta'), by: val('#pr-owner') || '未指定', at: '刚刚' };
+    /* 2026-10-28：登记人字段删了（只有一个人，记「by」等于记常量）。 */
+    h.state.personaRefresh[id] = { reason: val('#pr-reason'), eta: val('#pr-eta'), at: '刚刚' };
     var mask = document.querySelector('.modal-mask');
     if (mask && mask.parentNode) mask.parentNode.removeChild(mask);
     h.toast('已登记更新「' + r.name + '」（本会话内状态为「更新中」，未真正重新采集）', 'ok');
@@ -6226,8 +6139,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       '<dt>业务线</dt><dd>' + h.esc(r.biz) + '</dd>' +
       '</dl>' +
       '<div class="sub-h">下一步</div>' +
-      '<div class="bt-note">' + (u >= 0.95 ? '并发濒临上限：扩容或迁移会写审计。' :
-        (u >= 0.85 ? '并发接近上限：关注峰值时段，必要时提前扩容申请。' : '资源水位正常。放开网络白名单等变更会改变隔离边界，改动会写审计。')) + '</div>' +
+      '<div class="bt-note">' + (u >= 0.95 ? '并发濒临上限。' :
+        (u >= 0.85 ? '并发接近上限：关注峰值时段，必要时提前扩容申请。' : '资源水位正常。放开网络白名单等变更会改变隔离边界。')) + '</div>' +
       '</div></div></div>');
   };
 
@@ -6589,7 +6502,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       nps: 'NPS 低分建议电话回访定位真实原因，关联最近一次触达记录复盘。',
       satisfaction: '满意度差评定位到具体会话，检查答复依据是否完整、语气是否机械。',
       unsub: '退订需核查该策略触达频次与人群圈选，超出频控应暂停并调整。',
-      bug: '产品缺陷转对应模块负责人，进入缺陷队列并回写处置结果。'
+      bug: '产品缺陷转对应模块，进入缺陷队列并回写处置结果。'
     }[it.kind] || '按标准流程处置并回写结果。';
     openModal('<div class="modal-mask" data-act="close-modal"><div class="modal" role="dialog" aria-modal="true">' +
       '<div class="modal-h"><h3>' + h.esc(it.kindText) + ' · ' + h.esc(it.id) + '</h3><button class="modal-x" data-act="close-modal" aria-label="关闭">×</button></div>' +
@@ -6944,8 +6857,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       '<div class="modal-b">' +
       (lowFid ? '<div class="bt-warn">⚠ 该实验引用的 persona 保真度未达标（' + fmt.pct1(pers.fidelity) + '），结论不可用于决策。</div>' : '') +
       (vdTop
-        ? '<div style="background:' + VB.bg + ';border-left:3px solid ' + VB.bd + ';color:' + VB.fg +
-          ';padding:10px 12px;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;margin-bottom:12px">' +
+        ? '<div style="background:' + VB.bg + ';border:1px solid ' + VB.bd + ';color:' + VB.fg +
+          ';padding:10px 12px;border-radius:8px;font-size:13px;line-height:1.7;margin-bottom:12px">' +
           '结论：<b>' + h.esc(vdTop.t) + '</b> —— ' + h.esc(vdTop.note) + '</div>'
         : '<div class="bt-note">模拟结论，投产前建议小额试投验证。</div>') +
       '<dl class="dl">' +
@@ -6986,7 +6899,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     if (!runId || !act) return;
     opActs()[runId] = act;
     var m = document.querySelector('.modal-mask'); if (m) m.remove();
-    h.toast('已记录：' + (OP_ACT_TEXT[act] || act) + ' —— 列表已同步标记', act === 'block' ? 'bad' : 'info');
+    h.toast('已处置：' + (OP_ACT_TEXT[act] || act) + ' —— 列表已同步标记', act === 'block' ? 'bad' : 'info');
     h.navigate({}, { scroll: false });
   };
 
@@ -7018,7 +6931,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       '<dt>风险</dt><dd><span class="pill ' + (r.risk === '高' ? 'bad' : (r.risk === '中' ? 'warn' : 'ok')) + '">' + h.esc(r.risk) + '</span></dd>' +
       '<dt>状态</dt><dd>' + h.pill(r.status === 'on' ? 'ok' : 'idle', r.statusText) + '</dd>' +
       '</dl>' +
-      '<div class="bt-note">授权是「在任务中、以身份、在数据与时间范围内执行动作」的判定，而非"能不能用 AI"。停用/改条件会写审计。</div>' +
+      '<div class="bt-note">授权是「在任务中、以身份、在数据与时间范围内执行动作」的判定，而非"能不能用 AI"。</div>' +
       '</div></div></div>');
   };
 
@@ -7038,7 +6951,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       '<dt>结果</dt><dd>' + h.pill(it.result === '待处置' ? 'warn' : (it.result === '已阻断' ? 'info' : 'ok'), it.result) + '</dd>' +
       '<dt>影响</dt><dd>' + fmt.int(it.impact) + ' 项</dd>' +
       '</dl>' +
-      '<div class="bt-note">已阻断/已处置事件仅保留审计信息，处置动作不可逆，需留存完整链路。</div>' +
+      '<div class="bt-note">已阻断/已处置事件不可重复处置，处置动作不可逆。</div>' +
       '</div></div></div>');
   };
 
@@ -7088,24 +7001,21 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       { label: '可重试', value: '否 —— 回滚后需人工确认原因才能重新灰度', tone: 'warn' }
     ] : [
       { label: '影响策略', value: it.name + '（' + it.agentName + '）' },
-      { label: '生效方式', value: '点击即转全量；灰度期真实数据随记录留档' },
+      { label: '生效方式', value: '点击即转全量' },
       { label: '转全量后', value: '该策略承接 100% 流量（当前灰度 ' + Math.round((gray.ratio || 0) * 100) + '%）' },
       { label: 'AI 权限边界', value: 'AI 只能提交候选，绝不允许自动全量上线' }
     ];
     h.dangerConfirm(h, {
       title: m.title, desc: m.title + '「' + it.name + '」？',
       tone: m.tone, perm: m.perm,
-      impacts: impacts, requireReason: m.reason, confirmText: m.confirm,
-      action: m.title, target: it.id + ' · ' + it.name,
-      auditImpact: op === 'rollback' ? '灰度 ' + Math.round((gray.ratio || 0) * 100) + '% 回退' : '灰度转全量 100%',
+      impacts: impacts, confirmText: m.confirm,
       onConfirm: function (reason) {
         h.state.evoOps = h.state.evoOps || {};
         h.state.evoOps[it.id] = m.state;
         /* 2026-10-21：审批下线 —— 以前这里建一张审批单再等人点头，现在只有一个人，
-           建单等于自己给自己看。改为**直接生效**，理由与灰度期数据进审计。 */
+           建单等于自己给自己看。改为**直接生效**。 */
         if (op === 'full') {
-          /* 审计由 dangerConfirm 统一写一条（action/target/impact），这里不再重复记 */
-          h.toast('已转全量 · 「' + it.name + '」承接 100% 流量，已写审计', 'ok');
+          h.toast('已转全量 · 「' + it.name + '」承接 100% 流量', 'ok');
         } else {
           h.toast('已回滚（本会话演示，不执行真实写操作）', 'ok');
         }
@@ -7162,9 +7072,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     h.dangerConfirm(h, {
       title: m.title, desc: m.title + '「' + packs.name + '」？',
       tone: m.tone, perm: 'compliance:rulepack:' + m.state,
-      impacts: impacts, requireReason: m.reason, confirmText: m.confirm,
+      impacts: impacts, confirmText: m.confirm,
       action: m.title, target: p[0] + ' · ' + packs.name,
-      auditImpact: '规则包 ' + packs.rules + ' 条 · 历史命中 ' + fmt.int(packs.hit),
       onConfirm: function () {
         h.state.ruleOps = h.state.ruleOps || {};
         h.state.ruleOps[p[0]] = m.state;
@@ -7174,7 +7083,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     });
   };
 
-  /* v16：经验条目的 通过 / 驳回 / 弃用 一律要填理由、留审计（生产规格 §2.3「审核操作」要三者都可追溯）。
+  /* v16：经验条目的 通过 / 驳回 / 弃用 一律走确认层（生产规格 §2.3「审核操作」要三者都可追溯）。
      并且把结论同步回审批队列里对应的复核单 —— 此前经验库自己批完，审批队列仍显示「审批中 · 王五」，
      两条链路各写各的状态，等于绕过审批自批。 */
   var EXP_OPS = {
@@ -7218,9 +7127,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     h.dangerConfirm(h, {
       title: op.title, desc: op.title + '「' + r.title + '」？',
       tone: op.tone, perm: 'llm-exp:entry:' + op.state,
-      impacts: impacts, requireReason: op.reason, confirmText: op.confirm,
+      impacts: impacts, confirmText: op.confirm,
       action: op.title, target: r.id + ' · ' + r.title,
-      auditImpact: op.state === 'deprecated' ? '移出检索池' : '状态 → ' + op.state,
       onConfirm: function (reason) {
         h.state.expOps = h.state.expOps || {};
         h.state.expOps[r.id] = op.state;
@@ -7242,10 +7150,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { label: '重新进入检索池', value: '是 —— 绑定的 Agent 会再次检索到它' },
         { label: '历史命中率', value: fmt.pct0(r.hitRate) + '（恢复前请确认口径已修正，否则噪声会回流）' },
         { label: '反向反馈', value: (fb.down || 0) + ' 反对 / ' + (fb.wrong || 0) + ' 判定用错（越多越不安全）' },
-        { label: '留痕', value: '恢复理由写入审计' }
-      ],
-      requireReason: true, confirmText: '确认恢复',
-      action: '恢复经验', target: r.id + ' · ' + r.title, auditImpact: '重新进入检索池',
+              ],
+      confirmText: '确认恢复',
       onConfirm: function (reason) {
         h.state.expOps = h.state.expOps || {};
         h.state.expOps[r.id] = 'restored';
@@ -7269,7 +7175,6 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { k: 'name', label: '名称', type: 'text', req: true, ph: '例如：客服知识助手', sec: '必填' },
         { k: 'model', label: '主模型', type: 'select', req: true, src: 'MODELS' },
         { k: 'biz', label: '业务线', type: 'select', req: true, src: 'BIZ_LINES' },
-        { k: 'owner', label: '负责人', type: 'select', req: true, src: 'OWNERS' },
         { k: 'kbs', label: '知识库', type: 'multi', src: 'KBS', sec: '关联', hint: '选填，但决定它能不能答对' },
         { k: 'tools', label: '工具', type: 'multi', src: 'MCP_SERVICES' },
         { k: 'level', label: '隔离等级', type: 'seg', src: 'S_LEVEL_RULES', def: 'S2', sec: '安全' }
@@ -7277,10 +7182,9 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       build: function (v, o) {
         o.modelName = (S.MODELS.filter(function (m) { return m.id === v.model; })[0] || {}).name || v.model;
         o.bizName = (S.BIZ_LINES.filter(function (b) { return b.id === v.biz; })[0] || {}).name || v.biz;
-        o.ownerName = (S.OWNERS.filter(function (x) { return x.id === v.owner; })[0] || {}).name || v.owner;
         o.kbNames = (v.kbs || []).map(function (x) { var k = S.KBS.filter(function (y) { return y.id === x; })[0]; return k ? k.name : x; });
         o.toolNames = (v.tools || []).map(function (x) { var m = S.MCP_SERVICES.filter(function (y) { return y.id === x; })[0]; return m ? m.name : x; });
-        o.meta = [o.modelName, o.bizName, o.ownerName, o.level].join(' · ');
+        o.meta = [o.modelName, o.bizName, o.level].join(' · ');
       },
       todo: function (o) {
         var t = [];
@@ -7300,8 +7204,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { k: 'seg', label: '目标分群', type: 'select', req: true, src: 'SEGMENTS', hint: '选完立即显示覆盖人数' },
         { k: 'channel', label: '触达渠道', type: 'multi', src: 'CHANNELS', req: true, hint: '至少选 1 个' },
         { k: 'copy', label: '开场文案', type: 'text', req: true, ph: '一句话说清对用户的价值' },
-        { k: 'rate', label: '灰度比例', type: 'seg', src: 'RATES', def: '10', sec: '投放节奏' },
-        { k: 'owner', label: '负责人', type: 'select', req: true, src: 'OWNERS' }
+        { k: 'rate', label: '灰度比例', type: 'seg', src: 'RATES', def: '10', sec: '投放节奏' }
+        /* 2026-10-28：负责人字段删了 —— 全系统只有一个人，必选下拉只有一个选项。 */
       ],
       segOf: function (v) { return (pipes().userops.segments || []).filter(function (s) { return s.id === v.seg; })[0]; },
       impact: function (v, h) {
@@ -7318,8 +7222,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         var seg = (pipes().userops.segments || []).filter(function (s) { return s.id === v.seg; })[0];
         o.segName = seg ? seg.name : '—';
         o.segCover = seg ? seg.cover : 0;
-        o.ownerName = (S.OWNERS.filter(function (x) { return x.id === v.owner; })[0] || {}).name || v.owner;
-        o.meta = o.segName + ' · 灰度 ' + (v.rate || '-') + '% · ' + o.ownerName;
+        o.meta = o.segName + ' · 灰度 ' + (v.rate || '-') + '%';
       },
       todo: function (o) { return ['未上线 —— 确认上线后才会开始投放', '未设置频控上限（将使用业务默认值）']; }
     },
@@ -7442,7 +7345,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     },
     'approval-rule': {
       title: '新建授权规则', stateLabel: '草稿态',
-      note: '建完是「草稿」态，不会立即授权；启用后才生效，高风险条目会留审计',
+      note: '建完是「草稿」态，不会立即授权；启用后才生效。',
       fields: [
         { k: 'name', label: '主体', type: 'text', req: true, ph: '例如：销售组', sec: '必填' },
         { k: 'agentCap', label: 'Agent 能力', type: 'select', req: true, src: 'AGENT_CAPS' },
@@ -7456,7 +7359,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           '创建后为<b>草稿</b>，不会立即授权',
           '主体「' + (v.name || '—') + '」→ ' + (v.agentCap || '—') + '，动作：' + (v.action || '—'),
           '数据范围：' + (v.scope || '—') + (v.cond ? '　条件：' + v.cond : ''),
-          hi ? '<b>高风险动作</b> —— 启用即生效并留审计' : '启用后立即生效，变更留审计'
+          hi ? '<b>高风险动作</b> —— 启用即生效' : '启用后立即生效'
         ];
       },
       build: function (v, o) { o.meta = (v.agentCap || '') + ' · ' + (v.action || '') + ' · ' + (v.scope || ''); },
@@ -7468,8 +7371,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       fields: [
         { k: 'name', label: '分群名', type: 'text', req: true, ph: '例如：高潜复购人群', sec: '必填' },
         { k: 'basis', label: '圈选依据', type: 'select', req: true, src: 'SEG_BASIS' },
-        { k: 'excl', label: '排除规则', type: 'multi', src: 'SEG_EXCL', hint: '默认全选；排除项不可为空' },
-        { k: 'owner', label: '负责人', type: 'select', req: true, src: 'OWNERS' }
+        { k: 'excl', label: '排除规则', type: 'multi', src: 'SEG_EXCL', hint: '默认全选；排除项不可为空' }
       ],
       impact: function (v) {
         var ex = (v.excl || []);
@@ -7481,7 +7383,6 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         ];
       },
       build: function (v, o) {
-        o.ownerName = (S.OWNERS.filter(function (x) { return x.id === v.owner; })[0] || {}).name || v.owner;
         o.meta = (v.basis || '') + ' · 排除 ' + ((v.excl || []).length) + ' 项';
       },
       todo: function () { return ['未发布 —— 当前不会被任何策略引用']; }
@@ -7493,13 +7394,13 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { k: 'name', label: '规则名', type: 'text', req: true, ph: '例如：投诉类 2 小时内必回', sec: '必填' },
         { k: 'kind', label: '适用反馈类型', type: 'select', req: true, src: 'FB_KINDS' },
         { k: 'sla', label: '时限（小时）', type: 'text', req: true, ph: '例如：2' },
-        { k: 'act', label: '处置动作', type: 'seg', src: 'RULE_ACTS', def: '指派责任人' }
+        { k: 'act', label: '处置动作', type: 'seg', src: 'RULE_ACTS', def: '转待办队列' }
       ],
       impact: function (v) {
         return [
           '创建后为<b>草稿</b>，不会自动处置任何反馈',
           '适用类型「' + (v.kind || '—') + '」，时限 ' + (v.sla || '—') + ' 小时',
-          '处置动作：' + (v.act || '指派责任人'),
+          '处置动作：' + (v.act || '转待办队列'),
           '启用后超时会进「先处理什么」并按优先级排序'
         ];
       },
@@ -7516,7 +7417,6 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           hint: '选「角色画像」时必填：发起者 / 使用者 / 影响者 / 决策者 / 守门人' },
         { k: 'name', label: '画像名称', type: 'text', req: true, ph: '例如：区域政务接口人' },
         { k: 'industry', label: '所属行业', type: 'select', req: true, src: 'INDUSTRIES' },
-        { k: 'owner', label: '负责人', type: 'select', req: true, src: 'OWNERS' },
         { k: 'ents', label: '覆盖企业数', type: 'readonly', sec: '规模口径',
           value: '由圈选条件计算' },
         { k: 'rules', label: '圈选条件', type: 'cond', req: true, sec: '规模口径',
@@ -7541,7 +7441,6 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         ];
       },
       build: function (v, o) {
-        o.ownerName = (S.OWNERS.filter(function (x) { return x.id === v.owner; })[0] || {}).name || v.owner;
         o.ents = null;   /* 规模不再来自手填：不给假数字，列表按"示例值/暂无"口径展示 */
         o.rulesDerived = v.rules || '';   /* 新建时是用户填的真条件；存量画像则是反推摘要 */
         o.rulesIsDerived = false;
@@ -7556,8 +7455,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       fields: [
         { k: 'name', label: '知识库名', type: 'text', req: true, ph: '例如：售前常见问题库', sec: '必填' },
         { k: 'kind', label: '内容类型', type: 'select', req: true, src: 'KB_KINDS' },
-        { k: 'slice', label: '切片策略', type: 'seg', src: 'SLICES', def: '512', sec: '索引配置', hint: '长文档建议 768，问答型建议 384' },
-        { k: 'owner', label: '负责人', type: 'select', req: true, src: 'OWNERS' }
+        { k: 'slice', label: '切片策略', type: 'seg', src: 'SLICES', def: '512', sec: '索引配置', hint: '长文档建议 768，问答型建议 384' }
       ],
       impact: function (v) {
         return [
@@ -7630,8 +7528,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       fields: [
         { k: 'name', label: '路由名', type: 'text', req: true, ph: '例如：mcp://order/refund', sec: '必填' },
         { k: 'target', label: '目标服务', type: 'select', req: true, src: 'MCP_SERVICES' },
-        { k: 'limit', label: '限流上限（次/分）', type: 'text', req: true, ph: '例如：80' },
-        { k: 'owner', label: '负责人', type: 'select', req: true, src: 'OWNERS' }
+        { k: 'limit', label: '限流上限（次/分）', type: 'text', req: true, ph: '例如：80' }
       ],
       impact: function (v, h) {
         return [
@@ -7642,8 +7539,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         ];
       },
       build: function (v, o) {
-        o.ownerName = (S.OWNERS.filter(function (x) { return x.id === v.owner; })[0] || {}).name || v.owner;
-        o.meta = (v.target || '') + ' · ' + (v.limit || '-') + '/分 · ' + o.ownerName;
+        o.meta = (v.target || '') + ' · ' + (v.limit || '-') + '/分';
       },
       todo: function () { return ['未提交开通审批 —— 草稿路由不承载流量']; }
     },
@@ -7766,7 +7662,9 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     if (src === 'SEG_BASIS') return [{ v: '近 90 天无访问', t: '近 90 天无访问' }, { v: '近 90 天采购 ≥ 3 次', t: '近 90 天采购 ≥ 3 次（F）' }, { v: '历史客单 > 500', t: '历史客单 > 500' }, { v: '近 7 天高频活跃', t: '近 7 天高频活跃' }, { v: '年采购额 > 500万', t: '年采购额 > 500 万' }];
     if (src === 'SEG_EXCL') return [{ v: '频控内已触达', t: '频控内已触达' }, { v: '已退订', t: '已退订' }, { v: '黑名单', t: '黑名单' }, { v: '已在其他策略', t: '已在其他策略' }];
     if (src === 'FB_KINDS') return [{ v: '投诉', t: '投诉' }, { v: '产品缺陷', t: '产品缺陷' }, { v: '退订', t: '退订' }, { v: 'NPS 低分', t: 'NPS 低分' }, { v: '满意度差评', t: '满意度差评' }];
-    if (src === 'RULE_ACTS') return [{ v: '指派责任人', t: '指派责任人' }, { v: '升级主管', t: '升级主管' }, { v: '自动回复', t: '自动回复并标记' }];
+    /* 2026-10-28：处置动作不再出现「指派责任人 / 升级主管」—— 没有第二个人可指派、也没有主管。
+       改成三档「谁在什么时候接手」：进待办队列 / 标为高优置顶 / 自动回复。 */
+    if (src === 'RULE_ACTS') return [{ v: '转待办队列', t: '转待办队列' }, { v: '置顶高优', t: '置顶高优' }, { v: '自动回复', t: '自动回复并标记' }];
     if (src === 'KOL_GOALS') return [{ v: '曝光', t: '曝光量' }, { v: '点击', t: '点击率' }, { v: '转化', t: '转化 / ROI' }];
     if (src === 'KOL_LIST') return ((global.KOL && global.KOL.KOLS) || []).map(function (k) { return { v: k.id, t: k.name }; });
     if (src === 'TAG_POOL') {
@@ -7997,7 +7895,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     var o = found.obj;
     var def = V15_CREATE[o.cap] || {};
     var LABEL = {
-      seg: '目标分群', channel: '触达渠道', copy: '开场文案', rate: '灰度比例', owner: '负责人',
+      seg: '目标分群', channel: '触达渠道', copy: '开场文案', rate: '灰度比例', owner: '归属 Agent',
       scope: '覆盖范围', rules: '规则条目', threshold: '误报阈值',
       type: '单据类型', targetId: '关联对象', affect: '影响对象数', rollback: '是否可回滚', reason: '变更说明',
       model: '主模型', biz: '业务线', level: '隔离等级',
@@ -8006,7 +7904,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     var OPT = { sms: '短信', push: 'Push', inapp: '站内信', im: 'IM', wecom: '企微', dispatch: 'AI 派发', selfserve: '自助入口' };
     var kv;
     if (o.cap === 'agent-wb') {
-      kv = [['主模型', o.modelName], ['业务线', o.bizName], ['负责人', o.ownerName],
+      kv = [['主模型', o.modelName], ['业务线', o.bizName],
         ['知识库', (o.kbNames || []).length ? o.kbNames.join('、') : '未关联'],
         ['工具', (o.toolNames || []).length ? o.toolNames.join('、') : '未关联'],
         ['隔离等级', o.level || '—']];
@@ -8072,9 +7970,6 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     } catch (e) {
       h.toast('浏览器阻止了下载，可右键页面复制数据代替', 'bad');
     }
-    if (global.V10UI && global.V10UI.audit) {
-      global.V10UI.audit({ action: '导出成本报表', target: '成本归因 · ' + Q.RANGES[h.state.range].label, impact: '总成本 ¥' + fmt.int(cb.total) });
-    }
   };
   /* v15：策略详情的落点 —— 此前策略卡只有 放量/终止/复盘 三个按钮，没有可进入的详情（C-11）。 */
   ACTIONS['uo-detail'] = function (id, btn, h) {
@@ -8125,7 +8020,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { label: '当前误报率', value: fmt.pct1(p.falsePos) + '（阈值 2%）', tone: pass ? '' : 'danger' },
         { label: '回测结论', value: p.hit === 0 ? '尚无历史命中样本，回测结果不可用' : (pass ? '误报率达标，可转全量' : '误报率超标，不允许发布新规则') }
       ],
-      requireReason: false, confirmText: '开始回测',
+      confirmText: '开始回测',
       action: '规则包回测', target: id + ' · ' + p.name,
       onConfirm: function () {
         h.toast('回测完成：' + p.rules + ' 条规则 / ' + fmt.int(p.hit) + ' 次历史命中 / 误报率 ' + fmt.pct1(p.falsePos) + '（演示环境，未落库）', pass ? 'ok' : 'warn');
@@ -8163,7 +8058,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { label: '影响', value: '全部走 fallback 链，功能降级但调用不中断' },
         { label: '可回滚', value: '是 —— 可随时恢复' }
       ],
-      requireReason: true, confirmText: '确认降级',
+      confirmText: '确认降级',
       action: '切全局降级模式', target: '全部 MCP 服务',
       onConfirm: function () {
         h.toast('演示环境：已切全局降级（仅本会话，不执行真实变更）', 'ok');
@@ -8184,13 +8079,13 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { label: '为什么现在动', value: '改配置 / 调预算都会影响线上调用' },
         { label: '可回滚', value: '是 —— 落地后仍可回退' }
       ],
-      requireReason: true, confirmText: '确认落地',
+      confirmText: '确认落地',
       action: '落地成本优化', target: sg.title,
       onConfirm: function (reason) {
         h.state.costApr = h.state.costApr || {};
         h.state.costApr[sg.id] = true;
-        /* 2026-10-21：审批下线，直接落地；审计由 dangerConfirm 统一写一条，不重复记 */
-        h.toast('已落地 · 「' + sg.title + '」，已写审计', 'ok');
+        /* 2026-10-21：审批下线，直接落地 */
+        h.toast('已落地 · 「' + sg.title + '」', 'ok');
         h.navigate({}, { scroll: false });
       }
     });
@@ -8205,7 +8100,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     if (!id) { h.toast('该条目没有可认领的标识', 'bad'); return; }
     h.state.claims = h.state.claims || {};
     h.state.claims[id] = '我';
-    h.toast('演示环境：已认领（仅本会话）—— 责任人变更会同步到列表', 'ok');
+    h.toast('演示环境：已认领（仅本会话）—— 认领人变更会同步到列表', 'ok');
     h.navigate({}, { scroll: false });
   };
   ACTIONS['new-obj-advance'] = function (id, btn, h) {
@@ -8237,7 +8132,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     }
   };
 
-  /* v15：策略的「停」—— 走危险确认（影响面取自 stages 的真实数字）+ 理由必填 + 审计 + 会话内回收。
+  /* v15：策略的「停」—— 走危险确认（影响面取自 stages 的真实数字）+ 会话内回收。
      这是全中台唯一会触达真人用户的链路，此前点「终止」只弹一句「已提交」，界面毫无变化。 */
   var UO_OPS = {
     stop:   { title: '终止投放',   state: 'terminated', confirm: '确认终止', tone: 'danger', verb: '终止', perm: 'userops:strategy:terminate' },
@@ -8274,11 +8169,9 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       tone: op.tone,
       perm: op.perm,
       impacts: impacts,
-      requireReason: true,
       confirmText: op.confirm,
       action: op.title,
       target: it.id + ' · ' + it.name,
-      auditImpact: '已触达 ' + fmt.int(sent) + ' 人',
       onConfirm: function () {
         h.state.uoOps = h.state.uoOps || {};
         h.state.uoOps[it.id] = { action: op.state };
@@ -8298,7 +8191,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
   };
 
   /* v15：Agent 的发布 / 灰度 / 回滚 —— 此前这 10 个按钮全是空动作，而这是 Agent 生命周期的核心。
-     统一：危险确认（影响面取自 Q.kpi / Q.grayCompare 的真实数字）+ 发布与回滚理由必填 + 审计 + 会话内回收。
+     统一：危险确认（影响面取自 Q.kpi / Q.grayCompare 的真实数字）+ 会话内回收。
      会话内状态存在 state.agOps[agentId]（仅内存，刷新还原），与 uo-ratio 同法。 */
   function agPair(id) {
     var S2 = global.DATA_SEED, idx = S2.idx.agent[id];
@@ -8335,7 +8228,6 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { label: '是否可撤回', value: '否 —— 通知发出后无法撤回', tone: 'warn' }
       ],
       confirmText: '确认通知', action: '通知所有引用方', target: pair ? pair.a.name : p[0],
-      auditImpact: '通知 ' + n + ' 个引用方',
       onConfirm: function () {
         h.state.agOps = h.state.agOps || {};
         h.state.agOps[p[0]] = Object.assign({}, h.state.agOps[p[0]], { notified: true });
@@ -8361,7 +8253,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { label: '历史数据', value: '保留，可查；不删除' },
         { label: '可回滚', value: '是 —— 可重新上线，但期间调用会失败', tone: 'warn' }
       ],
-      requireReason: true, confirmText: '确认下线',
+      confirmText: '确认下线',
       action: '下线 Agent', target: pair.a.id + ' · ' + pair.a.name,
       onConfirm: function () {
         h.state.agOps = h.state.agOps || {};
@@ -8384,13 +8276,12 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       title: '发布上线', desc: '将草稿 ' + pair.a.online + '-draft 发布为线上版本？',
       tone: 'warn', perm: 'agent:publish',
       impacts: agRows(pair, h, 'publish'),
-      requireReason: true, confirmText: '确认发布',
+      confirmText: '确认发布',
       action: '发布上线', target: pair.a.id + ' · ' + pair.a.name,
-      auditImpact: '今日 ' + h.fmt.int(global.FACTS.dailyRow(pair.ai, 0).calls) + ' 次调用',
       onConfirm: function () {
         h.state.agOps = h.state.agOps || {};
         h.state.agOps[pair.a.id] = Object.assign({}, h.state.agOps[pair.a.id], { released: true });
-        h.toast('已发布上线（本会话演示，不执行真实写操作），已记入审计', 'ok');
+        h.toast('已发布上线（本会话演示，不执行真实写操作）', 'ok');
         h.navigate({}, { scroll: false });
       }
     });
@@ -8424,10 +8315,9 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     h.dangerConfirm(h, {
       title: op2.title, desc: op2.title + '「' + pair.a.name + '」？',
       tone: op2.tone, perm: PERM_OF[op] || PERM_OF.up,
-      impacts: rows, requireReason: op2.reason,
+      impacts: rows,
       confirmText: '确认' + op2.title.replace('立即', '').replace('比例', ''),
       action: op2.title, target: pair.a.id + ' · ' + pair.a.name,
-      auditImpact: '灰度 ' + Math.round(cur * 100) + '% → ' + Math.round(op2.next * 100) + '%',
       onConfirm: function () {
         h.state.agOps = h.state.agOps || {};
         var o = h.state.agOps[pair.a.id] || {};
@@ -8450,9 +8340,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     h.dangerConfirm(h, {
       title: '回滚版本', desc: '把线上版本从 ' + pair.a.online + ' 回滚到 ' + to + '？',
       tone: 'danger', perm: 'agent:gray:rollback',
-      impacts: rows, requireReason: true, confirmText: '确认回滚',
+      impacts: rows, confirmText: '确认回滚',
       action: '回滚版本', target: pair.a.id + ' · ' + to,
-      auditImpact: pair.a.online + ' → ' + to,
       onConfirm: function () {
         h.state.agOps = h.state.agOps || {};
         h.state.agOps[pair.a.id] = Object.assign({}, h.state.agOps[pair.a.id], { rollbackTo: to, paused: false, ratio: 1 });
@@ -8491,15 +8380,13 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { label: '前置条件', value: '当前档位已观察满 1 小时且无熔断（退订/投诉/拉黑未超告警线）—— 演示环境按已满足处理' },
         { label: '可回滚', value: '是 —— 可暂停灰度止血，已发出的触达无法撤回' }
       ],
-      requireReason: false,
       confirmText: '确认放量',
       action: '灰度放量',
       target: it.id + ' · ' + it.name,
-      auditImpact: '灰度 ' + Math.round(cur * 100) + '% → ' + Math.round(target * 100) + '%（+' + fmt.int(add) + ' 人）',
       onConfirm: function () {
         h.state.userops = h.state.userops || {};
         h.state.userops[it.id] = target;
-        h.toast('演示环境：灰度已调至 ' + Math.round(target * 100) + '%（记录到本会话并留审计，不执行真实写操作）', 'info');
+        h.toast('演示环境：灰度已调至 ' + Math.round(target * 100) + '%（记录到本会话，不执行真实写操作）', 'info');
         h.navigate({}, { scroll: false });
       }
     });
@@ -8695,11 +8582,11 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
   }
   /* 告警规则表（与 alertBlock 里的内置 5 条同一份数字；告警规则的编辑/静默要按 id 找到它） */
   var ALERT_RULES = [
-    { id: 'al-1', metric: '成功率', cond: '< 99%', scope: '全部 Agent', window: '5 分钟', channel: '站内 + IM', oncall: '平台值班', status: 'ok', statusText: '已启用', triggered: 2 },
-    { id: 'al-2', metric: 'P99 时延', cond: '> 4s', scope: '全部 Agent', window: '5 分钟', channel: '站内 + IM', oncall: '平台值班', status: 'ok', statusText: '已启用', triggered: 1 },
-    { id: 'al-3', metric: '成本日环比', cond: '> +20%', scope: '按业务线', window: '每日 09:00', channel: '邮件', oncall: '业务负责人', status: 'ok', statusText: '已启用', triggered: 3 },
-    { id: 'al-4', metric: '调用量骤降', cond: '< 昨日同时段 50%', scope: '全部 Agent', window: '15 分钟', channel: '站内', oncall: '平台值班', status: 'warn', statusText: '已静默至明日', triggered: 0 },
-    { id: 'al-5', metric: 'badcase 新增', cond: '> 10 条/小时', scope: '单 Agent', window: '1 小时', channel: '站内 + IM', oncall: 'Agent 负责人', status: 'ok', statusText: '已启用', triggered: 1 }
+    { id: 'al-1', metric: '成功率', cond: '< 99%', scope: '全部 Agent', window: '5 分钟', channel: '站内 + IM', oncall: '本人', status: 'ok', statusText: '已启用', triggered: 2 },
+    { id: 'al-2', metric: 'P99 时延', cond: '> 4s', scope: '全部 Agent', window: '5 分钟', channel: '站内 + IM', oncall: '本人', status: 'ok', statusText: '已启用', triggered: 1 },
+    { id: 'al-3', metric: '成本日环比', cond: '> +20%', scope: '按业务线', window: '每日 09:00', channel: '邮件', oncall: '本人', status: 'ok', statusText: '已启用', triggered: 3 },
+    { id: 'al-4', metric: '调用量骤降', cond: '< 昨日同时段 50%', scope: '全部 Agent', window: '15 分钟', channel: '站内', oncall: '本人', status: 'warn', statusText: '已静默至明日', triggered: 0 },
+    { id: 'al-5', metric: 'badcase 新增', cond: '> 10 条/小时', scope: '单 Agent', window: '1 小时', channel: '站内 + IM', oncall: '本人', status: 'ok', statusText: '已启用', triggered: 1 }
   ];
   function alertRuleOf(id) {
     for (var i = 0; i < ALERT_RULES.length; i++) if (ALERT_RULES[i].id === id) return ALERT_RULES[i];
@@ -8724,7 +8611,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
 
   /* 「标记 badcase / 转为 badcase」——会话内标记（state.traceBadcase），可再点一次取消。
      为什么不落到 badcase 队列：本稿没有"从 trace 建 badcase"的写后端，队列条目是从失败 trace 抽样生成的，
-     凭空 push 一条会让「待认领」KPI 与审计口径同时对不上。所以标记只用于**本会话内标注**，且如实说明。 */
+     凭空 push 一条会让「待认领」KPI 对不上。所以标记只用于**本会话内标注**，且如实说明。 */
   ACTIONS['demo-trace-badcase'] = function (id, btn, h) {
     var tid = String(id || '');
     if (!tid) { h.toast('缺少 traceId，无法标记', 'bad'); return; }
@@ -8927,7 +8814,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     h.navigate({}, { scroll: false });
   };
   /* 「静默 / 取消静默」——静默是本稿唯一真能表达出来的告警处置（页面上本来就有"静默期间仍记录但不通知"的口径）。
-     静默**必须填原因与到期时间**（页面的告警抑制块就是这么写的），所以走 dangerConfirm 的理由必填。 */
+     静默走 dangerConfirm（不可逆性低但要问一句）；理由框已随审计删除。 */
   ACTIONS['demo-alert-silence'] = function (id, btn, h) {
     var p = String(id == null ? '' : id).split('|');
     var A_ = alertRuleOf(p[0]);
@@ -8952,9 +8839,8 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { label: '通知渠道', value: A_.channel },
         { label: '到期', value: '到期自动恢复；到期前可手动取消静默' }
       ],
-      requireReason: true, confirmText: '确认静默',
+      confirmText: '确认静默',
       action: '静默告警规则', target: p[0] + ' · ' + A_.metric,
-      auditImpact: '静默期间不通知，触发仍记录（本稿只留审计文案）',
       onConfirm: function () {
         h.state.alertOps = h.state.alertOps || {};
         h.state.alertOps[p[0]] = h.state.alertOps[p[0]] || {};

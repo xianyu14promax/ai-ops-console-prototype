@@ -361,7 +361,7 @@
         ['熔断 · 当前状态', st.breaker === 'open'
           ? '<span class="pill bad">' + h.esc(st.breakerText) + '</span>'
           : '<span class="pill ok">' + h.esc(st.breakerText) + '</span>']
-      ]), null, '只读说明：连接的配置态字段；改端点/超时/熔断参数点击即生效并写审计，本屏不提供直改入口。') +
+      ]), null, '只读说明：连接的配置态字段；改端点/超时/熔断参数点击即生效，本屏不提供直改入口。') +
       '<div class="grid2">' +
       card('配额水位', 'QPS 上限 ' + svc.qpsCap,
         C.gauge(st.usage, { title: '当前 QPS 占用' }) +
@@ -543,7 +543,7 @@
         var ioPairs = d.spans.filter(function (sp) { return sp.kind === 'tool' || sp.kind === 'llm' || sp.kind === 'guard'; }).slice(0, 4);
         openHtml = card('请求 / 响应 · <span class="mono">' + h.esc(openId) + '</span>',
           '敏感字段已脱敏 · 原文需权限 ' + permTag('gateway:log:raw'),
-          '<div class="readonly-note">' + h.icon('doc', 14) + ' 下方为脱敏后的请求/响应（user_id、order_id、session_id 等已掩码）。展开原文需 gateway:log:raw 权限，且每次查看写入审计。</div>' +
+          '<div class="readonly-note">' + h.icon('doc', 14) + ' 下方为脱敏后的请求/响应（user_id、order_id、session_id 等已掩码）。展开原文需 gateway:log:raw 权限。</div>' +
           ioPairs.map(function (sp) {
             return '<div class="exec-node ' + (sp.status === 'failed' ? 'bad' : 'ok') + '">' +
               '<div class="exec-h"><b>' + h.esc(sp.name) + '</b><em>' + h.esc(C.KIND_LABEL[sp.kind] || sp.kind) + '</em><span class="sp-dur">' + fmt.dur(sp.duration) + '</span></div>' +
@@ -604,7 +604,7 @@
       '<button class="btn-danger" data-act="gw-key-revoke" data-id="' + h.esc(relevant[0] ? relevant[0].id : svc.id) + '">吊销（立即失效）</button>' +
       '</div>' +
       '<ul class="check-list">' + alarm + '</ul>' +
-      '<div class="bt-warn">预警节奏：<b>到期前 30 / 7 / 1 天</b>分别提醒密钥负责人。轮换采用新旧密钥并行期（默认 24 小时），' +
+      '<div class="bt-warn">预警节奏：<b>到期前 30 / 7 / 1 天</b>分别提醒。轮换采用新旧密钥并行期（默认 24 小时），' +
       '调用方切换完成后再停用旧密钥；吊销立即失效，并通知所有引用方（见下方影响面）。</div>') +
       card('吊销影响面', '来自真实引用关系',
         '<div class="bt-note">吊销 <span class="mono">' + h.esc(svc.name) + '</span> 的密钥后，以下 ' + svcCallers(svc).length + ' 个 Agent 将无法调用，需同步更新配置：</div>' +
@@ -687,7 +687,7 @@
       h.metaBar({}, [
         { k: '配置态字段', v: '端点/协议/超时/重试/熔断参数/限流规则/密钥/变更历史来自网关资产表（routes / mcpTools / apiKeys）' },
         { k: '调用日志与引用方', v: '调用日志来自真实 trace；引用方 Agent 由节点拓扑反查（谁在编排里引用了本服务），可交叉验证' },
-        { k: '密钥口径', v: '密钥明文永不回显，仅展示末 4 位；查看未脱敏日志需 gateway:log:raw 权限并留审计' }
+        { k: '密钥口径', v: '密钥明文永不回显，仅展示末 4 位；查看未脱敏日志需 gateway:log:raw 权限' }
       ]);
   };
 
@@ -723,10 +723,9 @@
             : '变更 diff 在下方的「变更 diff」卡片内**平铺展示**（文本形式，可逐行核对）', tone: 'warn' },
         { label: '为什么这样处理', value: '宁可只给版本事实，也不画一个不存在的画布' }
       ],
-      requireReason: false,
       confirmText: '知道了',
       action: isCanvas ? '查看版本画布' : '查看版本 diff', target: ver,
-      /* 纯查看动作：不写状态、不留审计 —— **查看不是变更**，不该进审计 */
+      /* 纯查看动作：不写状态 —— **查看不是变更** */
       onConfirm: function () {}
     });
   };
@@ -742,7 +741,6 @@
         { label: '下游影响', value: callers.length + ' 个引用它的 Agent 相关节点将失败或走降级分支' },
         { label: '可回滚', value: '熔断可手动恢复，但恢复后半开探测需 3 次成功才全量放行' }
       ],
-            requireReason: true,
       perm: 'gateway:breaker',
       confirmText: '确认熔断', danger: true, act: 'gw-breaker'
     });
@@ -758,7 +756,6 @@
         { label: '下游影响', value: '全站质量/时延可能变化（备用模型能力与成本不同）' },
         { label: '可回滚', value: '手动恢复；降级期间的调用结果差异需事后抽样复核' }
       ],
-            requireReason: true,
       perm: 'gateway:global:degrade',
       confirmText: '确认全局降级', danger: true, act: 'gw-global-degrade'
     });
@@ -781,12 +778,11 @@
       desc: 'traceId ' + id + ' 的请求/响应原文可能含客户个人信息。',
       impacts: [
         { label: '作用范围', value: '仅本次查看，不改变数据' },
-        { label: '合规影响', value: '本次查看会写入审计（操作人 / 时间 / traceId），可供安全复核' },
+        { label: '合规影响', value: '本次查看只展示脱敏内容，不改变任何状态' },
         { label: '权限要求', value: '需要 gateway:log:raw 权限点' }
       ],
-            requireReason: true,
       perm: 'gateway:log:raw',
-      confirmText: '确认查看并留痕', danger: true, act: 'gw-log-raw'
+      confirmText: '确认查看', danger: true, act: 'gw-log-raw'
     });
   };
 
@@ -799,7 +795,6 @@
         { label: '下游影响', value: '引用方需在并行期内切换到新密钥，否则并行期结束后调用失败' },
         { label: '可回滚', value: '并行期内可作废旧密钥或延长并行期' }
       ],
-            requireReason: true,
       perm: 'gateway:key:rotate',
       confirmText: '确认轮换', danger: true, act: 'gw-key-rotate'
     });
@@ -814,7 +809,6 @@
         { label: '下游影响', value: '所有引用方需立即更新配置，未及时更新会导致线上调用中断' },
         { label: '可回滚', value: '不可回滚；需重新签发并通知所有引用方' }
       ],
-            requireReason: true,
       perm: 'gateway:key:revoke',
       confirmText: '确认吊销并通知引用方', danger: true, act: 'gw-key-revoke'
     });

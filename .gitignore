@@ -6,3 +6,6 @@
 !/.gitignore
 !/assets/
 !/assets/**
+# 并行开发的归属表与守卫脚本：必须跟着仓库走，否则每个人拿到的边界不一样
+!/_parallel/
+!/_parallel/**

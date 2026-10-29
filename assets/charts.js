@@ -233,7 +233,7 @@
       'data-gran="' + esc(opts.granularity || '1h') + '" ' +
       /* 悬浮提示的十字线要落在同一套 x 上（否则提示线会跟柱子错开）—— 把换算结果写进 DOM */
       'data-x0="' + xAt(0).toFixed(1) + '" data-dx="' + (xSpan / (points.length - 1)).toFixed(3) + '" ' +
-      'data-padl="' + padL + '" data-padr="' + padR + '" data-padT="' + padT + '" data-ih="' + ih + '" data-iw="' + iw + '">' +
+      'data-padl="' + padL + '" data-padr="' + padR + '" data-padt="' + padT + '" data-ih="' + ih + '" data-iw="' + iw + '">' +
       parts.join('') + '</svg>' + legend + '</div>';
   }
 
@@ -431,7 +431,7 @@
       (rich
         ? ' data-sb="' + esc(JSON.stringify(opts.colTips)) + '"' +
           ' data-x0="' + padL + '" data-dx="' + bw.toFixed(3) + '"' +
-          ' data-padT="' + padT + '" data-ih="' + ih + '"'
+          ' data-padt="' + padT + '" data-ih="' + ih + '"'
         : '') +
       ' viewBox="0 0 ' + w + ' ' + h + '" width="100%" height="' + h + '" role="img" aria-label="' + esc(opts.aria || '堆叠柱状图') + '"';
     return '<svg' + svgAttrs + '>' + g.join('') + '</svg>';
@@ -439,7 +439,10 @@
 
   /**
    * 面积图（单序列）。values[i] 对应 points[i]。
-   * opts: { height, granularity, fmt(v), color, aria }
+   * opts: { height, granularity, fmt(v), color, aria, width, padL, colTips }
+   *   colTips：与 stackedBar 同名同构 —— 传了就切「整列浮层」模式：
+   *   竖虚线落到该点、点上出现空心圆点、浮层给「日期 + 指标名 + 值」（对标 DeepSeek 用量页的面积图 hover）。
+   *   圆的坐标由本函数算好写进 colTips 的 px/py，调用方不必知道图表几何。
    */
   function areaChart(points, values, opts) {
     opts = opts || {};
@@ -466,32 +469,58 @@
     }
     g.push(el('path', { d: area, fill: color, opacity: 0.16, stroke: 'none' }));
     g.push(el('path', { d: line, fill: 'none', stroke: color, 'stroke-width': 2, 'stroke-linejoin': 'round' }));
-    /* 每桶一个透明命中区，挂原生 tooltip（比在点上挂更好点中） */
     var bw = iw / points.length;
-    points.forEach(function (p, i) {
-      g.push(el('rect', {
-        x: padL + i * bw, y: padT, width: bw, height: ih, fill: 'transparent',
-        'data-tip': tsLabel(p.ts, opts.granularity) + ' · ' + fmt(values[i] || 0)
-      }));
-    });
+    var rich = !!(opts.colTips && opts.colTips.length === points.length);
+    if (rich) {
+      /* 虚线在最上层（穿过面积与折线），圆点白心 + 序列色描边 —— 与参考图一致 */
+      g.push('<line class="sb-guide" x1="0" x2="0" y1="' + padT + '" y2="' + (padT + ih) + '" opacity="0"/>');
+      g.push('<circle class="ac-dot" cx="0" cy="0" r="0" fill="#fff" stroke="' + color + '" stroke-width="2"/>');
+      g.push(el('rect', { x: padL, y: padT, width: iw, height: ih, fill: 'transparent', class: 'chart-hit' }));
+    } else {
+      /* 每桶一个透明命中区，挂原生 tooltip（比在点上挂更好点中） */
+      points.forEach(function (p, i) {
+        g.push(el('rect', {
+          x: padL + i * bw, y: padT, width: bw, height: ih, fill: 'transparent',
+          'data-tip': tsLabel(p.ts, opts.granularity) + ' · ' + fmt(values[i] || 0)
+        }));
+      });
+    }
     var every = Math.max(1, Math.ceil(points.length / 8));
     points.forEach(function (p, i) {
       if (i % every) return;
       g.push('<text x="' + (padL + i * bw + bw / 2) + '" y="' + (h - 6) + '" class="ds-axis" text-anchor="middle">' + esc(tsLabel(p.ts, opts.granularity)) + '</text>');
     });
-    return '<svg class="ds-chart" viewBox="0 0 ' + w + ' ' + h + '" width="100%" height="' + h + '" role="img" aria-label="' + esc(opts.aria || '面积图') + '">' + g.join('') + '</svg>';
+    var svgAttrs = ' class="ds-chart' + (rich ? ' chart-area' : '') + '"' +
+      (rich
+        ? ' data-mode="point"' +
+          ' data-sb="' + esc(JSON.stringify(opts.colTips.map(function (t, i) {
+            return { title: t.title, totalText: t.totalText, rows: t.rows,
+              px: +xy[i][0].toFixed(1), py: +xy[i][1].toFixed(1) };
+          }))) + '"' +
+          ' data-x0="' + padL + '" data-dx="' + step.toFixed(3) + '"' +
+          /* padT / ih 必须一起给：app.js 的整列浮层靠它们算虚线的上下端。
+             漏了这两个属性 → y1=y2=0 → 竖线长度为零，页面上"看不见"，
+             但 opacity 仍是 1，只查 opacity 的测试会假通过（2026-10-28 实测踩过）。 */
+          ' data-padt="' + padT + '" data-ih="' + ih + '"'
+        : '') +
+      ' viewBox="0 0 ' + w + ' ' + h + '" width="100%" height="' + h + '" role="img" aria-label="' + esc(opts.aria || '面积图') + '"';
+    return '<svg' + svgAttrs + '>' + g.join('') + '</svg>';
   }
 
   /** 堆叠柱·整列浮层的内容（纯字符串函数，与 tipHtml 同一套 .ct-hd / .ct-row 结构）。
       标题行 = 该列时间 + 该列合计；下面每行 = 色块 + 分组名 + 占该列的比重 + 金额。 */
   function sbTipHtml(col) {
     if (!col) return '';
+    /* 色块只在有 color 时画：单序列的面积图（请求次数 / Tokens）只有一行，
+       前面挂个色块反而像"还有别的系列"。合计同理 —— 没有就整段不输出，不留空白 b。 */
     var rows = (col.rows || []).map(function (r) {
-      return '<div class="ct-row"><i style="background:' + r.color + '"></i>' +
+      return '<div class="ct-row">' +
+        (r.color ? '<i style="background:' + r.color + '"></i>' : '') +
         '<span>' + esc(r.label) + (r.sub ? '<em class="ct-sub">' + esc(r.sub) + '</em>' : '') + '</span>' +
         '<b>' + esc(r.valueText) + '</b></div>';
     }).join('');
-    return '<div class="ct-hd"><span>' + esc(col.title) + '</span><b>' + esc(col.totalText || '') + '</b></div>' + rows;
+    return '<div class="ct-hd"><span>' + esc(col.title) + '</span>' +
+      (col.totalText ? '<b>' + esc(col.totalText) + '</b>' : '') + '</div>' + rows;
   }
 
   /* SECTION: flame-chart

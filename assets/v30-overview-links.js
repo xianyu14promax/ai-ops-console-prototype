@@ -89,6 +89,65 @@
      *   td-exp     经验库 —— **真筛**：写 state.filters.expState = 'warn'（该页真读它）
      * （2026-10-20：td-wf / Workflow 页下线，所以这里只剩五条）
      * ================================================================== */
+    /* ══════════ 2026-10-27 总览换屏：系统状态 / Agent 状态 ══════════
+       新总览里的组件格与依赖服务行要落到**具体的二级分页**，只给 goto-cap 会落到
+       「能力与权限 › 连接器 › 卡片总览」—— 用户还得自己再点一下，正是本仓反复修的
+       「落了点但没落对」。gateway 这一级在 v33b 已并入 assets，所以这里直接写 assets
+       的两级分页键（state.assetTab / state.assetSub，与 v33-assets.js 的 TABS 同名）。
+         ov-gw id = mcp   → 连接器 › 服务健康与密钥（健康墙 + 密钥都在这一页）
+         ov-gw id = llm   → 连接器 › LLM 路由
+         ov-gw id = skill → 技能 › 技能清单 */
+    A['ov-gw'] = function (id, btn, h) {
+      var MAP = { mcp: { tab: 'mcp', sub: 'health' }, llm: { tab: 'mcp', sub: 'llm' }, skill: { tab: 'skill', sub: 'table' } };
+      var m = MAP[id] || MAP.mcp;
+      h.state.assetTab = m.tab;
+      h.state.assetSub = m.sub;
+      h.state.page = 1;
+      h.navigate({ domain: 'platform', cap: 'assets', agentId: null, tab: null, traceId: null, page: 1, filters: {} });
+    };
+
+    /* 「＋ 添加服务器」：单机阶段剩下的空槽位（业主 2026-10-28）。
+       这里**不做假表单** —— 原型没有真实的主机接入后端，填一个表单点保存、
+       然后 toast 一句"已接入（演示）"就是本仓反复批评的假动作。
+       所以点开只说"接一台机器要准备什么、接进来之后会发生什么"，
+       并明确说明本原型不执行真实接入。 */
+    A['host-add'] = function (id, btn, h) {
+      if (!global.V10UI || !global.V10UI.openSheet) { h.toast('接入说明暂不可用', 'bad'); return; }
+      global.V10UI.openSheet({
+        title: '接入一台服务器',
+        bodyHtml:
+          '<div class="sub-h">接入前要准备三样</div>' +
+          '<ul class="ov-add-ul">' +
+          '<li><b>地址</b><span>内网 IP 或主机名，以及 SSH 端口。跨网段要提前开策略。</span></li>' +
+          '<li><b>凭据</b><span>一个专用于采集的只读账号，不要复用运维账号 —— 采集账号泄露的爆炸半径要小。</span></li>' +
+          '<li><b>归属</b><span>这台机器承载哪条业务线、出问题找谁。没有归属的机器出事时没人认领。</span></li>' +
+          '</ul>' +
+          '<div class="sub-h" style="margin-top:16px">两种采集方式</div>' +
+          '<ul class="ov-add-ul">' +
+          '<li><b>装采集器</b><span>主机上跑一个轻量 agent，10 秒一次采样，能看到进程级明细。推荐。</span></li>' +
+          '<li><b>SSH 轮询</b><span>不动目标机，定时登上去读一次 /proc 与 df。粒度粗、看不到进程，但接入最快。</span></li>' +
+          '</ul>' +
+          '<div class="sub-h" style="margin-top:16px">接进来之后</div>' +
+          '<ul class="ov-add-ul">' +
+          '<li><b>进本屏</b><span>作为一张新卡出现在「服务器状态」，与现有这台用同一套 80% / 92% 的水位判定。</span></li>' +
+          '<li><b>分摊压力</b><span>事故重试的额外 CPU 与显存压力会按节点拆开，不再全压一台。</span></li>' +
+          '<li><b>可下线</b><span>摘掉一台机器不影响历史数据，与 Agent 下线同一处理方式。</span></li>' +
+          '</ul>' +
+          '<div class="bt-note">当前是演示环境：这里不执行真实接入，也不会在数据里凭空多出一台机器。' +
+          '要真接，得有一个采集服务在后台跑 —— 那不是单文件原型能做的事。</div>',
+        footHtml: '<button class="btn-ghost" data-v10="close">知道了</button>'
+      });
+    };
+
+    /* 汇总块 → 页内锚点。服务器没有独立详情页（资源明细要到宿主机监控看），
+       所以这里只做滚动，不伪造一个"服务器详情"页出来。
+       元素不在时（比如别的屏复用这个动作）静默不做事，不抛异常。 */
+    A['ov-scroll'] = function (id, btn, h) {
+      var el = global.document ? global.document.getElementById(id) : null;
+      if (!el) { h.toast('该区块不在当前页', 'bad'); return; }
+      if (el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
     A['goto-todo'] = function (id, btn, h) {
       var p = String(id == null ? '' : id).split('|');
       var capId = p[0] || '', todoId = p[1] || '';

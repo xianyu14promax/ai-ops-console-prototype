@@ -499,7 +499,7 @@
       h.metaBar({ range: null, definitions: null }, [
         { k: '资源水位口径', v: 'CPU / 内存由各实例资源规格汇总；磁盘与网络出流量为集群分配配额' },
         { k: '并发水位', v: '= 当前并发 ÷ 并发上限；≥ 85% 标黄、≥ 95% 标红' },
-        { k: '启停与销毁', v: '危险操作须先确认影响面，确认后留审计记录' }
+        { k: '启停与销毁', v: '危险操作须先确认影响面，确认后才执行' }
       ]) +
       '</div>';
   };
@@ -1002,7 +1002,7 @@
       body +
       h.metaBar(null, [
         { k: '数据性质', v: '配置项为配置态数据；曲线、进程、日志、队列为运行态采样' },
-        { k: '进程与日志', v: '「结束进程」「提优先级」等操作需先确认影响面，确认后留审计记录' },
+        { k: '进程与日志', v: '「结束进程」「提优先级」等操作需先确认影响面，确认后才执行' },
         { k: '判级口径', v: '按任务场景对照等级表推导；三档预设是创建时的快捷选择' },
         { k: '复用模式', v: '原型扩展项 —— 等级表默认要求沙盒临时且自动销毁；复用模式与之并存，便于权衡冷启动成本与串味风险' },
         { k: '业务用户侧', v: '只给结论性提示，不暴露内部路径与系统调用名；诊断细节仅管理员可见' }
@@ -1385,7 +1385,6 @@
     h.dangerConfirm(h, {
       title: m.title, desc: m.desc, impacts: m.impacts, confirmText: m.confirmText, danger: m.danger,
       perm: op === 'destroy' ? 'sandbox:destroy' : 'sandbox:operate',
-      auditImpact: m.impacts[1] ? (m.impacts[1].label + '：' + m.impacts[1].value) : '',
       onConfirm: function () {
         /* 🔴 此前这里**只有一句 toast、不写任何状态**（2026-10-12 修）。
            症状：点「停止」→ 确认层 → 提示"已提交" → 列表状态列仍是「运行中」，
@@ -1432,7 +1431,7 @@
         { label: '进程', value: 'PID ' + p[1], tone: 'danger' },
         { label: '所属沙盒', value: p[0] },
         { label: '影响', value: '该进程正在处理的任务将失败并进入重试队列', tone: 'warn' }
-      ], confirmText: '结束进程', danger: true, perm: 'sandbox:process:kill', auditImpact: 'PID ' + p[1],
+      ], confirmText: '结束进程', danger: true, perm: 'sandbox:process:kill',
       onConfirm: function () { h.toast('已结束进程 PID ' + p[1]); }
     });
   };
@@ -1479,9 +1478,6 @@
             id: nid, name: '沙盒 ' + p[0] + ' 网络策略变更', type: 'sandbox-net',
             targetId: p[0], affect: '1', rollback: '是'
           });
-          if (global.V19GOV && global.V19GOV.auditDecide) {
-            global.V19GOV.auditDecide({ decision: '上线', title: '沙盒 ' + p[0] + ' 网络策略变更', target: nid, reason: '网络档位切换：' + t });
-          }
           h.toast('已建审批单 ' + nid + ' · 进入审批队列，通过前不生效', 'ok');
         } catch (e) {
           if (global.console) global.console.error('[v19-gov]', e);
@@ -1511,7 +1507,6 @@
         { label: '可回滚', value: '随时可改回，只影响之后的会话' }
       ],
       confirmText: '改模式', danger: true, perm: 'sandbox:policy:write',
-      auditImpact: (LBL[mode] || mode) + '（实际 ' + (LBL[eff] || eff) + '）',
       onConfirm: function () {
         h.toast('复用模式已改为 ' + (LBL[mode] || mode));
       }
@@ -1539,7 +1534,7 @@
     h.dangerConfirm(h, {
       title: '「' + h.esc(id) + '」明细', desc: '按沙盒逐条列出',
       impacts: (detail.length ? detail : ['暂无记录']).slice(0, 8).map(function (t) { return { label: '明细', value: t }; }),
-      confirmText: '知道了', danger: false, perm: 'sandbox:audit:read',
+      confirmText: '知道了', danger: false, perm: 'sandbox:operate',
       onConfirm: function () { }
     });
   };
@@ -1576,7 +1571,6 @@
         { label: '涉及业务方', value: uniq(tokens.map(function (n) { var s = null; rowsOf(h).forEach(function (r) { if (r.name === n) s = r; }); return s ? s.biz : '—'; })).join('、'), tone: 'warn' },
         { label: '可回滚', value: stop ? '可重新启动；被中断任务不自动续跑' : '重启后 /tmp 清空', tone: 'warn' }
       ], confirmText: stop ? '批量停止' : '批量重启', danger: true, perm: 'sandbox:operate',
-      auditImpact: sel.length + ' 个实例 / ' + tasks + ' 个任务',
       onConfirm: function () {
         h.state.sbxSel = [];
         h.toast('批量操作已提交');

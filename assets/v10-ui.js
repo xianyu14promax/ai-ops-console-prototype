@@ -1,19 +1,18 @@
 /* ============================================================================
  * v10 横切 UI 件：详情 Tab / 面包屑 / 空态 / 危险操作确认 / 变更 diff /
- *                权限点标签 / 审计 / 通知中心 / 多页签
+ *                权限点标签 / 通知中心 / 多页签
  *
  * 加载位置：assets/render-kol.js 之后、assets/app.js 之前
  * 依赖：global.APP_SHELL（由 app.js 暴露的 esc/icon），但 app.js 在其后加载
  *       —— 因此这里对 SHELL 做**延迟取值**（每次调用时才读），不能缓存。
  *
  * 主持人需在 app.js 的 helpers() 里挂：detailTabs / pageCrumb / emptyFor /
- * detailMissing / dangerConfirm / diffViewer / permTag / audit / auditDrawer /
+ * detailMissing / dangerConfirm / diffViewer / permTag /
  * notificationBell / tabsBar   （已在 v10 接线里完成）
  * ==========================================================================*/
 (function (global) {
   'use strict';
 
-  var AUDIT_KEY = 'aiops:v10:audit';
   var TABS_KEY = 'aiops:v10:tabs';
   /* 页签 key → 中文名（各详情屏渲染时登记）。多页签条据此显示「能力 · 对象 · 页签」，
      否则同一屏的每个页签都顶着一模一样的标签，用户无法区分。 */
@@ -95,10 +94,8 @@
       '.v10-bell{position:relative;border:0;background:none;cursor:pointer;color:var(--sub,#68738a);padding:4px;display:inline-flex;border-radius:6px}',
       '.v10-bell:hover{background:#f1f3f7;color:var(--text,#1f2733)}',
       '.v10-bell-n{position:absolute;top:-2px;right:-2px;min-width:15px;height:15px;border-radius:99px;background:var(--red,#b91c1c);color:#fff;font-size:10.5px;line-height:15px;text-align:center;font-style:normal;padding:0 3px}',
-      '.v10-audit{font-size:12.5px;color:var(--sub,#68738a);cursor:pointer;padding:3px 8px;border-radius:6px}',
-      '.v10-audit:hover{background:#f1f3f7;color:var(--text,#1f2733)}',
       /* 改为真 <button> 后需要可见焦点环，键盘用户才找得到 */
-      '.v10-audit:focus-visible{outline:2px solid var(--blue,#2563eb);outline-offset:2px}',
+      '.v10-bell:focus-visible{outline:2px solid var(--blue,#2563eb);outline-offset:2px}',
       '.v10-tabsbar:empty{display:none}'
     ].join('\n');
     var st = global.document.createElement('style');
@@ -177,29 +174,6 @@
     return sheetEl;
   }
 
-  /* -------------------------------------------------------------------- 审计 */
-  function auditList() {
-    var raw = safeGet(AUDIT_KEY);
-    if (!raw) return [];
-    try { var a = JSON.parse(raw); return Object.prototype.toString.call(a) === '[object Array]' ? a : []; } catch (e) { return []; }
-  }
-  /* 演示环境没有真实会话，取全局身份源；生产环境应由后端从 token 注入，前端不得自行填写。
-     ⚠ 落进审计的操作人必须由服务端认定，前端可写 = 审计可伪造。 */
-  function currentActor() {
-    var me = global.CURRENT_USER;
-    if (me) return { actor: me.name, actorId: me.id, actorRole: me.role };
-    return { actor: '未知用户', actorId: '—', actorRole: '—' };
-  }
-  /* 展示上限（仅 UI 渲染用，不是丢弃阈值） */
-  var AUDIT_UI_CAP = 2000;
-  var AUDIT_ARCHIVE_KEY = 'aiops:v10:audit:archive';
-  function auditArchive() {
-    var raw = safeGet(AUDIT_ARCHIVE_KEY);
-    if (!raw) return [];
-    try { var a = JSON.parse(raw); return Object.prototype.toString.call(a) === '[object Array]' ? a : []; }
-    catch (e) { return []; }
-  }
-
   /* configDiff：把 { from, to } 渲染成 before → after 的差异行。
      用途：应用配置前必须让用户**看见自己改了什么** —— 只弹"已应用"是假成功。 */
   function configDiff(from, to, path) {
@@ -225,83 +199,17 @@
     });
   }
 
-  function audit(entry) {
-    var who = currentActor();
-    var row = {
-      action: (entry && entry.action) || '未命名操作',
-      target: (entry && entry.target) || '—',
-      impact: (entry && entry.impact) || '',
-      at: (entry && entry.at) || new Date().toISOString(),
-      /* 操作人：此前缺失，导致「谁做的」查不到 —— 权限体系的硬伤 */
-      actor: (entry && entry.actor) || who.actor,
-      actorId: (entry && entry.actorId) || who.actorId,
-      actorRole: (entry && entry.actorRole) || who.actorRole,
-      /* 🔴 补：调用方传了 reason 却曾被静默丢弃（校验 11 首个实例） */
-      reason:   (entry && entry.reason != null) ? String(entry.reason) : null,
-      decision: (entry && entry.decision) || null,
-      policyDigest: (entry && entry.policyDigest) || null
-    };
-    var list = auditList();
-    list.push(row);
-    /* 🔴 纪律：状态历史只追加、不改写（校验 7）。此前 slice 丢弃最早记录，*/
-    /*    违反本原型自己声明的 append-only 不变量 —— 改为归档，绝不丢。   */
-    if (list.length > AUDIT_UI_CAP) {
-      var spill = list.slice(0, list.length - AUDIT_UI_CAP);
-      var arch = auditArchive();
-      for (var ai = 0; ai < spill.length; ai++) arch.push(spill[ai]);
-      safeSet(AUDIT_ARCHIVE_KEY, JSON.stringify(arch));
-      list = list.slice(list.length - AUDIT_UI_CAP);
-    }
-    safeSet(AUDIT_KEY, JSON.stringify(list));
-    refreshAuditBadge();
-    return row;
-  }
-
-  /* 顶栏「审计」显示条数 —— 「直接执行、留记录」里的"记录"必须看得见，
-     否则点完只有一句 toast，用户没法确认自己真的留下了一条。 */
-  function refreshAuditBadge() {
-    try {
-      var btn = global.document && global.document.getElementById('v10-audit-btn');
-      if (!btn) return;
-      var n = auditList().length;
-      btn.textContent = n ? ('审计 · ' + n) : '审计';
-      btn.setAttribute('title', '审计记录 · 本次会话 ' + n + ' 条');
-    } catch (e) { /* 顶栏未就绪 */ }
-  }
   function fmtAt(iso) {
     var s = String(iso || '');
     return s.length >= 16 ? s.slice(5, 16).replace('T', ' ') : s;
-  }
-  function auditDrawer(h) {
-    var list = auditList();
-    var body;
-    if (!list.length) {
-      body = '<div class="empty"><div class="empty-title">暂无审计记录</div>' +
-        '<div class="empty-sub">在本页做过写操作（且已确认）后，这里会留痕</div></div>';
-    } else {
-      body = list.slice().reverse().map(function (r) {
-        /* 操作人放最前 —— 审计要先回答「谁」，再回答「做了什么」 */
-        return '<div class="v10-impacts-row"><span class="v10-impacts-k">' + esc(fmtAt(r.at)) + '</span>' +
-          '<span class="v10-impacts-v"><b>' + esc(r.actor || '未知用户') + '</b>' +
-          (r.actorRole ? '<span class="v10-impacts-k" style="display:inline;margin:0 6px">' + esc(r.actorRole) + '</span>' : '') +
-          ' · ' + esc(r.action) + ' · ' + esc(r.target) +
-          (r.impact ? '<span class="v10-impacts-k" style="flex:0 0 auto;margin-left:8px">' + esc(r.impact) + '</span>' : '') +
-          /* 🔴 理由单独显示（此前被拼进 impact，与影响面语义混用） */
-          (r.reason ? '<span class="v10-impacts-k" style="flex:0 0 auto;margin-left:8px">理由：' + esc(r.reason) + '</span>' : '') +
-          '</span></div>';
-      }).join('');
-      var _arch = auditArchive();
-      body = '<div class="bt-note">共 ' + (list.length + _arch.length) + ' 条' +
-        (_arch.length ? '（展示最近 ' + list.length + ' 条，更早 ' + _arch.length + ' 条<b>已归档、未删除</b>）' : '') +
-        '；仅存于浏览器会话存储，<b>刷新即清空</b>，非真实审计</div>' +
-        '<div class="v10-impacts">' + body + '</div>';
-    }
-    return '<div class="v10-sheet-b">' + body + '</div>';
   }
 
   /* ------------------------------------------------------------------ 详情件 */
   function detailTabs(cap, state, tabs, h) {
     injectCss();
+    /* 只有一个页签时不出条 —— 一个孤零零的「审批」按钮点了也没得切，
+       看起来像别的页签被删坏了。审计下线后审批/复核详情只剩单页签，这条是为此加的。 */
+    if (!tabs || tabs.length < 2) return '';
     var E = h || (global.APP_SHELL && global.APP_SHELL.helpers ? global.APP_SHELL.helpers() : null);
     var nav = E && E.navigate ? E.navigate : function () {};
     /* 入参兼容：调用方历史上传过 key（asset/sandbox/gov/flow）也传过 id（survey），
@@ -455,8 +363,7 @@
           '</div>' +
           '<div class="bt-note" style="margin-top:10px"><b>这不等于你没有这个权限，而是授权需要重新确认。</b><br>' +
           '确认后立即恢复；若原授权理由已不成立，应走重新申请而不是续期。<br>' +
-          '生产环境：到期前 N 天应自动提醒审批人，逾期未确认自动降级为只读。</div>' +
-          '<div class="bt-note" style="margin-top:8px">本次拦截已留审计。</div>',
+          '生产环境：到期前 N 天应自动提醒审批人，逾期未确认自动降级为只读。</div>',
         footHtml: '<button class="btn-ghost" data-v10="cancel">知道了</button>' +
           '<button class="btn-primary" data-v10="reconfirm">发起重新确认</button>',
         onOpen: function (root) {
@@ -465,12 +372,7 @@
             if (v === 'cancel') { closeSheet(); return; }
             if (v !== 'reconfirm') return;
             closeSheet();
-            audit({ action: '发起权限重新确认', target: (meta.label || chk.perm) + ' · 原授权已超期 ' + days + ' 天', impact: '进入审批队列', at: null });
             if (E && E.toast) E.toast('已提交重新确认：' + (meta.label || chk.perm) + '（演示环境，不改变实际权限）', 'ok');
-          });
-          audit({
-            action: '到期拦截', target: ((opts && opts.title) || '危险操作') + ' · ' + chk.perm + ' 授权超期',
-            impact: '操作未执行', at: null
           });
         }
       });
@@ -490,8 +392,7 @@
       (chk.owners.length
         ? '<div class="bt-note" style="margin-top:10px">该权限由 <b>' + esc(chk.owners.join(' / ')) + '</b> 持有，需向其申请授权。' +
           (chk.highRisk ? '<br><b class="bad">高危权限授予需二次审批，且每 90 天须重新确认。</b>' : '') + '</div>'
-        : '<div class="bt-note" style="margin-top:10px">当前无任何角色持有该权限点 —— 需平台管理员先在角色矩阵中配置。</div>') +
-      '<div class="bt-note" style="margin-top:8px">本次拦截已留审计（谁尝试了什么、缺哪个权限）。</div>';
+        : '<div class="bt-note" style="margin-top:10px">当前无任何角色持有该权限点 —— 需平台管理员先在角色矩阵中配置。</div>');
     openSheet({
       title: '权限不足',
       bodyHtml: body,
@@ -499,11 +400,6 @@
       onOpen: function (root) {
         root.addEventListener('click', function (e) {
           if (e.target.getAttribute && e.target.getAttribute('data-v10') === 'cancel') closeSheet();
-        });
-        /* 拦截本身入审计 —— 「有人尝试越权」是安全事件里最该留痕的一类 */
-        audit({
-          action: '越权拦截', target: ((opts && opts.title) || '危险操作') + ' · 缺 ' + chk.perm,
-          impact: '操作未执行', at: null
         });
       }
     });
@@ -515,14 +411,14 @@
    *   ②「底下写已记录就可以，不要弹窗，除非高危操作要弹窗二次操作，其他接近无感」
    *
    * 于是分两档，判据是**这次操作能不能撤回**：
-   *   · 普通（发布、上线、落地、授权、改配置）→ 点下去就生效，底部一句「已记录」，不打断；
+   *   · 普通（发布、上线、落地、授权、改配置）→ 点下去就生效，底部一句「已完成」，不打断；
    *   · 高危（下线、终止、删除、回滚、吊销、停用）→ 弹一次确认（只问"做不做"，不问理由）。
    * 判据取 opts.tone === 'danger'（作者标 danger 的本来就是最危险那批），
    * 再用标题关键词兜底，防止哪次调用忘了标 tone。
    *
-   * 无论哪档，执行完都写一条审计（谁/何时/对谁/做了什么/影响面），顶栏数字实时 +1。
-   * 调用方自己发的长 toast（"已落地 · 「xxx」，已写审计"）会被吞掉，统一成「已记录」——
-   * 否则每处文案都要跟着改，且长短不一。
+   * 2026-10-28 业主：「审计删了，这系统只负责一个账号」——
+   * 这里不再写任何操作记录，也不再要求填理由（理由原本唯一的去处就是审计）。
+   * 调用方自己发的长 toast 仍被吞掉，统一成「已完成」，避免每处文案长短不一。
    */
   var HIGH_RISK_RE = /下线|终止|删除|删除|回滚|吊销|撤销|停用|弃用|清空|移除|解绑|摘掉/;
 
@@ -537,29 +433,16 @@
     var titleTxt = String(opts.title || opts.action || '');
     var isHigh = opts.tone === 'danger' || HIGH_RISK_RE.test(titleTxt);
 
-    /* 🔴 2026-10-22：`requireReason` 此前**只是被接收、从未被实现** ——
-       调用方（v34 的授权、v41 的发布旅程）传了 requireReason: true，弹层里却没有理由输入框，
-       onConfirm 收到的也永远是空字符串，审计里的 reason 一律是 null。
-       「高危操作要填理由」这句话在 UI 上等于没说过。现在补上：
-       弹层里放一个必填的 textarea，没填时确认键置灰，填了才放行，理由一并进审计。 */
-    var doIt = function (reason) {
-      /* 吞掉调用方自己的 toast，统一成一句「已记录」 */
+    var doIt = function () {
+      /* 吞掉调用方自己的 toast，统一成一句「已完成」 */
       var hadToast = (h && typeof h.toast === 'function');
       var origToast = hadToast ? h.toast : null;
       if (hadToast) h.toast = function () {};
       try {
-        if (typeof opts.onConfirm === 'function') opts.onConfirm(reason || '');
+        if (typeof opts.onConfirm === 'function') opts.onConfirm('');
       } catch (err) { if (global.console) global.console.error(err); }
       if (hadToast) h.toast = origToast;
-
-      audit({
-        action: opts.action || String(opts.title || '确认操作').replace(/[？?]\s*$/, ''),
-        target: opts.target || opts.desc || '—',
-        impact: opts.auditImpact || '',
-        reason: reason || null,
-        at: null
-      });
-      if (hadToast) origToast('已记录', 'ok');
+      if (hadToast) origToast('已完成', 'ok');
     };
 
     if (!isHigh) { doIt(); return; }
@@ -575,36 +458,17 @@
       title: opts.title || '确认操作？',
       bodyHtml: (opts.desc ? '<div class="v10-sheet-desc">' + esc(opts.desc) + '</div>' : '') +
         (rows ? '<div class="v10-impacts">' + rows + '</div>' : '') +
-        (opts.requireReason
-          ? '<div class="v10-reason"><label for="v10-reason">理由（必填，会记进审计）</label>' +
-            '<textarea id="v10-reason" data-v10="reason" rows="2" placeholder="' +
-            esc(opts.reasonPlaceholder || '一句话说明为什么现在做这件事') + '"></textarea></div>'
-          : '') +
         '<div class="bt-note" style="margin-top:8px">这一下改不回来，所以问一句；其它操作都是点了就生效。</div>',
       footHtml: '<button class="btn-ghost" data-v10="cancel">取消</button>' +
-        '<button class="btn-danger" data-v10="ok"' + (opts.requireReason ? ' disabled' : '') + '>' +
+        '<button class="btn-danger" data-v10="ok">' +
         esc(opts.confirmText || '确认') + '</button>',
       onOpen: function (root) {
-        var ta = root.querySelector('[data-v10="reason"]');
-        var ok = root.querySelector('[data-v10="ok"]');
-        if (ta && ok) {
-          ta.addEventListener('input', function () {
-            if (ta.value.trim()) ok.removeAttribute('disabled');
-            else ok.setAttribute('disabled', 'disabled');
-          });
-        }
         root.addEventListener('click', function (e) {
           var g = e.target.getAttribute && e.target.getAttribute('data-v10');
           if (g === 'cancel') { closeSheet(); return; }
           if (g !== 'ok') return;
-          /* 必填理由：空着就不放行（按钮置灰之外再挡一道，防键盘回车绕过） */
-          if (opts.requireReason && ta && !ta.value.trim()) {
-            ta.focus();
-            return;
-          }
-          var reason = ta ? ta.value.trim() : '';
           closeSheet();
-          doIt(reason);
+          doIt();
         });
       }
     });
@@ -897,11 +761,6 @@
     checkPerm: checkPerm,
     diffViewer: diffViewer,
     permTag: permTag,
-    audit: audit,
-    auditList: auditList,
-    refreshAuditBadge: refreshAuditBadge,
-    auditDrawer: auditDrawer,
-    auditList: auditList,
     notificationBell: notificationBell,
     asyncResult: asyncResult,
     asyncUnread: asyncUnread,
@@ -914,7 +773,7 @@
 
   if (global.document) {
     if (global.document.readyState === 'loading') {
-      global.document.addEventListener('DOMContentLoaded', function () { injectCss(); bindTabs(); bindBack(); refreshAuditBadge(); });
-    } else { injectCss(); bindTabs(); bindBack(); refreshAuditBadge(); }
+      global.document.addEventListener('DOMContentLoaded', function () { injectCss(); bindTabs(); bindBack(); });
+    } else { injectCss(); bindTabs(); bindBack(); }
   }
 })(window);

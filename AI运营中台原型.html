@@ -160,7 +160,7 @@ button .kbd{margin-right:4px}
 .acct-wrap.open .acct-menu{opacity:1;transform:none;pointer-events:auto}
 .acct-hd{display:flex;align-items:center;gap:10px;padding:12px 12px 12px}
 .acct-hd .avatar{width:38px;height:38px;font-size:14px}
-/* 行内小头像：用于表格里的人员列（成员/审批人/责任人/负责人）——
+/* 行内小头像：用于表格里的人员列（成员 / 审批人 / 认领人）——
    规格：用户用头像。颜色由姓名哈希取，同一人全站同色，不随位置变。 */
 .av{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
     font-size:11px;font-weight:600;color:#fff;flex:0 0 22px;vertical-align:-6px;margin-right:6px;
@@ -212,8 +212,9 @@ button .kbd{margin-right:4px}
 .pill .lvl{vertical-align:-2px;margin-right:4px}
 /* A2A 对等通信行：用**左侧强调边**做身份通道（不占面积、不改尺寸、失败时原地变红）。
    来自 A2A 聚合工作台的实测做法：深色/浅色主题下再塞高饱和底色会同时破坏底色层级与状态徽标。 */
-.a2a-tbl tbody tr{border-left:3px solid #9f7aea}
-.a2a-tbl tbody tr:has(.pill.warn){border-left-color:#e11d48}
+/* 2026-10-28：去掉行首那条紫色竖条（业主定规，见总览段）。整张表本来就都是 A2A 行，
+   竖条并不区分任何东西；失败行改成整行淡红底，比一条 3px 的边更容易在扫表时被看到。 */
+.a2a-tbl tbody tr:has(.pill.warn){background:#fffafa}
 .a2a-tbl td:first-child{font-weight:600}
 /* 本机受理 vs 跨节点委派：同一张表里也要能一眼分开 */
 .a2a-tbl tbody tr .td-sub{color:var(--faint)}
@@ -317,12 +318,12 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
 .side-note:hover{border-color:var(--blue);color:var(--blue)}
 
 /* SECTION: kol-task-view */
-.today-card{border-left:3px solid var(--amber)}
+.today-card{border-color:#F0DCAE}
 .act-list{display:flex;flex-direction:column;gap:8px}
-.act-item{display:flex;align-items:center;gap:12px;padding:12px 12px;border:1px solid var(--line);border-left-width:3px;border-radius:var(--dsw-radius-md);background:#fff}
-.act-item.bad{border-left-color:var(--red);background:#fffafa}
-.act-item.warn{border-left-color:var(--amber);background:#fffdf7}
-.act-item.info{border-left-color:var(--blue)}
+.act-item{display:flex;align-items:center;gap:12px;padding:12px 12px;border:1px solid var(--line);border-radius:var(--dsw-radius-md);background:#fff}
+.act-item.bad{border-color:#F3C9C9;background:#fffafa}
+.act-item.warn{border-color:#F0DCAE;background:#fffdf7}
+.act-item.info{border-color:#CFE0FF}
 .act-lv{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--sub);background:var(--bg-subtle-3);border-radius:var(--dsw-radius-sm);padding:2px 8px}
 .act-item.bad .act-lv{background:var(--red-bg);color:var(--red)}
 .act-item.warn .act-lv{background:var(--amber-bg);color:var(--amber)}
@@ -337,7 +338,7 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
 .kb-n{margin-left:auto;font-size:11px;color:var(--faint);background:#eef1f6;border-radius:var(--dsw-radius-pill);padding:1px 8px}
 .kb-card{display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:var(--dsw-radius-md);padding:8px 12px;margin-bottom:7px}
 .kb-card:hover{border-color:var(--blue)}
-.kb-card.blocked{border-left:3px solid var(--red)}
+.kb-card.blocked{border-color:#F3C9C9}
 .kb-card b{font-size:13px}
 .kb-form{font-size:12px;color:var(--sub)}
 .kb-date{font-size:11px;color:var(--faint)}
@@ -597,7 +598,11 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
 .m-approx{font-size:11px;color:var(--amber);border:1px solid #f0d9a8;border-radius:var(--dsw-radius-xs);padding:0 4px;cursor:help}
 .tip{position:fixed;z-index:99;background:#111827;color:#fff;font-size:12px;line-height:1.55;padding:8px 12px;border-radius:var(--dsw-radius-sm);max-width:320px;box-shadow:0 8px 24px rgba(15,23,42,.24);pointer-events:none}
 
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--dsw-radius-xs);padding:16px 16px;margin-bottom:14px}
+/* 2026-10-28：卡片外观收口 —— 圆角 4→10、描边转冷（配 #f4f6fa 的冷调页底）、加一层 1px 阴影。
+   原来卡与页底只差一条 #E7E7E7 的线，一屏十几张卡叠着像贴纸；一层 1~3px 的阴影把"面"提起来，
+   又不至于变成浮层（浮层留给弹层与菜单）。内边距保持 16px —— 各页都是按它排的。 */
+.card{background:var(--card);border:1px solid #EAEDF3;border-radius:10px;padding:16px 16px;margin-bottom:14px;
+  box-shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.03)}
 .card.pad0{padding:0}
 .card-h{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .card.pad0 .card-h.pad{padding:16px 16px 0}
@@ -701,9 +706,9 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
      密度不降（信息一个不丢），主次建立起来。）
    规则：① 待办提到全宽焦点区（左侧强调条）② 健康指标压成一行条
         ③ 事故/运行中/需关注/快捷进 <details> 折叠区（原生元素，键盘可达）  */
-.ov-focus{margin-bottom:14px;border-left:3px solid var(--blue);padding-left:14px}
-.ov-focus.warn{border-left-color:var(--amber)}
-.ov-focus.crit{border-left-color:var(--red)}
+/* 全宽焦点区只做「整块留白 + 外框」的定位，不画左侧强调条：焦点区里放的就是卡片，
+   再给一条蓝边，等于在卡片左边又贴一条蓝线，两层边框互相打架。 */
+.ov-focus{margin-bottom:14px}
 .ov-focus .card{margin-bottom:0}
 /* 健康带：一行放下 5 个指标，右对齐数值，避免占据整块卡片的高度 */
 .ov-strip{display:flex;align-items:baseline;gap:22px;flex-wrap:wrap;padding:9px 14px;margin-bottom:14px;
@@ -713,6 +718,257 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
 .ov-strip-k b.alert{color:var(--red)}
 .ov-strip-k .sub{font-size:11px;color:var(--faint)}
 .ov-strip .tail{margin-left:auto;font-size:11px;color:var(--faint)}
+/* ══════════════════════════════════════════════════════════════════════════
+   总览 · 状态屏（2026-10-27）。业主：「这个界面全删了，换成系统状态和 agent 状态」。
+   上面 .ov-focus / .ov-strip / .ov-fold 三组规则**保留不动**：
+   它们被别的屏引用过（.ov-grid 仍在多处使用），只是总览页不再产出这三种结构。
+   新增的 st-* 只服务这一屏：状态点、配额水位、紧凑 Agent 卡。
+   ══════════════════════════════════════════════════════════════════════════ */
+/* 2026-10-28 业主定规：**卡片不用左侧色条表达状态**（原话「不要这个，后面设计不准出现这个」）。
+   全站改用三件东西承载状态：状态点、药丸、整框描边着色。左侧竖条一律不画 ——
+   它在视觉上把卡片的左边缘吃掉一条，读者第一眼看到的是「一条色带」而不是「这张卡说了什么」，
+   而且圆角卡片上那条竖条的两端会被圆角切出两个红尖，反而成为全屏最显眼的噪点。
+   下面这些规则是这条规矩的落地，别再改回去。 */
+/* 顶部四个汇总块：数字大、口径小；状态由标签前的 6px 状态点承担，不铺整卡底色（一屏多个红底会告警疲劳） */
+/* 五个汇总块永远一行（flex 等分）。用 flex-basis 190px 时 1280 会排成 4+1，
+   最后一块孤零零 —— 这一排本来就是一类东西，拆两行读着就不成组了。
+   窄到 760px 以下才折两列。
+   2026-10-28 视觉重排（这一屏只换了外观，数字与口径一个字没动）：
+   · 正常档的色条改成淡绿 —— 五张里三张亮绿时，那张红的反而看不见了；
+     降级/故障仍是满饱和的琥珀与红，扫一眼就知道该看哪块。
+   · 副行从单行省略改成两行截断：原来「异常 2 · 观察 4 · 运行中 6 · 已下…」永远读不全。
+   · 数字 24→26、内边距 10/14→12/16、卡片加一层 1px 阴影与 10px 圆角 ——
+     之前四边贴得太紧、卡与页底只靠一条 1px 边框分家，整排像贴纸。 */
+.ov-state{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.ov-state-i{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:3px;
+  padding:12px 16px 13px;text-align:left;font:inherit;color:inherit;cursor:pointer;
+  background:#fff;border:1px solid #EAEDF3;border-radius:10px;
+  box-shadow:0 1px 2px rgba(16,24,40,.04);
+  transition:border-color .15s,box-shadow .15s,transform .15s}
+@media (max-width:760px){.ov-state-i{flex:1 1 calc(50% - 6px)}}
+/* 1180 以下改成三列（3+2）：五张挤在一行时每张只剩 145px，
+   「2 正常 · 2 降级 · 1 故障」这种口径行会被压成两句断句，读不出是一组数。 */
+@media (max-width:1180px){.ov-state-i{flex:1 1 calc(33.333% - 8px)}}
+.ov-state-i:hover{box-shadow:0 4px 12px rgba(16,24,40,.07);transform:translateY(-1px)}
+.ov-state-i:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+/* 状态点：唯一的状态色载体，色相 + 副行文案双通道。降级/故障整框描边跟着变色，
+   正常档不描边 —— 五张里三张描绿边，那张红的就不显眼了。 */
+.ov-state-k{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--faint);letter-spacing:.2px}
+.ov-state-k::before{content:'';flex:0 0 6px;width:6px;height:6px;border-radius:50%;background:var(--green)}
+.ov-state-i.warn .ov-state-k::before{background:var(--amber)}
+.ov-state-i.bad .ov-state-k::before{background:var(--red)}
+.ov-state-i.warn{border-color:#F0DCAE}
+.ov-state-i.bad{border-color:#F3C9C9}
+.ov-state-v{font-size:26px;font-weight:600;letter-spacing:-.6px;line-height:1.15;color:var(--text);
+  font-variant-numeric:tabular-nums}
+.ov-state-v small{font-size:12px;font-weight:400;color:var(--faint);margin-left:5px;letter-spacing:0}
+.ov-state-s{font-size:12px;color:var(--sub);line-height:1.5;margin-top:1px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* 汇总行里的"降级 / 故障"着色：整行灰字时，读者得逐个数字去猜哪一档不为零。
+   着色后一眼看到"有几项在降级"，而正常项保持灰 —— 不抢注意力。 */
+.ov-state-s em{font-style:normal}
+.ov-state-s em.w{color:var(--amber)}
+.ov-state-s em.b{color:var(--red);font-weight:600}
+/* 状态点：全屏唯一的状态色载体（色相 + 文案双通道，色盲用户靠文案也能读） */
+.st-dot{flex:0 0 7px;width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
+.st-dot.warn{background:var(--amber)}
+.st-dot.bad{background:var(--red)}
+.st-dot.idle{background:var(--decor)}
+.st-dot.run{animation:agPulse 1.9s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.st-dot.run{animation:none}}
+/* ── 平台组件：五格一行（grid 等分，不折行）。
+   用 grid auto-fit 时 1440 宽会排成 4+1 —— 最后一个孤零零占一格，右侧空三格；
+   这一排是"系统整体"的一组指标，拆成两行读起来就不是一组了。窄到放不下再折。 
+   2026-10-28：由"卡内灰底小块"改成白底描边块，并把状态 pill 从卡底挪到数值行右端 ——
+   原来 pill 靠 margin-top:auto 压在卡底，上面留一段空白，读起来像"忘了填内容"；
+   挪到数值右侧后，一眼就是"这个数 × 这个状态"。 ── */
+.st-comp{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+@media (max-width:1320px){.st-comp{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.st-comp-i{display:grid;grid-template-columns:minmax(0,1fr) auto;
+  grid-template-areas:"h t" "v v" "s s";gap:8px;align-content:start;
+  padding:12px 14px 13px;text-align:left;cursor:pointer;
+  font:inherit;color:inherit;background:#fff;border:1px solid #EAEDF3;border-radius:10px;
+  transition:border-color .15s,background .15s,box-shadow .15s}
+.st-comp-i:hover{border-color:#CFE0FF;background:#FBFDFF;box-shadow:0 2px 8px rgba(16,24,40,.05)}
+.st-comp-i:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+/* 降级/故障只动描边，不铺底色 —— 一格铺红底、旁边四格白底，红会退化成噪声 */
+.st-comp-i.warn{border-color:#F0DCAE}
+.st-comp-i.bad{border-color:#F3C9C9}
+.st-comp-h{grid-area:h;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--text);
+  min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 状态 pill 与名称同一行、贴右：原来它和数值挤在一行，1280 下「成功率」会被拆成两行
+   （数值 74px + 单位 33px + pill 44px 超过可用宽度），而名称那一行本来就是空的。 */
+.st-comp-v{grid-area:v;font-size:21px;font-weight:600;letter-spacing:-.4px;line-height:1.2;
+  font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st-comp-v em{font-size:12px;font-style:normal;font-weight:400;color:var(--faint);margin-left:4px;letter-spacing:0}
+.st-comp-s{grid-area:s;font-size:12px;color:var(--faint);line-height:1.55;
+  display:flex;flex-wrap:wrap;gap:0 8px;align-content:flex-start}
+.st-comp-si{white-space:nowrap}
+.st-comp-t{grid-area:t;align-self:center;justify-self:end}
+.st-comp-t .pill{padding:2px 8px;font-size:12px;border-radius:6px}
+/* ── 依赖服务墙：一行一个服务，扫的是「谁在掉」而不是「谁最好」 ──
+   2026-10-28：补一行列头。原来右侧四列（配额 / QPS / 错误率 / P99）全是 12px 数字，
+   列名只写在上面一句小标题里，读者得来回对；有列头就不用对。 */
+.st-split{display:flex;align-items:center;gap:10px;margin:18px 0 2px;font-size:12px;color:var(--sub)}
+.st-split::after{content:'';flex:1 1 auto;height:1px;background:var(--line-soft)}
+.st-svc{display:flex;flex-direction:column}
+/* 列宽：服务名与用途各占一份弹性宽度，水位条固定 168px。
+   把 1fr 给水位条会让它拉到 500px —— 60% 的用量看起来也像"很长"，反而误导；
+   也不能让两列文字按内容收紧，否则留白会集中堆在「用途」与「水位条」之间。 */
+.st-svc-hd,.st-svc-r{display:grid;align-items:center;gap:10px;
+  grid-template-columns:18px 20px minmax(130px,1fr) minmax(70px,1fr) 152px 92px 88px 80px auto}
+.st-svc-hd{padding:9px 8px 7px;font-size:11px;color:var(--faint);border-bottom:1px solid var(--line-soft)}
+/* 配额水位那列的表头跟着条形起点左对齐，右边三列跟着数字右对齐 ——
+   表头对齐哪一侧，读的时候眼睛就落在哪一侧，不能一列左对齐一列右对齐地混着来。 */
+.st-svc-hd span:nth-child(n+6){text-align:right}
+/* 1240 以下收一次列宽：用途列改成 minmax(0,1fr) 允许收窄到省略号，不让整表横向溢出。
+   实测 1100 视口下按 1440 的列宽排会溢出 94px，而这张表是**只读扫描**用的，
+   横向滚一下才能看到 P99 与状态，等于把最该看的列藏起来了。 */
+@media (max-width:1240px){
+  .st-svc-hd,.st-svc-r{grid-template-columns:18px 20px minmax(120px,1.1fr) minmax(0,1fr) 140px 88px 84px 76px auto}
+}
+.st-svc-r{padding:9px 8px;text-align:left;cursor:pointer;font:inherit;color:inherit;
+  border:0;border-bottom:1px solid var(--line-soft);background:none;
+  transition:background .12s,box-shadow .12s}
+/* 行内身份图标：六个 mcp://xxx/yyy 长度相近，光看名字扫不出谁是谁；
+   图标块用的是 seed 里同一份 icon/tone（网关健康墙也用它），两页认得出来是同一个服务。 */
+.st-svc-ico{display:flex;align-items:center}
+.st-svc-ico .svc-ico{margin-right:0}
+.st-svc-r:last-child{border-bottom:0}
+.st-svc-r:hover{background:var(--bg-subtle-2);box-shadow:inset 2px 0 0 var(--blue)}
+.st-svc-r:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.st-svc-name{font-size:12.5px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-svc-p{font-size:12px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 水位条：条 + 右侧百分比。原来只有一条 4px 的绿杠，读数靠左边那句 "28 / 60 QPS"
+   心算，条本身不承载数字。 */
+.st-svc-m{display:flex;align-items:center;gap:8px;min-width:0}
+.st-meter{flex:1 1 auto;height:6px;border-radius:999px;background:#EFF2F7;overflow:hidden}
+.st-meter i{display:block;height:100%;border-radius:999px;background:var(--green)}
+.st-meter i.warn{background:var(--amber)}
+.st-meter i.bad{background:var(--red)}
+.st-svc-m em{flex:0 0 32px;font-style:normal;font-size:11px;color:var(--sub);text-align:right;
+  font-variant-numeric:tabular-nums}
+.st-svc-n{font-size:12px;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.st-svc-q{color:var(--faint)}
+.st-svc-n.bad{color:var(--red);font-weight:600}
+.st-svc-r .pill{padding:2px 8px;font-size:12px;justify-self:end;border-radius:6px}
+/* ── 服务器状态：一台主机一张卡，卡内三行（CPU / 内存 / 磁盘）。
+   行内四列：标签 34px · 图/条吃掉剩余 · 百分比 42px 右对齐 · 附注 —— 附注过长省略号，
+   不换行（换行会让三台机器的行高各不相同，横着排就对不齐了）。
+   2026-10-28：布局由 flex 改成 grid 三等分。原来真机 flex:1 吃掉 700px、两张空位各 200px，
+   真机卡里四个环挤在左边（.st-rings 有 420px 上限），右侧空出三百多像素 ——
+   一边挤、一边空。三等分后环正好铺满，两张空位也不再是两块大白板。 ── */
+.st-host{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:stretch}
+.st-host-i{min-width:0;display:flex;flex-direction:column;gap:10px;padding:13px 14px;
+  background:#fff;border:1px solid #EAEDF3;border-radius:10px;
+  box-shadow:0 1px 2px rgba(16,24,40,.04)}
+/* 水位越线只改整框描边，不画左侧色条（见本条上方的业主规矩）。
+   卡头本来就有状态点与「水位偏高」药丸，状态不靠边框也读得出来。 */
+.st-host-i.warn{border-color:#F0DCAE}
+.st-host-i.bad{border-color:#F3C9C9}
+/* 未接入的槽位：虚线空位，不是故障卡 —— 灰色实心卡会被读成“这台挂了”。
+   悬停才变蓝，平时保持"这里还空着"的克制感。
+   网格里它和真机同宽（原来是 flex:0 0 200px 的死宽度，卡在右侧边上更空）。 */
+.st-host-add{align-items:center;justify-content:center;gap:6px;cursor:pointer;text-align:center;
+  background:transparent;border:1px dashed #DDE3ED;color:var(--faint);box-shadow:none;
+  transition:border-color .15s,color .15s,background .15s;font:inherit}
+.st-host-add:hover{border-color:#9DBEFF;color:var(--blue);background:#F7FAFF}
+.st-host-add:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.st-host-plus{font-size:24px;line-height:1;font-weight:300;color:#C3CBDA}
+.st-host-add:hover .st-host-plus{color:var(--blue)}
+.st-host-add b{font-size:13px;font-weight:600}
+.st-host-add-s{font-size:12px;line-height:1.4}
+/* 「接入一台服务器」说明弹层里的条目：左侧标签固定宽，右侧说明可换行。 */
+.ov-add-ul{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px}
+.ov-add-ul li{display:grid;grid-template-columns:66px 1fr;gap:10px;font-size:13px;color:var(--sub);line-height:1.6}
+.ov-add-ul b{color:var(--text);font-weight:600}
+.st-host-i header{display:flex;align-items:center;gap:7px;max-width:420px}
+.st-host-i header b{font-size:13px;font-weight:600;color:var(--text);font-family:"SF Mono",Consolas,monospace}
+.st-host-role{font-size:12px;color:var(--faint)}
+.st-host-i header .pill{margin-left:6px;padding:2px 7px;font-size:12px}
+/* 卡内四个环形仪表：负载 / CPU / 内存 / 磁盘 —— 与宝塔面板同一组指标。
+   环 = 同一个百分比的图形，中心就是那个数，两者必须一致。
+   环直径 60、描边 6、轨道 #eef1f6：轨道太深会抢走"用了多少"的对比，
+   太浅则环没画满时看不出还差多少。 */
+/* 四个环：72px 固定宽（对齐参考图的比例），容器放不下时整行折成 2×2 而不是把环压小。
+   压小会让数字随之压到内壁，那正是参考图要避免的。 */
+.st-rings{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 2px;padding:2px 0 4px;
+  max-width:420px}   /* 单机时卡片会变宽，环不能让 space-between 拉到左右两端各自为政 */
+/* 窄屏（卡宽 < 约 290）四环放不下时，用 **2×2** 而不是让它自己折成 3+1 ——
+   flex-wrap 的默认结果是最后一行只剩"磁盘"一个环孤零零挂在那儿。 */
+@media (max-width:1180px){
+  .st-rings{display:grid;grid-template-columns:repeat(2,72px);justify-content:center;gap:12px 26px}
+}
+.st-ring{flex:0 0 72px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px}
+.st-ring-wrap{position:relative;width:72px;height:72px}
+.st-ring-svg{display:block}
+.st-ring-svg .track{stroke:#e9edf3}
+/* 中心数字：大号加粗 + 很小很淡的 %，两者基线对齐（参考图就是这么排的）。
+   垂直居中用 top:50% + translateY(-50%)，不依赖行高，字号怎么调都不会偏。 */
+.st-ring-wrap b{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);
+  text-align:center;font-size:22px;font-weight:700;letter-spacing:-.8px;font-variant-numeric:tabular-nums;
+  color:var(--text);line-height:1;white-space:nowrap}
+.st-ring-wrap b i{font-size:9px;vertical-align:1px;font-style:normal;font-weight:500;color:var(--faint);margin-left:1px;letter-spacing:0}
+.st-ring-wrap b.sm{font-size:15px}
+.st-ring-wrap b.warn{color:var(--amber)}
+.st-ring-wrap b.bad{color:var(--red)}
+.st-ring>span{font-size:12px;color:var(--faint);line-height:1.3}
+.st-ring>em{font-size:12px;font-style:normal;color:var(--sub);line-height:1.3;max-width:100%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+/* GPU 行：单独一条，不进上面四个环 —— 利用率与显存是两个维度，一个环说不全。
+   窄卡（1280 下每张约 244px）允许折行：宁可两行，也不把「显存 38.2/96G」截成「38.2/9…」。 */
+.st-gpu{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;margin-top:2px;max-width:420px;
+  border-top:1px solid var(--line-soft);padding-top:8px;font-size:12px;color:var(--faint)}
+.st-gpu-k{font-weight:600;color:var(--sub)}
+.st-gpu b{font-size:12px;font-weight:600;color:var(--sub);font-family:"SF Mono",Consolas,monospace}
+.st-gpu-m em{font-style:normal;color:var(--text);font-variant-numeric:tabular-nums;margin-left:3px}
+.st-gpu-m em.warn{color:var(--amber)}
+.st-gpu-m em.bad{color:var(--red)}
+.st-gpu-t{margin-left:auto;font-variant-numeric:tabular-nums}
+.st-host-note{font-size:12px;color:var(--faint);line-height:1.4}
+/* ── Agent 状态：紧凑一档 —— 比 Agent 列表页少一行描述、少一行阈值判决 ── */
+.st-ag-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px}
+.st-ag-i{display:flex;flex-direction:column;gap:8px;padding:13px 14px;text-align:left;
+  background:#fff;border:1px solid #EAEDF3;border-radius:10px;cursor:pointer;
+  box-shadow:0 1px 2px rgba(16,24,40,.04);
+  transition:border-color .15s,box-shadow .15s,transform .15s}
+.st-ag-i:hover{border-color:#CFE0FF;box-shadow:0 4px 12px rgba(16,24,40,.07);transform:translateY(-1px)}
+.st-ag-i:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.st-ag-i.is-bad{border-color:#F3C9C9}
+.st-ag-i.is-warn{border-color:#F0DCAE}
+.st-ag-i header{display:flex;align-items:center;gap:7px}
+.st-ag-i header b{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-ag-i header .pill{margin-left:auto;padding:2px 7px;font-size:12px}
+.st-ag-meta{font-size:12px;color:var(--faint)}
+.st-ag-ev{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);
+  background:var(--bg-subtle-2);border-radius:var(--dsw-radius-sm);padding:6px 8px;line-height:1.45}
+.st-ag-ev>span:nth-child(2){flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-ag-ev em{flex:0 0 auto;font-style:normal;color:var(--faint);font-variant-numeric:tabular-nums}
+.st-ag-k{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;align-items:center;gap:10px;
+  border-top:1px solid var(--line-soft);padding-top:9px}
+.st-ag-k>span{display:flex;flex-direction:column;gap:1px}
+.st-ag-k i{font-size:12px;color:var(--faint);font-style:normal}
+.st-ag-k b{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.st-ag-k b.bad{color:var(--red)}
+.st-ag-sp{margin-left:auto}
+.st-ag-why{font-size:12px;color:var(--red);line-height:1.4}
+.st-ag-why.warn{color:var(--amber)}
+/* ── 判据说明折叠 ──
+   三块说明原本是平铺的整段小字，加起来占掉近 120px 屏高，而它们是"要查的时候才看"的内容，
+   不是每次打开都要读的正文。收进原生 details：标题写清是什么（不藏责任），点开即全文。
+   与页脚 metaBar 同一做法 —— 那条 584px 的教训业主已经拍过板。 */
+.ov-why{margin-top:12px;border-top:1px dashed var(--line);padding-top:8px}
+.ov-why>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;
+  font-size:12px;color:var(--sub);transition:color .12s}
+.ov-why>summary::-webkit-details-marker{display:none}
+.ov-why>summary::before{content:'▸';font-size:10px;transition:transform .12s}
+.ov-why[open]>summary::before{transform:rotate(90deg)}
+.ov-why>summary:hover,.ov-why[open]>summary{color:var(--text)}
+/* 右侧摘要：这行只剩"判据与口径"四个字时，右边一大片空白像一行没删干净的残留。
+   把该卡最关键的那条阈值放这儿 —— 不展开也能知道线画在哪。 */
+.ov-why>summary em{margin-left:auto;font-style:normal;font-size:12px;color:var(--faint);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:16px}
+.ov-why p{margin:8px 0 0;font-size:12px;color:var(--faint);line-height:1.8;max-width:840px}
 /* 折叠区：用原生 details —— 键盘可达、无需 JS；默认收起，展开即全（信息不丢） */
 .ov-fold{border:1px solid var(--line);border-radius:var(--dsw-radius-md);background:#fff;margin-bottom:14px}
 .ov-fold>summary{cursor:pointer;padding:9px 14px;font-size:12.5px;font-weight:600;color:var(--sub);
@@ -817,8 +1073,10 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
 .def-row{display:flex;gap:8px;font-size:12px}
 .def-row b{color:var(--sub);flex:0 0 auto}
 .def-row span{color:var(--faint)}
-.bt-note{font-size:13px;color:var(--sub);line-height:1.7;background:var(--bg-subtle-1);border-left:3px solid var(--line);padding:8px 12px;border-radius:0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0;margin-top:12px}
-.bt-warn{font-size:13px;color:#92600a;line-height:1.7;background:var(--amber-bg);border-left:3px solid var(--amber);padding:8px 12px;border-radius:0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0;margin-top:12px}
+/* 提示条：由「左侧竖条 + 直角」改成「整框描边 + 圆角」。竖条那一版左边两个角是方的，
+   放在圆角卡片里像另一套语言；颜色靠底色与描边表达已经够。 */
+.bt-note{font-size:13px;color:var(--sub);line-height:1.7;background:var(--bg-subtle-1);border:1px solid var(--line);padding:8px 12px;border-radius:var(--dsw-radius-sm);margin-top:12px}
+.bt-warn{font-size:13px;color:#92600a;line-height:1.7;background:var(--amber-bg);border:1px solid #F0DCAE;padding:8px 12px;border-radius:var(--dsw-radius-sm);margin-top:12px}
 .readonly-note{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--sub);line-height:1.65;background:var(--blue-weak);border-radius:var(--dsw-radius-sm);padding:8px 12px;margin-bottom:14px}
 .readonly-note svg{flex:0 0 14px;margin-top:2px;color:var(--blue)}
 .alert-banner{border-radius:var(--dsw-radius-md);padding:12px 16px;margin-bottom:14px;font-size:13px;display:flex;flex-direction:column;gap:4px}
@@ -853,12 +1111,14 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
    且卡片保持最矮（1100/1000px 下 670→554，900px 下 554→440）。
    `.inc-acts` 补上缺口：原本没有规则，靠默认 inline 布局；这里给成 inline-flex 让按钮成组、
    间距可控，`justify-content:flex-end` 让它换行后仍贴右。 */
-.inc-item{display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border:1px solid var(--line);border-left-width:3px;border-radius:var(--dsw-radius-sm);text-align:left;width:100%;background:#fff;cursor:pointer;flex-wrap:wrap}
+.inc-item{display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--dsw-radius-sm);text-align:left;width:100%;background:#fff;cursor:pointer;flex-wrap:wrap}
 .inc-item:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .inc-item:hover{background:var(--bg-subtle-1)}
-.inc-item.lv-P0{border-left-color:var(--red)}
-.inc-item.lv-P1{border-left-color:var(--amber)}
-.inc-item.lv-P2{border-left-color:var(--blue)}
+/* 等级从左侧竖条挪到 P0/P1/P2 那个小方片上 —— 方片本来就在，改成带色只是把已有的
+   文字等级染上同一个色，信息量不变，卡片左边缘回到干净的直边。 */
+.inc-item.lv-P0 .inc-lv{background:var(--red-bg);color:var(--red)}
+.inc-item.lv-P1 .inc-lv{background:var(--amber-bg);color:var(--amber)}
+.inc-item.lv-P2 .inc-lv{background:var(--blue-weak);color:var(--blue)}
 .inc-lv{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--sub);background:var(--bg-subtle-3);border-radius:var(--dsw-radius-sm);padding:2px 8px}
 .inc-main{display:flex;flex-direction:column;min-width:0;flex:1 1 200px}
 .inc-acts{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
@@ -891,7 +1151,9 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
 .ag-card{background:#fff;border:1px solid var(--line);border-radius:var(--dsw-radius-md);padding:16px 16px;cursor:pointer;text-align:left;transition:border-color .15s,box-shadow .15s;display:flex;flex-direction:column;gap:8px}
 .ag-card:hover{border-color:var(--blue);background:#fbfdff}
 .ag-card:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-.ag-alert{border-left:3px solid var(--red)}
+/* 异常 Agent 卡：整框描边着色，不画左侧色条。卡片右上角已有「异常/观察」药丸，
+   底行还有红色阈值判定，状态有三处冗余，不缺这一条竖线。 */
+.ag-alert{border-color:#F3C9C9}
 .ag-card header{display:flex;align-items:center;gap:8px}
 .ag-ico{color:var(--blue);display:flex}
 .ag-name{font-weight:600;font-size:15px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1119,18 +1381,26 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
 .chart-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--sub);margin-top:9px}
 .chart-legend span{display:flex;align-items:center;gap:4px}
 .chart-legend i{width:11px;height:11px;border-radius:var(--dsw-radius-xs);display:inline-block}
-.chart-tip{position:absolute;top:6px;background:#111827;color:#fff;font-size:12px;border-radius:var(--dsw-radius-sm);padding:8px 8px;pointer-events:none;display:flex;flex-direction:column;gap:2px;z-index:5;min-width:150px;line-height:1.5}
-.chart-tip b{font-size:12px}
-.chart-tip .bad{color:#fca5a5}
-/* v27：提示内容改成「标题行 + 每行色块」结构（对标 DeepSeek 控制台的 tooltip）——
-   色块把数字对回图上哪根柱/哪条线，标题行给该点时间与总量；深色底保持设计稿自身语言。 */
-.chart-tip .ct-hd{display:flex;align-items:center;gap:12px;justify-content:space-between;
-  margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.16)}
-.chart-tip .ct-hd b{font-variant-numeric:tabular-nums}
-.chart-tip .ct-row{display:flex;align-items:center;gap:7px;line-height:1.75}
-.chart-tip .ct-row i{width:9px;height:9px;border-radius:var(--dsw-radius-xs);flex:0 0 9px}
-.chart-tip .ct-row span{color:rgba(255,255,255,.72)}
-.chart-tip .ct-row b{margin-left:auto;font-variant-numeric:tabular-nums}
+/* 图表浮层（2026-10-28 改白底）。原来是深色 #111827 —— 那套是 2026-10-15 对着
+   DeepSeek 深色版抄的，但业主连给三张参考图都是**白底、圆角、柔和投影**：
+   日期在左、合计在右加粗，下面每行「色块 + 名称 + 右对齐数值」，中间一条极浅的分隔线。
+   白底还有一个实际好处：柱色是浅蓝/浅紫，深色浮层上这些色块会糊成一片。
+   注意 .bad / .ct-sub 原来是用在深底上的浅红与半透明白，改白底后必须换成语义色。 */
+.chart-tip{position:absolute;top:6px;background:#fff;color:var(--text);font-size:13px;
+  border-radius:12px;padding:12px 14px;pointer-events:none;display:flex;flex-direction:column;
+  gap:1px;z-index:5;min-width:200px;line-height:1.5;
+  border:1px solid rgba(16,24,40,.06);
+  box-shadow:0 12px 32px rgba(16,24,40,.14),0 2px 6px rgba(16,24,40,.06)}
+.chart-tip b{font-size:13px;font-weight:600}
+.chart-tip .bad{color:var(--red)}
+.chart-tip .ct-hd{display:flex;align-items:baseline;gap:18px;justify-content:space-between;
+  margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #F1F3F7}
+.chart-tip .ct-hd span{color:var(--sub);font-size:12.5px;white-space:nowrap}
+.chart-tip .ct-hd b{font-size:14.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chart-tip .ct-row{display:flex;align-items:center;gap:8px;line-height:1.95}
+.chart-tip .ct-row i{width:10px;height:10px;border-radius:3px;flex:0 0 10px}
+.chart-tip .ct-row span{color:var(--sub)}
+.chart-tip .ct-row b{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--text)}
 .chart-empty{padding:32px;text-align:center;color:var(--faint);font-size:13px}
 .hbar-list{display:flex;flex-direction:column;gap:8px}
 .hbar-row{display:grid;grid-template-columns:minmax(88px,150px) 1fr auto;gap:8px;align-items:center;font-size:13px}
@@ -1223,36 +1493,24 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
    2026-10-25 业主「不行就拉高，而不是把卡片变小」：一列九席 104 的方卡要 1081 高，
    画布至少留到 1143（1121 的世界层 + 20 留白 + 2 边框），默认 1:1 不缩卡；屏幕更高就吃满一屏。 */
 .hall-canvas{position:relative;height:max(1143px,calc(100vh - 296px));border-radius:14px;
-  border:1px solid var(--line);overflow:hidden;cursor:grab;user-select:none;
+  border:1px solid var(--line);overflow:hidden;user-select:none;
   background:
     linear-gradient(#f2f5fa 1px,transparent 1px) 0 0/24px 24px,
     linear-gradient(90deg,#f2f5fa 1px,transparent 1px) 0 0/24px 24px,
     #fdfeff}
-.hall-canvas.panning{cursor:grabbing}
+/* 2026-10-28 业主「画布固定住，不可移动」：不再有 grab/grabbing 光标 —— 
+   手型光标会让人以为还能拖。 */
 .hall-world{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
 .hall{position:relative}
-
-/* 右上角工具条：缩放 −/值/+、适应、1:1 */
-/* 工具条与提示压在堂中央的空白带上（上下各一条）：
-   四个角在 100% 时全是席卡和部名，工具条放角上会盖住「作战执行」那一行部名。 */
-.hall-bar{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:20;
-  display:flex;align-items:center;gap:1px;
-  background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px;
-  box-shadow:0 2px 10px rgba(20,35,70,.08)}
-.hall-bar button{border:0;background:transparent;color:var(--sub);font-size:11px;line-height:1;
-  padding:5px 9px;border-radius:999px;cursor:pointer;font-family:inherit}
-.hall-bar button:hover{background:var(--bg-subtle-3);color:var(--text)}
-.hall-bar .hall-zoomv{min-width:44px;text-align:center;font-size:11px;color:var(--faint);
-  font-variant-numeric:tabular-nums}
-/* 提示挂在缩放条下面：说的就是缩放和拖动，别放画布底边 ——
-   输入条滚到底会贴着画布底边停，正好压住它。 */
-.hall-hint{position:absolute;left:50%;top:50px;transform:translateX(-50%);z-index:14;
-  font-size:10.5px;color:var(--faint);
-  background:rgba(255,255,255,.9);border:1px solid var(--line-soft);border-radius:6px;padding:3px 8px}
 
 /* 一组：三张方卡竖排（2026-10-25 业主「左右竖向排列」+「方形卡片」）。
    部名那一行比方卡略宽，往堂里伸一点点 —— 方卡只到 88，名字要写全。 */
 .hall-dept{position:absolute;z-index:2;display:flex;flex-direction:column;gap:7px}
+/* 两列贴边（2026-10-28 业主「往边上靠点，但要留空」）：
+   画布比世界层宽时，居中的留白由 JS 算成 --rail-out 推给两列，
+   左右各贴到 SIDE_X（14）的位置，中间的堂跟着变宽。缩放后重算。 */
+.hall-dept.left{transform:translateX(calc(-1 * var(--rail-out,0px)))}
+.hall-dept.right{transform:translateX(var(--rail-out,0px))}
 .hall-dept-h{display:flex;align-items:center;gap:5px;height:18px;white-space:nowrap}
 .hall-dept.right .hall-dept-h{justify-content:flex-end}
 .hall-side{width:16px;height:16px;border-radius:4px;background:#e8eefb;color:#5b76c9;
@@ -1269,10 +1527,91 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
 .hall-ico{width:20px;height:20px;border-radius:7px;background:#4a6cf7;color:#fff;
   display:inline-flex;align-items:center;justify-content:center;flex:0 0 20px;margin-bottom:1px}
 .hall-agent b{font-size:13px;font-weight:600;color:#1f2a3d;line-height:1.25;white-space:nowrap}
-.hall-agent u{font-size:10.5px;color:#7b8798;text-decoration:none;line-height:1.3;white-space:nowrap}
+/* 职名底下那行白话（2026-10-28 业主「这个是文言文，后面加解释」）：
+   比 meta 略深一点、比职名小两号 —— 是解释，不是标题，别抢「腹心」两个字。 */
+.hall-gist{font-size:9.5px;color:#5f6b80;line-height:1.25;white-space:nowrap;
+  letter-spacing:.02em;margin-top:-1px}
+/* 证据条数跟在白话后面当后缀（2026-10-28 业主「11条 移动到 看准时机 后面」）：
+   字号再小半号、颜色再淡一级 —— 是注脚，不是和白话并列的第二个信息点。 */
+.hall-cnt{font-style:normal;font-size:9px;color:#a3aec0;margin-left:6px}
 .hall-n{position:absolute;right:6px;top:5px;min-width:16px;height:16px;border-radius:999px;
   background:#4a6cf7;color:#fff;font-size:10px;font-style:normal;display:flex;
   align-items:center;justify-content:center;padding:0 4px}
+
+/* ── 沙盘（2026-10-28 业主「做个沙盘放在地利右侧」+「拿国际象棋黑白格，
+      颜色用我们 log 色蓝白，表示沙盘推演」）───────────────────────
+   底板就是棋盘：蓝白相间的方格（品牌蓝的淡调），四块地压在上面像棋子。
+   格子的作用只有一个 —— 一眼看出这是"推演用的盘"，不是另一张数据卡。
+   2026-10-29 业主「沙盘比 agent 卡片略小点」：260 → 92（卡 104），
+   格子跟着从 30 收到 18，半径、阴影、内边距全套按"小盘"重排，不再是一块面板。 */
+.hsand{position:absolute;z-index:3;width:92px;height:92px;border-radius:13px;background-color:#fdfeff;
+  background-image:repeating-conic-gradient(#e2ebfc 0% 25%, #fdfeff 0% 50%);
+  background-size:16px 16px;background-position:-1px -1px;
+  border:1px solid #d5e2f8;box-shadow:0 4px 12px rgba(20,35,70,.09);
+  padding:0;overflow:hidden;
+  /* 跟着席卡一起靠边（2026-10-29 业主「放 agent 卡片旁边」）：
+     两列席卡被 --rail-out 往边上推，沙盘不跟就会被甩开十几像素、飘在半空。
+     这里用同一个位移，让「地利右边 12px」这条间距在任何画布宽度下都成立。 */
+  transform:translateX(calc(-1 * var(--rail-out,0px)))}
+/* 推演中（2026-10-28 业主「不要里面内容，直接加个模糊，加个加载动画」）：
+   盘还在、格子还在，但被景深糊开 —— 还没算完，看不清结果。
+   2026-10-29 缩到 92 后模糊和蒙白都调轻了（2px / 12%）：原来那档把它糊成一张白卡，
+   棋盘看不出是棋盘了。 */
+.hsand-run{display:flex;flex-direction:column}
+.hsand-blur{position:absolute;left:0;right:0;top:0;bottom:0;z-index:1;
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+  background:rgba(255,255,255,.12)}
+.hsand-load{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px;padding:6px 5px 5px;text-align:center}
+.hsand-load b{font-size:11px;font-weight:600;color:#1f2a3d;letter-spacing:.02em;line-height:1.2}
+.hsand-load i{font-size:9px;font-style:normal;color:#7a8699;line-height:1.3;max-width:76px}
+/* 转圈换成「灰点圈」（2026-10-29 业主「换成灰色点点点那个圈」）：
+   原来的蓝弧圈是「描边在转」，看着像进度环；这里改成八个灰点沿圆周排布、
+   透明度依次递减，整圈一起转 —— 看到的是「一个亮点在追」，标准的点点点加载。
+   纯 CSS：八层径向渐变各放一个点，background-position 定死位置，元素整体旋转。 */
+.hsand-spin{width:20px;height:20px;display:block;flex:0 0 20px;border:0;border-radius:0;
+  background-repeat:no-repeat;background-size:5px 5px;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(124,135,152,1) 0 1.7px, transparent 1.8px),
+    radial-gradient(circle at 50% 50%, rgba(124,135,152,.84) 0 1.7px, transparent 1.8px),
+    radial-gradient(circle at 50% 50%, rgba(124,135,152,.70) 0 1.7px, transparent 1.8px),
+    radial-gradient(circle at 50% 50%, rgba(124,135,152,.58) 0 1.7px, transparent 1.8px),
+    radial-gradient(circle at 50% 50%, rgba(124,135,152,.47) 0 1.7px, transparent 1.8px),
+    radial-gradient(circle at 50% 50%, rgba(124,135,152,.38) 0 1.7px, transparent 1.8px),
+    radial-gradient(circle at 50% 50%, rgba(124,135,152,.31) 0 1.7px, transparent 1.8px),
+    radial-gradient(circle at 50% 50%, rgba(124,135,152,.25) 0 1.7px, transparent 1.8px);
+  /* 八个点：正上方起顺时针，半径 7.6 的圆周上 */
+  background-position:7.5px -0.1px,12.9px 2.1px,15.1px 7.5px,12.9px 12.9px,
+    7.5px 15.1px,2.1px 12.9px,-0.1px 7.5px,2.1px 2.1px;
+  animation:hsandspin 1.1s steps(8) infinite}
+@keyframes hsandspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.hsand-spin{animation-duration:2.4s;animation-timing-function:linear}}
+/* 标题压一格白底，免得字落在格线交界上看不清 */
+.hsand-h{display:flex;align-items:baseline;gap:6px;margin-bottom:9px;position:relative;z-index:2;
+  background:rgba(255,255,255,.9);border-radius:8px;padding:4px 7px}
+.hsand-h b{font-size:12.5px;font-weight:600;color:#1f2a3d;letter-spacing:.02em}
+.hsand-h span{font-size:11px;color:var(--sub)}
+.hsand-h i{margin-left:auto;font-size:9.5px;font-style:normal;color:var(--faint)}
+/* 四块地 = 盘上的四枚子：白底 + 细蓝边 + 一点浮起来的影子 */
+.hsand-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.hsand-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;
+  border:1px solid #d3e0f7;border-radius:10px;padding:8px 10px 7px;background:#fff;
+  box-shadow:0 1px 3px rgba(37,99,235,.07)}
+.hsand-tile b{font-size:12px;font-weight:600;color:#1f2a3d;line-height:1.2}
+.hsand-tile u{font-size:10.5px;color:#6b7a90;text-decoration:none;line-height:1.2;
+  font-variant-numeric:tabular-nums}
+.hsand-tile em{font-size:9.5px;font-style:normal;line-height:1.5;border-radius:4px;
+  padding:0 6px;border:1px solid;white-space:nowrap}
+.hsand-tile .p-low{color:#1f7a4d;border-color:#cbe7d5;background:#f2faf5}
+.hsand-tile .p-mid{color:#b07c22;border-color:#f0dfbc;background:#fffdf8}
+.hsand-tile .p-high{color:#a8535a;border-color:#f0d5d9;background:#fdf6f7}
+/* 美国那块：首年不碰，整块压灰 —— 但药丸还是红的，别让人误以为门槛变低了 */
+.hsand-tile.off{background:#fafbfc;border-color:#e6ebf3;box-shadow:none}
+.hsand-tile.off b{color:#8a94a6}
+.hsand-tile.off u{color:#a6b0be}
+.hsand-foot{margin-top:9px;border-top:1px solid rgba(37,99,235,.12);padding-top:7px;
+  font-size:10px;color:#7a8699;line-height:1.5;
+  background:rgba(255,255,255,.9);border-radius:0 0 8px 8px;padding:7px 7px 0}
 
 /* 页头「不进工作台」的标记 */
 .dec-own{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#8a6a2a;
@@ -1304,9 +1643,8 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
    下面不留空；但不许滑出画布：画布底边上来就贴住，跟着画布一起滚走。
    top 由 v50-decision.js 的 placeDock() 按滚动位置算，这里只留个兜底值。 */
 .cmp-dock{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:15;
-  width:min(440px,var(--dock-w,440px),calc(100% - 40px));cursor:auto;user-select:text;
-  box-shadow:0 10px 28px rgba(20,35,70,.10)}
-.dec-sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
+  width:min(570px,var(--dock-w,570px),calc(100% - 40px));cursor:auto;user-select:text;
+  box-shadow:0 10px 28px rgba(20,35,70,.10)}.dec-sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
 .dec-sec-h h2{font-size:15px;font-weight:600}
 .dec-sec-h span{font-size:12px;color:var(--faint)}
 .dec-talks{display:flex;flex-direction:column;gap:1px;border:1px solid var(--line-soft);
@@ -1325,7 +1663,7 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
 .dec-line{font-size:11px;color:var(--faint)}
 .dec-round{margin-left:auto;font-size:11px;color:var(--faint);font-family:"SF Mono",Consolas,monospace}
 .dec-talk p{font-size:13px;line-height:1.72;color:var(--text);margin:9px 0 8px}
-.dec-ev{font-size:11px;color:var(--faint);border-left:2px solid var(--line);padding-left:8px}
+.dec-ev{font-size:11px;color:var(--faint)}
 .dec-verdict{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:14px}
 @media (max-width:1100px){.dec-verdict{grid-template-columns:1fr}}
 .dec-vd{border:1px solid var(--line);border-radius:12px;padding:16px 18px;background:#fff}
@@ -1393,7 +1731,7 @@ input[type=checkbox]:focus-visible::before{outline:2px solid var(--blue);outline
 .gw-key-tbl .bt td:first-child,.gw-key-tbl .bt th:first-child{padding-left:12px}
 .gw-key-tbl .bt td:last-child,.gw-key-tbl .bt th:last-child{padding-right:12px}
 /* 技能卡 = **摘要卡**（卡片即列表，点击进详情抽屉）。卡上只留：身份 / 状态 / 三个数字 /
-   一句问题；触发条件、依赖、引用方、调用方式、版本、负责人、SKILL.md 全在详情里。
+   一句问题；触发条件、依赖、引用方、调用方式、版本、SKILL.md 全在详情里。
    卡里不出现 <button>：整卡是入口（role=button），嵌套可点控件会让"点卡片"和"点按钮"打架。 */
 .sk-card{cursor:pointer;padding:12px 14px}
 .sk-card:hover{border-color:var(--blue);background:#fbfdff}
@@ -1440,10 +1778,10 @@ pre.sk-md{white-space:pre-wrap;word-break:break-word;background:var(--bg-subtle-
 .guide-list{margin:10px 0 12px 18px;font-size:13px;line-height:1.75}
 .guide-list li{margin-bottom:6px}
 .sug-list{display:flex;flex-direction:column;gap:8px}
-.sug{border:1px solid var(--line);border-left-width:3px;border-radius:var(--dsw-radius-md);padding:12px 16px;background:var(--bg-subtle-1)}
-.sug.high{border-left-color:var(--red)}
-.sug.medium{border-left-color:var(--amber)}
-.sug.low{border-left-color:var(--blue)}
+.sug{border:1px solid var(--line);border-radius:var(--dsw-radius-md);padding:12px 16px;background:var(--bg-subtle-1)}
+.sug.high{border-color:#F3C9C9}
+.sug.medium{border-color:#F0DCAE}
+.sug.low{border-color:#CFE0FF}
 .sug-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
 .sug-h b{font-size:14px}
 .sug-save{margin-left:auto;font-size:12px;color:var(--green);font-weight:600}
@@ -1452,15 +1790,15 @@ pre.sk-md{white-space:pre-wrap;word-break:break-word;background:var(--bg-subtle-
 .sug-act{font-size:12px;color:var(--sub);margin-top:7px;background:#fff;border-radius:var(--dsw-radius-sm);padding:8px 8px;line-height:1.6}
 .sug-act i{font-style:normal;color:var(--faint);margin-right:6px}
 .review-list{display:flex;flex-direction:column;gap:12px}
-.review-item{display:grid;grid-template-columns:1fr minmax(190px,240px);gap:16px;border:1px solid var(--line);border-left-width:3px;border-radius:var(--dsw-radius-md);padding:12px 16px;background:var(--bg-subtle-1)}
-.review-item.bad{border-left-color:var(--red)}
-.review-item.warn{border-left-color:var(--amber)}
-.review-item.info{border-left-color:var(--blue)}
-/* 当前键盘选中项：J/K 移动时必须有明确视觉锚点，否则「快捷键没生效」和「生效了」看起来一样 */
+.review-item{display:grid;grid-template-columns:1fr minmax(190px,240px);gap:16px;border:1px solid var(--line);border-radius:var(--dsw-radius-md);padding:12px 16px;background:var(--bg-subtle-1)}
+.review-item.bad{border-color:#F3C9C9}
+.review-item.warn{border-color:#F0DCAE}
+.review-item.info{border-color:#CFE0FF}
 /* 当前键盘选中项：J/K 移动时必须有明确视觉锚点。
    v10b（走查 1.7★）：旧写法 border-color:#9dbcf5 是 shorthand，会把 .review-item.bad 的
-   左边框级别红一并覆盖 —— 当前聚焦的 P0 卡左边红框变蓝，审核场景里最关键的信息
-   恰好在选中时消失。改用 box-shadow 内描边做选中锚点，border 一概不动：级别色永远在场。 */
+   级别红一并覆盖 —— 当前聚焦的 P0 卡整框变蓝，审核场景里最关键的信息
+   恰好在选中时消失。改用 box-shadow 内描边做选中锚点，border 一概不动：级别色永远在场。
+   （2026-10-28：级别色已从左侧竖条改到整框描边，这条 box-shadow 的做法照旧成立。） */
 .review-item.cur{background:var(--blue-weak);box-shadow:inset 0 0 0 1px #9dbcf5,0 0 0 2px rgba(37,99,235,.13)}
 .review-item.cur .rv-content{color:var(--text)}
 .rv-cursor{color:var(--blue);font-size:11px;animation:rvBlink 1.1s steps(2,start) infinite}
@@ -1525,9 +1863,9 @@ pre.sk-md{white-space:pre-wrap;word-break:break-word;background:var(--bg-subtle-
 .cl-main b{font-size:13px}
 .cl-main span{font-size:12px;color:var(--sub);margin-top:2px;line-height:1.5}
 .cl-pri{flex:0 0 auto;font-size:12px;color:var(--faint)}
-.pipe-card{border-left:3px solid var(--blue)}
+.pipe-card{border-color:#CFE0FF}
 /* v20：终止/暂停后的视觉回收 —— 此前 uo-stopped 类加了但没有样式，卡片除 pill 外毫无变化（C-02 修复的尾巴） */
-.card.pipe-card.uo-stopped{border-left-color:var(--faint);opacity:.62;filter:saturate(.6)}
+.card.pipe-card.uo-stopped{border-color:var(--line);opacity:.62;filter:saturate(.6)}
 .card.pipe-card.uo-stopped .gray-acts{opacity:.75}
 .dl{display:grid;grid-template-columns:96px 1fr;gap:8px 16px;font-size:13px}
 .dl dt{color:var(--faint)}
@@ -1579,10 +1917,22 @@ pre.sk-md{white-space:pre-wrap;word-break:break-word;background:var(--bg-subtle-
 .anet-canvas.panning{cursor:grabbing}
 .anet-canvas.panning .anet-tile{cursor:grabbing}
 /* 操作条：撤销/重做/历史/缩放 + 一句操作提示 */
+/* flex-wrap 留着当兜底，但**提示文案必须先让位**：
+   它原来 flex-basis=auto（等于整句文字的宽度）且不可缩，所以工具条一多一个按钮
+   （拖完一张卡就会多出「恢复层级 1」、历史也会多出「1/1」）就整行折行，
+   画布被推下去 34px —— 业主看到的是"我只拖了一张卡，整张图都往下跳了"。
+   给 min-width:0 + 可压缩，折行就不会被一句提示语逼出来。 */
 .anet-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .anet-tools .anet-zoomv{min-width:56px;font-variant-numeric:tabular-nums}
 .anet-tools-sep{width:1px;height:20px;background:var(--line);margin:0 2px}
-.anet-tools-hint{font-size:12px;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* flex-basis 必须是 0（写成 auto = 整句提示语的宽度，撑着它不折行）：
+   多一个按钮时先把提示语压窄（省略号），工具条保持一行，
+   画布不会被顶下去 34px —— 拖完一张卡整张图往下跳，是很难接受的手感。 */
+.anet-tools-hint{font-size:12px;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  min-width:0;flex:1 1 0}
+/* 窄屏时整句提示只剩一截省略号，索性收起来（右上角「?」里是完整说明）：
+   留着半句反而像出了错。 */
+@media (max-width:1320px){.anet-tools-hint{display:none}}
 /* 历史面板：一行一步，当前步高亮 */
 .anet-hist{display:flex;flex-direction:column;gap:2px;max-height:340px;overflow:auto;margin:10px 0 4px}
 .anet-hist-row{display:flex;align-items:center;gap:8px;padding:8px 8px;border-radius:var(--dsw-radius-sm);font-size:13px}
@@ -1624,19 +1974,26 @@ pre.sk-md{white-space:pre-wrap;word-break:break-word;background:var(--bg-subtle-
   display:flex;flex-direction:column;align-items:center;gap:2px;transition:border-color .15s}
 .anet-tile:hover{border-color:var(--blue);background:#fbfdff}
 .anet-tile:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-/* 边框 = 健康带（绿/红/灰），与列表页的异常判定同一口径 */
+/* 边框 = 健康带（绿 / 琥珀 / 红 / 灰），与列表页的异常判定同一口径。
+   琥珀是 2026-10-28 新增的一档：原来 98.x% 和 13.86s 都判红，9 张卡 4 张红，红就没意义了。 */
 .anet-tile.ok{border-color:#a7e0bd}
+.anet-tile.warn{border-color:#f0dcae;background:#fffdf7}
 .anet-tile.bad{border-color:#f0a9a9;background:#fff7f7}
 .anet-tile.gray{border-color:#bcd0f0}
 .anet-tile.off{border-color:var(--line);opacity:.55}
 .anet-tile-ico{display:flex;align-items:center;justify-content:center;width:34px;height:34px;
   border-radius:var(--dsw-radius-md);background:var(--blue-weak);color:var(--blue)}
+.anet-tile.warn .anet-tile-ico{background:#fdf6e4;color:#a16207}
 .anet-tile.bad .anet-tile-ico{background:#fdeaea;color:#c0392b}
 .anet-tile.gray .anet-tile-ico{background:var(--blue-weak);color:var(--blue)}
 .anet-tile.off .anet-tile-ico{background:#f1f2f4;color:var(--faint)}
 .anet-tile-nm{font-size:12px;font-weight:600;color:var(--text);max-width:106px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .anet-tile-m{font-size:11px;color:var(--faint);white-space:nowrap;letter-spacing:-.2px}
+/* 两个指标各自按档位染色：只有一个数字变色，才分得清"答错"还是"答慢" */
+.anet-tile-m i{font-style:normal}
+.anet-tile-m i.hz1{color:#a16207;font-weight:600}
+.anet-tile-m i.hz2{color:#c0392b;font-weight:700}
 .anet-chip.moved text{fill:var(--blue)}
 .anet-chip.stuck rect{stroke:#f0a9a9}
 .anet-tile-deg{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 4px;
@@ -1743,7 +2100,6 @@ pre.sk-md{white-space:pre-wrap;word-break:break-word;background:var(--bg-subtle-
 .anet-drophl{fill:rgba(37,99,235,.10);stroke:var(--blue);stroke-width:1.5;stroke-dasharray:6 4}
 .anet-dragtip{position:absolute;left:50%;top:8px;transform:translateX(-50%);display:none;z-index:9;
   background:#111827;color:#fff;font-size:12px;padding:4px 12px;border-radius:var(--dsw-radius-sm);pointer-events:none}
-.anet-tile-note{position:absolute;transform:translate(0,-50%);font-size:11px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;pointer-events:none}
 
 /* SECTION: toast */
 .toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(10px);background:#111827;color:#fff;font-size:13px;padding:8px 16px;border-radius:var(--dsw-radius-md);opacity:0;pointer-events:none;transition:.24s;z-index:90;max-width:82vw;line-height:1.5;display:flex;align-items:center;gap:8px}
@@ -1961,13 +2317,13 @@ pre.sk-md{white-space:pre-wrap;word-break:break-word;background:var(--bg-subtle-
    而这里只有 2 个 div ⇒ 右边空两轨，整块内容挤在左半边（1920 屏上就是"右侧留白能开奶茶店"）。 */
 .grid2.why-cols{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media (max-width:900px){.grid2.why-cols{grid-template-columns:minmax(0,1fr)}}
-.why-cols .why-item{padding:11px 14px;border-left:3px solid var(--line);transition:background .12s,border-color .12s}
-.why-cols>div:first-child .why-item{border-left-color:#16a34a;background:#fbfefc}
-.why-cols>div:last-child .why-item{border-left-color:#dc2626;background:#fffbfb}
+.why-cols .why-item{padding:11px 14px;transition:background .12s,border-color .12s}
+.why-cols>div:first-child .why-item{border-color:#BBE3C9;background:#fbfefc}
+.why-cols>div:last-child .why-item{border-color:#F3C9C9;background:#fffbfb}
 .why-cols .why-item:hover{background:#fff}
 /* 下一版建议：蓝条表示「可执行项」，与上面绿（保持）/红（要改）形成三色语义。
    限定 .why-next，别把 KOL 页也在用的 .why-list 一起染蓝。 */
-.why-list.why-next .why-item{border-left:3px solid #2563eb;background:#fbfdff}
+.why-list.why-next .why-item{border-color:#CFE0FF;background:#fbfdff}
 .why-list.why-next .why-item.skip{background:#fff}
 /* 看板小卡：数字等宽、证据等级占右上角（不再随引语长度上下跳） */
 .iv-tile-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px}
@@ -1990,14 +2346,57 @@ pre.sk-md{white-space:pre-wrap;word-break:break-word;background:var(--bg-subtle-
    选区用蓝色描边 + 浅蓝底（与全站 .view-sw / .sp-item.on 同一套强调色），不用反白 ——
    反白在浅色底上会把 11.5px 的元信息压成看不清。 */
 .kb-desk-card{padding:0;overflow:hidden}
+/* 2026-10-28（业主截图「去掉圆角」）：知识库桌面这块整片改直角。
+   由外到内一起归零 —— 卡片外框、左栏树行、中栏文档行、右栏预览纸。
+   只归零这一屏；按钮与状态药丸不动（那是控件，不是"列表的框"）。 */
+.kb-desk-card{border-radius:0}
+.kb-desk-card .kb-tree-row,
+.kb-desk-card .kb-col-row,
+.kb-desk-card .kb-col-doc,
+.kb-desk-card .kb-pv-page,
+.kb-cols .kb-tree-row,
+.kb-cols .kb-col-row,
+.kb-cols .kb-col-doc,
+.kb-cols .kb-pv-page{border-radius:0}
 .kb-desk{display:flex;flex-direction:column}
 /* 工具条：面包屑 + 查看方式 + 动作 */
 .kb-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 12px 12px;border-bottom:1px solid var(--line-soft)}
+/* 2026-10-28（业主「移动到最右侧」）：工具条里的 <span class="grow"> 一直是空转 ——
+   全站只有 `.filter-row label.grow{flex:1}` 这一条，在 .kb-bar 里不生效，
+   所以搜索框后面的按钮（全选/新建分类/上传文档/网格列表）紧贴搜索框排，离右边缘差着近 500px。
+   补一条限定作用域的 flex:1，动作组才会被顶到最右。 */
+.kb-bar > .grow{flex:1;min-width:0}
 /* v49（业主：「下面换成」「分级，右侧预览，像文件管理一样」）列表视图 = 文件管理器三栏：
    左栏两级树（库 → 分类）/ 中栏带表头的清单 / 右栏预览 + 详细信息。
    表头与行用同一套 grid 列宽（18 / 1fr / 84 / 62 / 10），否则永远对不齐。 */
 .kb-cols{display:flex;border-top:1px solid var(--line-soft);min-height:420px;height:calc(100vh - 430px);max-height:620px}
 .kb-col{overflow-y:auto;padding:8px 6px}
+/* 三栏本来吃的是 335 行那条 .kb-col 的 --dsw-radius-md(12px) 圆角 + 底色，
+   看上去是"三个圆角面板拼在一起"。业主「去掉圆角」= 这三块要连成一片。
+   只命中列表视图的三栏（.kb-cols 的子级），别处的 .kb-col 横排卡不受影响。 */
+.kb-cols > .kb-col{border-radius:0;border:0}
+/* 2026-10-28（业主截图「淡化这个框」）：原来每栏四边都吃 335 行那条 border:1px var(--line)，
+   相邻两栏叠成一条 2px 的 #E7E7E7 深线，比内容还抢眼。
+   改成「栏不描边，只在栏与栏之间留 1px --line-soft(#F3F3F3)」——
+   左右两栏本身有底色(--bg-subtle-1)，靠色差分区，线只当收边。 */
+.kb-cols > .kb-col-2,
+.kb-cols > .kb-col-3{border-left:1px solid var(--line-soft)}
+/* 2026-10-28：全部知识库的列表视图也换成这套三栏。
+   列比库内少两列（名称 / 文档 / 最近同步），所以另开一套列宽，别去改库内那份。 */
+.kb-col-h.kblib,.kb-col-doc.kblib{grid-template-columns:22px 1fr 56px 76px 8px}
+/* 库这一层没有正文可以做成"纸"，右栏顶部就放一块库封面（配色走 .kb-ico h-* 那套） */
+.kb-col-3 .kb-pv-lib{width:60px;height:60px;border-radius:0;margin-bottom:10px}
+/* 外层比库内多了指标卡和「需关注」清单，用同一个 calc(100vh-430px) 会把右栏和状态栏顶出屏幕。
+   这里让内容自己决定高度：短了就短，长了滚。 */
+.kblib-desk .kb-cols{height:auto;min-height:300px;max-height:440px}
+/* 右栏三段固定：封面+库名不滚、详情可滚、动作按钮钉在底部 ——
+   库内那份的按钮是跟着详情一起滚的，但那边详情短，这边 7 行 dl 一多按钮就滚没了。 */
+.kblib-desk .kb-col-3{overflow:hidden}
+.kblib-desk .kb-pv{flex:0 0 auto}
+.kblib-desk .kb-pv-body{flex:1;overflow-y:auto;min-height:0}
+.kblib-desk .kb-col-3act{flex:0 0 auto;border-top:1px solid var(--line-soft)}
+.kb-pv-sub{font-size:12px;line-height:18px;color:var(--faint);margin-top:3px}
+.kb-col-empty{padding:26px 12px;text-align:center;font-size:13px;color:var(--faint)}
 .kb-col-1{flex:0 0 216px;border-right:1px solid var(--line-soft);background:var(--bg-subtle-1);padding:8px}
 .kb-col-2{flex:1;min-width:0;padding:6px 4px}
 .kb-col-3{flex:0 0 282px;border-left:1px solid var(--line-soft);background:var(--bg-subtle-1);padding:0;display:flex;flex-direction:column}
@@ -2018,8 +2417,8 @@ pre.sk-md{white-space:pre-wrap;word-break:break-word;background:var(--bg-subtle-
 .kb-cv{flex:0 0 auto;font-size:12px;line-height:1;color:var(--decor,var(--faint));margin-left:2px}
 .kb-col-row.on b{color:var(--blue)}
 /* 中栏清单 */
-.kb-col-h{position:sticky;top:-6px;z-index:1;display:grid;grid-template-columns:18px 1fr 84px 62px 10px;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line-soft);background:var(--card);font-size:12px;color:var(--faint)}
-.kb-col-doc{display:grid;grid-template-columns:18px 1fr 84px 62px 10px;gap:8px;align-items:center;width:100%;padding:7px 10px;margin-bottom:1px;border:0;border-radius:8px;background:none;font:inherit;font-size:13px;color:var(--text);text-align:left;cursor:pointer}
+.kb-col-h{position:sticky;top:-6px;z-index:1;display:grid;grid-template-columns:12px 18px 1fr 84px 62px;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line-soft);background:var(--card);font-size:12px;color:var(--faint)}
+.kb-col-doc{display:grid;grid-template-columns:12px 18px 1fr 84px 62px;gap:8px;align-items:center;width:100%;padding:7px 10px;margin-bottom:1px;border:0;border-radius:8px;background:none;font:inherit;font-size:13px;color:var(--text);text-align:left;cursor:pointer}
 .kb-col-doc:hover{background:var(--bg-subtle-2)}
 .kb-col-doc.on{background:var(--blue-weak);color:var(--blue)}
 .kb-col-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2144,9 +2543,6 @@ pre.sk-md{white-space:pre-wrap;word-break:break-word;background:var(--bg-subtle-
 .kb-item.on .kb-nm{color:var(--blue-deep);font-weight:600}
 .kb-mt{font-size:13px;color:var(--faint);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .kb-mt-new{color:var(--purple)}
-/* 访问记录（v27）：大头照 + 人 / Agent 徽章 + 时间 + 点开详情 */
-/* 访问记录：默认卡片网格，可切列表；点开走弹窗 */
-/* 成员 / Agent 两段：小标题 + 各自的视图切换 */
 /* 文档详情：左原文 / 右分析（v28）。
    原文是"这份文档写了什么"，分析是"它在检索里表现如何" —— 并排才能对照。 */
 .v10-sheet.wide{max-width:1180px;width:96vw}
@@ -2215,71 +2611,17 @@ pre.sk-md{white-space:pre-wrap;word-break:break-word;background:var(--bg-subtle-
 .kb-who{display:flex;align-items:center;gap:7px;white-space:nowrap}
 .kb-who .kb-acc-face{width:22px;height:22px;flex:0 0 22px;border-radius:var(--dsw-radius-sm)}
 .kb-who .kb-acc-face .av{font-size:11px}
-/* 「访问了什么」—— 主体卡片上的访问对象（文档名 / 查询词） */
-.kb-acc-obj{font-size:12px;color:var(--blue);max-width:100%;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.kb-acc-rowitem .kb-acc-obj{flex:0 1 auto;min-width:0}
-/* 审计表格：一次操作一行，列对齐才排得了序、筛得了 */
 /* 详情页返回按钮（面包屑不可点，所以要有显式返回） */
 .ph-back{display:inline-flex;align-items:center;gap:4px;margin-right:10px;padding:2px 8px;
   font-size:12px;font-family:inherit;color:var(--blue);background:var(--blue-weak);
   border:0;border-radius:var(--dsw-radius-sm);cursor:pointer;vertical-align:1px}
 .ph-back:hover{background:rgba(37,99,235,.18)}
-/* 审计表分组标题（人与 Agent 分表） */
-.kb-audit-cap{font-size:12px;font-weight:600;color:var(--faint);margin:12px 0 6px}
-.kb-audit-cap:first-of-type{margin-top:6px}
-.kb-audit{width:100%}
-.kb-audit td{font-size:13px;vertical-align:middle}
-.kb-audit .kb-who{gap:6px}
-.kb-audit .kb-who .kb-acc-face{width:20px;height:20px;flex:0 0 20px;border-radius:var(--dsw-radius-sm)}
-.kb-audit .kb-who .av{font-size:11px}
-.kb-audit .muted{font-size:12px}
-.kb-acc-sec{margin-bottom:14px}
-.kb-acc-sec:last-of-type{margin-bottom:10px}
-.kb-acc-sec-h{display:flex;align-items:center;gap:9px;margin-bottom:9px;padding-bottom:8px;
-  border-bottom:1px solid var(--line-soft)}
-.kb-acc-sec-t{font-size:13px;font-weight:600;color:var(--text)}
-.kb-acc-sec.is-agent .kb-acc-sec-t{color:#7c3aed}
-.kb-acc-sec-n{font-size:12px;color:var(--faint);background:rgba(100,116,139,.10);
-  padding:1px 8px;border-radius:var(--dsw-radius-sm)}
-.kb-acc-sec-h .view-sw{margin-left:auto}
-.kb-acc-cards{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(196px,1fr))}
-.kb-acc-card{display:flex;flex-direction:column;align-items:center;gap:6px;padding:20px 12px 16px;
-  background:#fff;border:1px solid var(--line);border-radius:var(--dsw-radius-lg);cursor:pointer;text-align:center;
-  font-family:inherit;transition:border-color .14s,box-shadow .14s,transform .14s}
-.kb-acc-card:hover{border-color:#c7d5ef;box-shadow:0 6px 20px rgba(15,23,42,.09);transform:translateY(-1px)}
-.kb-acc-card:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-.kb-acc-card.is-agent{border-color:rgba(124,58,237,.22)}
-.kb-acc-card.is-agent:hover{border-color:rgba(124,58,237,.45)}
-.kb-acc-list{display:flex;flex-direction:column;gap:2px}
-.kb-acc-rowitem{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;
-  background:none;border:0;border-bottom:1px solid var(--line-soft);border-radius:var(--dsw-radius-sm);
-  cursor:pointer;text-align:left;font-family:inherit}
-.kb-acc-rowitem:last-child{border-bottom:0}
-.kb-acc-rowitem:hover{background:var(--blue-weak)}
-.kb-acc-rowitem:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
-/* 头像：列表 30px / 卡片 54px。同一主体色相由 h.avatar 按姓名哈希决定，全站一致 */
+/* 头像块：色相由 h.avatar 按姓名哈希决定，全站一致（表内尺寸见上面 .kb-who） */
 .kb-acc-face{display:flex;align-items:center;justify-content:center;width:30px;height:30px;
   border-radius:50%;flex:0 0 30px;background:rgba(100,116,139,.12);color:#475569;overflow:hidden}
-.kb-acc-face.lg{width:54px;height:54px;flex:0 0 54px;border-radius:var(--dsw-radius-lg)}
-.kb-acc-face.is-agent{border-radius:var(--dsw-radius-sm);background:rgba(124,58,237,.12);color:#7c3aed}
-.kb-acc-face.lg.is-agent{border-radius:var(--dsw-radius-lg)}
-/* .av 自带 flex:0 0 22px —— 在 flex 容器里会把宽度锁成 22px，width:100% 无效，
-   结果是 22×54 的竖胶囊（实测踩到）。必须一并覆盖 flex，才能真填满方块。 */
+/* .av 自带 flex:0 0 22px —— 在 flex 容器里会把宽度锁死，width:100% 无效；
+   必须一并覆盖 flex，才能真填满头像块。 */
 .kb-acc-face .av{width:100%;height:100%;flex:0 0 auto;font-size:13px;margin:0;border-radius:inherit}
-.kb-acc-face.lg .av{font-size:24px}
-.kb-acc-main{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1 1 auto}
-.kb-acc-nm{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.kb-acc-card .kb-acc-nm{font-size:15px;margin-top:2px}
-.kb-acc-sub{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--faint);min-width:0;justify-content:center}
-.kb-acc-rowitem .kb-acc-sub{justify-content:flex-start}
-.kb-acc-act{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--sub);max-width:100%}
-.kb-acc-meta{font-size:12px;color:var(--faint);display:flex;align-items:center;gap:6px}
-.kb-acc-badge{font-size:11px;font-weight:600;padding:1px 8px;border-radius:var(--dsw-radius-sm);flex:0 0 auto}
-.kb-acc-badge.ag{background:rgba(124,58,237,.12);color:#7c3aed}
-.kb-acc-badge.me{background:rgba(37,99,235,.12);color:var(--blue)}
-.kb-acc-when{font-size:13px;color:var(--text);font-variant-numeric:tabular-nums;flex:0 0 auto}
-.kb-acc-chev{margin-left:auto;font-size:12px;color:var(--blue);flex:0 0 auto}
 /* 我建的项：原来靠图标琥珀色区分，图标颜色统一后改用**淡紫底**标记 ——
    分类走文档类型图标，不回到"文件夹相"，但"这是我建的"仍要一眼看得出。 */
 .kb-item.kb-fld-new{background:rgba(139,92,246,.07);border-color:rgba(139,92,246,.28)}
@@ -5125,12 +5467,16 @@ main.content:not(.content--as) .btn-primary.sm,.btn-primary.sm{padding:4px 12px;
     /* 堆叠柱 hover（2026-10-22，对标 DeepSeek 用量页）：该列保持原色、其余列变淡，
        另有一条竖向虚线标出"看的是哪一天"。虚线走 stroke-dasharray 而不是背景图，
        因为它要跟着列中心移动（x 由 app.js 写）。 */
-    .sb-guide{stroke:#b9bfcc;stroke-width:1;stroke-dasharray:3 3;pointer-events:none}
+    /* 2026-10-28 两轮调色：
+       ① 首版 #b9bfcc（≈27% 黑）像一道分隔线 → 业主让「做淡点」；
+       ② 压到 14% 后又问「有吗」—— 淡到看不见等于没有，这条线是"你正在看哪天"的唯一线索。
+       现取 24% 黑 + 疏虚线（4 实 4 空）：看得见是一条示意线，又不会切图。 */
+    .sb-guide{stroke:rgba(23,23,23,.24);stroke-width:1;stroke-dasharray:4 4;pointer-events:none}
     .chart-stack .sb-col{transition:opacity .12s ease}
     .chart-stack.acting .sb-col{opacity:.35}
     .chart-stack.acting .sb-col.on{opacity:1}
-    /* 浮层里分组名后面的占比（"56.1%"），深底上要压到次级亮度 */
-    .chart-tip .ct-sub{font-style:normal;color:rgba(255,255,255,.5);margin-left:6px;font-size:11px;
+    /* 浮层里分组名后面的占比（"56.1%"）：白底上走 --faint，不能再是半透明白 */
+    .chart-tip .ct-sub{font-style:normal;color:var(--faint);margin-left:6px;font-size:11.5px;
       font-variant-numeric:tabular-nums}
     /* v32：会话屏的扁头（几何理由见 renderers.js 的 compactHead 注释）——
        一行身份 + 一行描述，右侧仍是时间范围与发布动作。 */
@@ -5377,8 +5723,8 @@ main.content:not(.content--as) .btn-primary.sm,.btn-primary.sm{padding:4px 12px;
     /* ==========================================================================
        SECTION: perm-edit（v34，2026-10-15）
        业主清单第 ⑥ 项：权限类控件要能**直接编辑**，不做只读陈列。
-       这里只放工具授权与回滚条件这两块的样式；确认层/理由框/审计都复用 v10-ui 既有件，
-       不重复实现（那套已经收口了门禁、风险档与审计）。
+       这里只放工具授权与回滚条件这两块的样式；确认层复用 v10-ui 既有件，
+       不重复实现（那套已经收口了门禁与风险档）。
        ========================================================================== */
     .ptool-row{border-top:1px solid var(--line-soft);padding:10px 0 4px}
     .ptool-row:first-of-type{border-top:0}
@@ -5612,7 +5958,7 @@ main.content:not(.content--as) .btn-primary.sm,.btn-primary.sm{padding:4px 12px;
 .opb-tell-k.k1{background:#eef4ff;color:#2563eb}
 .opb-tell-k.k2{background:#fef2f2;color:#b91c1c}
 .opb-tell-k.k3{background:#f3f4f6;color:#6b7280}
-.opb-read{margin-top:10px;padding-left:9px;border-left:3px solid var(--blue);font-size:11.5px;color:var(--sub);line-height:1.6}
+.opb-read{margin-top:10px;padding:6px 9px;border-radius:4px;background:#f5f9ff;font-size:11.5px;color:var(--sub);line-height:1.6}
 .opb-read b{color:var(--text);font-weight:600}
 /* ④ 重构（2026-10-19 业主口径）：上半路径条，下半渠道块，两个维度压在一张卡里 */
 .opb-rail{display:grid;grid-template-columns:repeat(4,1fr);gap:0 12px;position:relative;margin:2px 0 12px;padding-top:15px}
@@ -5724,7 +6070,7 @@ main.content:not(.content--as) .btn-primary.sm,.btn-primary.sm{padding:4px 12px;
 .hr-kpis>div{display:flex;flex-direction:column;gap:2px;min-width:62px}
 .hr-kpis b{font-size:20px;font-weight:600;color:#1f2430;font-variant-numeric:tabular-nums;line-height:1.2}
 .hr-kpis span{font-size:11px;color:var(--faint)}
-.opb-ch{grid-column:1/-1;display:flex;align-items:baseline;gap:9px;margin:12px 0 -2px;padding-left:10px;border-left:3px solid var(--blue)}
+.opb-ch{grid-column:1/-1;display:flex;align-items:baseline;gap:9px;margin:12px 0 -2px;color:var(--blue)}
 .opb-ch i{font-style:normal;font-size:11px;color:var(--blue);font-weight:600}
 .opb-ch h4{font-size:14px;font-weight:600;color:#1f2430}
 .opb-ch span{font-size:11.5px;color:var(--faint)}
@@ -5758,7 +6104,7 @@ main.content:not(.content--as) .btn-primary.sm,.btn-primary.sm{padding:4px 12px;
 .opb-lad-on{font-size:11px;fill:#fff;font-weight:600}
 .opb-lad-on2{font-size:9.5px;fill:#dbeafe}
 .opb-quad{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
-.opb-quad>div{border-left:3px solid var(--line);background:var(--bg-subtle-1);border-radius:0 4px 4px 0;padding:7px 9px}
+.opb-quad>div{border:1px solid var(--line);background:var(--bg-subtle-1);border-radius:4px;padding:7px 9px}
 .opb-quad b{display:block;font-size:11.5px;color:var(--text);font-weight:600}
 .opb-quad span{display:block;font-size:10.5px;color:var(--faint);line-height:1.45;margin-top:2px}
 .opb-merge{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -6141,7 +6487,6 @@ main.content:not(.content--as) .btn-primary.sm,.btn-primary.sm{padding:4px 12px;
         </button>
         <div id="v10-notif" class="v10-notif hidden"></div>
       </span>
-      <button class="v10-audit" id="v10-audit-btn" title="审计记录">审计</button>
       <!-- SECTION: account -->
       <span class="acct-wrap" id="acct-wrap">
         <button class="acct-btn" id="acct-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="acct-menu"
@@ -6174,77 +6519,77 @@ main.content:not(.content--as) .btn-primary.sm,.btn-primary.sm{padding:4px 12px;
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- 加载顺序有依赖：seed → facts → charts → query → kol → data → renderers → render-kol → app -->
-<script src="assets/seed.js?v=20261021-0955"></script>
+<script src="assets/seed.js?v=20261028-2114"></script>
 <!-- 阈值唯一真源：必须先于一切消费它的文件加载 -->
-<script src="assets/decisions.js?v=20261020-2145"></script>
-<script src="assets/facts.js?v=20261020-2145"></script>
-<script src="assets/charts.js"></script>
-<script src="assets/query.js"></script>
-<script src="assets/kol.js"></script>
-<script src="assets/world-map.js"></script>
-<script src="assets/data.js?v=20261025-0910"></script>
-<script src="assets/renderers.js?v=20261025-1425"></script>
-<script src="assets/renderers2.js?v=20261024-2235"></script>
+<script src="assets/decisions.js?v=20261028-2114"></script>
+<script src="assets/facts.js?v=20261020-2158"></script>
+<script src="assets/charts.js?v=20261028-2227"></script>
+<script src="assets/query.js?v=20261028-0834"></script>
+<script src="assets/kol.js?v=20261021-1206"></script>
+<script src="assets/world-map.js?v=20261018-1259"></script>
+<script src="assets/data.js?v=20261028-2107"></script>
+<script src="assets/renderers.js?v=20261028-2046"></script>
+<script src="assets/renderers2.js?v=20261028-2314"></script>
 <!-- v37：舆情 11 层分析看板（可选模块，renderers2 检测 window.OP_BOARD，缺了不影响出屏） -->
-<script src="assets/v37-op-board.js?v=20261019-1249"></script>
-<script src="assets/render-kol.js"></script>
+<script src="assets/v37-op-board.js?v=20261019-1246"></script>
+<script src="assets/render-kol.js?v=20261028-2106"></script>
 <!-- v10：横切 UI 件 + 新增详情渲染器（必须在 app.js 之前加载，它们要往 RENDERERS/ACTIONS 上注册） -->
-<script src="assets/v10-ui.js?v=20261024-2035"></script>
-<script src="assets/v10-detail-sandbox.js?v=20261020-2145"></script>
-<script src="assets/v10-detail-asset.js?v=20261020-2145"></script>
-<script src="assets/v10-detail-flow.js?v=20261020-2145"></script>
-<script src="assets/v10-detail-survey.js"></script>
-<script src="assets/v10-interview-data.js"></script>
-<script src="assets/v10-interview.js"></script>
-<script src="assets/v10-interview-home.js"></script>
-<script src="assets/v10-detail-gov.js"></script>
-<script src="assets/v10-builder.js"></script>
-<script src="assets/v19-governance-fix.js"></script>
-<script src="assets/v23-exp-agent-link.js"></script>
+<script src="assets/v10-ui.js?v=20261028-2109"></script>
+<script src="assets/v10-detail-sandbox.js?v=20261028-2105"></script>
+<script src="assets/v10-detail-asset.js?v=20261028-2049"></script>
+<script src="assets/v10-detail-flow.js?v=20261028-2114"></script>
+<script src="assets/v10-detail-survey.js?v=20261028-2103"></script>
+<script src="assets/v10-interview-data.js?v=20261024-2112"></script>
+<script src="assets/v10-interview.js?v=20261028-2114"></script>
+<script src="assets/v10-interview-home.js?v=20261028-2046"></script>
+<script src="assets/v10-detail-gov.js?v=20261028-2114"></script>
+<script src="assets/v10-builder.js?v=20261003-2324"></script>
+<script src="assets/v19-governance-fix.js?v=20261028-2104"></script>
+<script src="assets/v23-exp-agent-link.js?v=20261028-2047"></script>
 <!-- v24：Agent 工作台第二页「网状关系」（依赖 renderers.js 的 UI/RENDERERS 注册表，必须在 app.js 之前） -->
-<script src="assets/v24-agent-net.js?v=20261024-2330"></script>
+<script src="assets/v24-agent-net.js?v=20261028-2320"></script>
 <!-- v26：企业知识库的桌面式管理（列表页 + 库内文档；渲染层调用它的 KBDESK，app.js 调用它的 __kbDesk） -->
-<script src="assets/v26-kb-desk.js?v=20261024-2300"></script>
+<script src="assets/v26-kb-desk.js?v=20261028-2255"></script>
 <!-- v27：Agent 详情「会话与干预」Tab（运行监控右边）。
      加载顺序：存储层（历史/提示/localStorage）→ 会话引擎（事件溯源，v28）→ 渲染层（注册 AGENT_TAB_RENDER.session）。 -->
-<script src="assets/v27-session-store.js"></script>
-<script src="assets/v28-session-engine.js"></script>
-<script src="assets/v27-agent-session.js"></script>
+<script src="assets/v27-session-store.js?v=20261028-2105"></script>
+<script src="assets/v28-session-engine.js?v=20261011-1856"></script>
+<script src="assets/v27-agent-session.js?v=20261028-2047"></script>
 <!-- v29：网关页拆三个页内 Tab（MCP 服务 / LLM 路由 / Skill）。
      这一页的渲染器、密钥清单与「轮换 / 吊销」动作都归它，renderers2.js 里那版已删除；
      必须在 app.js 之前加载 —— 它要往 RENDERERS/ACTIONS 上注册。 -->
-<script src="assets/v29-gateway-tabs.js"></script>
+<script src="assets/v29-gateway-tabs.js?v=20261028-2103"></script>
 <!-- v30/v31：总览入口接线 + 详情页只读块的出口（必须在 app.js 之前注册 ACTIONS） -->
-<script src="assets/v30-overview-links.js?v=20261020-2145"></script>
-<script src="assets/v31-detail-links.js?v=20261020-2145"></script>
+<script src="assets/v30-overview-links.js?v=20261028-0836"></script>
+<script src="assets/v31-detail-links.js?v=20261028-2049"></script>
 <!-- v33：平台域新增「能力与资产」一页（业主清单第 ⑤ 项：MCP / 技能 / 沙盒做成卡片放一页）。
 依赖 renderers.js 的 RENDERERS/ACTIONS 注册表与 v10-ui.js 的 openSheet/audit，必须在 app.js 之前。 -->
-<script src="assets/v33-assets.js?v=20261019-2250"></script>
+<script src="assets/v33-assets.js?v=20261028-2046"></script>
 <!-- v34：Agent 详情页的权限/策略控件改成可编辑（业主清单第 ⑥ 项）。
 复用 v10-ui.js 的 dangerConfirm/checkPerm/audit（门禁与风险档一处收口），必须在 app.js 之前。 -->
-<script src="assets/v34-perm-edit.js"></script>
+<script src="assets/v34-perm-edit.js?v=20261028-2046"></script>
 <!-- v36：按人头管权限 —— 账号与权限页的成员改成卡片，点开管这个人的每一项权限。
      必须在 renderers2.js 之后（它导出 V36MC 供 rbacPage 运行时取用）。 -->
-<script src="assets/v36-member-cards.js"></script>
+<script src="assets/v36-member-cards.js?v=20261028-2102"></script>
 <!-- v37：Agent 详情 › 管理 › 联系 —— MCP 服务 / 技能 / 工具 / 知识库做成一面卡片墙（业主 2026-10-18）。
-     取数全部 join 既有事实（拓扑 / A2A 边 / 技能依赖），不新造数据；动作走 v10-ui 的确认层与审计。
+     取数全部 join 既有事实（拓扑 / A2A 边 / 技能依赖），不新造数据；动作走 v10-ui 的确认层。
      必须在 renderers.js 之后（它读 RENDERERS.agentUsedSvcs 与 ACTIONS 注册表）。 -->
-<script src="assets/v38-agent-connect.js"></script>
+<script src="assets/v38-agent-connect.js?v=20261028-2047"></script>
 <!-- v39：注销页收尾（业主 2026-10-21）。
      ① 账号只留 xianyu（改在 seed.js 数据层）；② 「账号与 Agent 权限」整页删除；
      ③ 审批页下线后保留一个只读存档落点，旧链接进来看到"为什么不再有审批"，而不是空表或 404。
      接管 RENDERERS.queuePage，必须在 renderers2.js 之后、app.js 之前。
      要回退：删掉这一行即落回原审批页。 -->
-<script src="assets/v39-retired.js"></script>
+<script src="assets/v39-retired.js?v=20261028-2049"></script>
 <!-- v40：一级导航底部的设置入口（业主 2026-10-21「在第一导航栏最下面加个设置入口」）。
      只注册一个 open-settings 动作 + 三条 body class，不改既有渲染器；放在 app.js 之前。
      要回退：删掉这一行 + app.js 里 renderRail 的 rail-foot 段 + HTML 里 .rail-foot 样式。 -->
-<script src="assets/v40-settings.js?v=20261024-2150"></script>
+<script src="assets/v40-settings.js?v=20261028-2105"></script>
 <!-- v41：Agent 详情第五页「编排」（业主 2026-10-21「把编排放置在 agent 详情第五页」）。
      左侧节点工具箱 / 中间旅程画布 / 右侧旅程概览；节点可加、可删、可拖，改动只在本会话。
      注册方式是 AGENT_TAB_RENDER.journey，必须在 app.js 之前（渲染时要从注册表取）。 -->
-<script src="assets/v41-agent-journey.js?v=20261022-2255"></script>
-<script src="assets/v50-decision.js?v=20261025-1540"></script>
-<script src="assets/app.js?v=20261025-1215"></script>
+<script src="assets/v41-agent-journey.js?v=20261028-2048"></script>
+<script src="assets/v50-decision.js?v=20261029-0850"></script>
+<script src="assets/app.js?v=20261028-2312"></script>
 </body>
 </html>

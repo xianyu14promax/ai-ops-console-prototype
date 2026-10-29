@@ -27,7 +27,7 @@
  *     技能     → 调用方式 / 版本跟随还是固定（默认取 SKILLS 的 invocable）
  *     工具     → 授权开关 / 超时
  *     知识库   → 检索条数 / 置信度门槛 / 是否强制标出处（0.72 取自政策条款检索技能里写明的同一门槛）
- *   每一项改动都过 V10UI.audit 留痕；平台级配置仍在「能力与权限」与「企业知识库」里，两处不重叠。
+ *   每一项改动只作用于这个 Agent；平台级配置仍在「能力与权限」与「企业知识库」里，两处不重叠。
  */
 (function (global) {
   'use strict';
@@ -264,7 +264,7 @@
         '<div class="awc-exp-foot">' +
         '<button class="btn-ghost sm" data-act="awc-toggle" data-id="' + h.esc(key) + '">' +
         (on ? '摘掉这条联系' : '挂上这条联系') + '</button>' +
-        '<span class="awc-hint">参数只对 ' + h.esc(c._agent.name) + ' 生效 · 改动留审计</span>' +
+        '<span class="awc-hint">参数只对 ' + h.esc(c._agent.name) + ' 生效</span>' +
         '</div></div>';
     }
     return '<div class="awc-card' + (on ? ' on' : '') + (off ? ' off' : '') + (open ? ' is-open' : '') + '">' +
@@ -315,7 +315,7 @@
   /* ── 动作 ────────────────────────────────────────────────────────────────
      2026-10-18：分类筛选的 awc-tab 已删 —— 四类现在全都铺在页面上，没有"切到哪一类"这回事。 */
 
-  /* 展开区里改一个字段：写 state.awcCfg + 审计 + 就地重渲染（展开态保留在 state.awcOpen） */
+  /* 展开区里改一个字段：写 state.awcCfg + 就地重渲染（展开态保留在 state.awcOpen） */
   ACTIONS['awc-set'] = function (raw, btn, h) {
     var p = String(raw == null ? '' : raw).split('|');
     var type = p[0], id = p[1], field = p[2], value = p[3];
@@ -331,16 +331,9 @@
     var prev = val(h, a, key, f, c.raw || {});
     if (String(prev) === String(value)) return;
     cfgOf(h, a, key)[field] = value;
-    var win = UI();
     var shown = f.text ? f.text[value] : (value + (f.unit ? ' ' + f.unit : ''));
     var shownPrev = f.text ? f.text[prev] : (prev + (f.unit ? ' ' + f.unit : ''));
-    if (win.audit) {
-      win.audit({
-        action: '调整 Agent 联系参数', target: c.name + ' · ' + f.label + ' → ' + a.name,
-        impact: shownPrev + ' → ' + shown + '（仅本 Agent）', reason: '在 Agent 联系页的详情里改'
-      });
-    }
-    h.toast(f.label + '：' + shownPrev + ' → ' + shown + '（已留审计）', 'ok');
+    h.toast(f.label + '：' + shownPrev + ' → ' + shown, 'ok');
     /* v39：同页状态改写 → 保持阅读位置（否则点一下档位，整墙滚回顶部） */
     h.navigate({}, { scroll: 'keep' });
   };
@@ -364,61 +357,56 @@
       var to = cur.on ? 'deny' : 'allow';
       var key = grantKey(a, cur.svcId, id.split('::')[1]);
       var g = (h.state.agentToolGrant || (h.state.agentToolGrant = {}));
-      /* 审计只写一次：走确认层的路径由 dangerConfirm 自己 audit（v34 修过这条），
-         这里再写一条就会出现"同一次操作两条审计"（实测踩到）。 */
-      var doneTool = function (selfAudit, reason) {
+      var doneTool = function () {
         g[key] = to;
-        if (selfAudit && win.audit) win.audit({ action: to === 'allow' ? '授予 Agent 工具' : '收回 Agent 工具', target: cur.name + ' → ' + a.name, impact: '仅本 Agent 的工具可见性', reason: reason || '在 Agent 联系页拨开关' });
-        h.toast((to === 'allow' ? '已授权：' : '已收回：') + cur.name + '（已留审计）', 'ok');
+        h.toast((to === 'allow' ? '已授权：' : '已收回：') + cur.name, 'ok');
         h.navigate({}, { scroll: 'keep' });
       };
-      if (to === 'allow' && !cur.write) { doneTool(true, '在 Agent 联系页拨开关'); return; }
+      if (to === 'allow' && !cur.write) { doneTool(); return; }
       if (to === 'deny') {
         win.dangerConfirm(h, {
           title: '收回工具', desc: svc.name + ' · ' + cur.name + ' → ' + a.name, tone: 'warn', danger: false,
-          perm: 'agent:tool:revoke', action: '收回工具', target: svc.name + ' · ' + cur.name + ' → ' + a.name,
+          perm: 'agent:tool:revoke',
           impacts: [
             { label: '工具', value: cur.name, tone: '' },
             { label: '影响', value: '依赖它的编排节点会走降级分支，可能中断本次编排', tone: 'warn' },
             { label: '作用域', value: '仅本 Agent；服务的全局开关在「能力与权限 › 连接器」' }
           ],
-          onConfirm: function (reason) { doneTool(false, reason); }
+          onConfirm: function () { doneTool(); }
         });
         return;
       }
       win.dangerConfirm(h, {
         title: '授权写工具', desc: svc.name + ' · ' + cur.name + ' → ' + a.name, tone: 'danger', danger: true,
-        perm: 'agent:tool:grant:write', requireReason: true, action: '授予写工具',
-        target: svc.name + ' · ' + cur.name + ' → ' + a.name,
+        perm: 'agent:tool:grant:write',
         impacts: [
           { label: '工具', value: cur.name + '（写动作）', tone: 'danger' },
           { label: '影响', value: '会改外部系统（建单 / 推送 / 退款一类），事后按轮回滚', tone: 'danger' }
         ],
-        onConfirm: function (reason) { doneTool(false, reason); }
+        onConfirm: function () { doneTool(); }
       });
       return;
     }
 
     var NAME = TYPE_NAME[type] || type;
     var perm = type === 'mcp' ? 'agent:tool:grant' : (type === 'skill' ? 'agent:skill:bind' : 'knowledge:kb:bind');
-    var done = function (selfAudit, reason) {
+    var done = function () {
       if (cur.on) { b[type].rm[id] = 1; delete b[type].add[id]; }
       else { b[type].add[id] = 1; delete b[type].rm[id]; }
-      if (selfAudit && win.audit) win.audit({ action: (cur.on ? '摘掉' : '挂上') + NAME, target: cur.name + ' → ' + a.name, impact: '仅本 Agent 的' + NAME + '清单', reason: reason || '在 Agent 联系页拨开关' });
-      h.toast((cur.on ? '已摘掉：' : '已挂上：') + cur.name + '（已留审计）', 'ok');
+      h.toast((cur.on ? '已摘掉：' : '已挂上：') + cur.name, 'ok');
       h.navigate({}, { scroll: 'keep' });
     };
-    if (!cur.on) { done(true, '在 Agent 联系页拨开关'); return; }
+    if (!cur.on) { done(); return; }
     win.dangerConfirm(h, {
       title: '摘掉' + NAME, desc: cur.name + ' → ' + a.name, tone: 'warn', danger: false,
-      perm: perm, action: '摘掉' + NAME, target: cur.name + ' → ' + a.name,
+      perm: perm,
       impacts: [
         { label: NAME, value: cur.name },
         { label: '影响', value: type === 'mcp' ? '该服务暴露的工具在本 Agent 上全部不可见（工具级授权保留，重新挂上即恢复）'
           : (type === 'skill' ? '本 Agent 不再按这件事派生委派；已发生的调用记录保留' : '本 Agent 后续检索不再命中这个库；索引与文档不动') },
         { label: '作用域', value: '仅本 Agent；平台级开关不在这里' }
       ],
-      onConfirm: function (reason) { done(false, reason); }
+      onConfirm: function () { done(); }
     });
   };
 

@@ -40,7 +40,12 @@
   }
 
   /* SECTION: r-overview
-   * 工作台总览：待办聚合 + 健康指标 + 告警流水 + 运行中任务 + 快捷入口
+   * 工作台总览（2026-10-27 整屏重做）。业主原话：「这个界面全删了，换成系统状态和 agent 状态」。
+   * 下线的内容：待我处理 / 健康指标带 / 折叠区（事故 · 运行中任务 · 需关注 Agent · 快捷入口）/ 调用量趋势图。
+   * 现在这一屏只回答两件事：
+   *   ① 系统此刻健不健康 —— 5 个平台组件 + 6 个依赖服务，全部由 QUERY 的同一份健康数据推导；
+   *   ② 每个 Agent 此刻什么状态 —— 谁在跑、谁在灰度、谁带病、谁已经停下。
+   * 纪律不变：页面不自己算数（只从 QUERY / FACTS 取值），每块要么可点、要么是带理由的证据。
    */
   /* SECTION: v15-agent-ops
    * Agent 发布/灰度/回滚的会话内状态读取（写入在 renderers2.js 的 ACTIONS 里）。
@@ -83,282 +88,404 @@
     // 用户选「近 30 天」看到的仍是 24 小时数据 —— 控件在说谎。
     var rg = state.range || '24h';
     var rgLabel = Q.RANGES[rg] ? Q.RANGES[rg].label : rg;
-    var k24 = Q.kpi(rg);
-    var k7 = Q.kpi('7d');
-    var agents = Q.agentTable(rg);
-    var todos = APP.getTodos();
-    var ts = Q.timeseries(rg);
+    var k = Q.kpi(rg);
+    var agents = Q.agentTable(rg).rows;
+    var svc = Q.mcpHealth();
+    var routes = Q.llmRoutes(rg);
+    var skills = Q.skillTable();
+    var kbs = S.KBS || [];
+    var incs = (Q.openIncidents ? Q.openIncidents() : []) || [];
 
-    /* --- ① 待办聚合 --- */
-    var todoHtml = '<div class="card"><div class="card-h"><h3>待我处理</h3><span class="card-sub">' + todos.length + ' 类事项</span></div><div class="todo-list">';
-    todos.forEach(function (t) {
-      /* 🔴 C-1a（第1屏硬伤①）：此前只传 `t.target.cap` —— 点进去是**该页的默认列表**，
-         而待办说的是"N 个审批待我处理"。**口径与落点不一致**，用户还要自己再筛一遍。
-         改为传 `cap|todoId`：由 goto-todo 把该待办的**筛选语义**带到目标页。
-         ⚠ 待办是**聚合数**（不存在"单个对象"），所以带的是**筛选条件**而不是对象 id。 */
-      todoHtml += '<button class="todo-item ' + t.kindColor + '" data-act="goto-todo" data-id="' + h.esc(t.target.cap + '|' + t.id) + '">' +
-        '<span class="todo-n">' + t.count + '</span>' +
-        '<span class="todo-main"><b>' + h.esc(t.kind) + '</b><span>' + h.esc(t.text) + '</span></span>' +
-        (t.urgent ? '<span class="todo-urgent">' + t.urgent + ' 紧急</span>' : '') +
-        '</button>';
-    });
-    todoHtml += '</div></div>';
-
-    /* --- ② 健康指标 --- */
-    var sr = k24.successRate;
-    /* 🔴 修复（阈值真源）：下面两条告警线此前**内联在本文件的这两张卡里**（0.99 / 4000），
-       而 decisions.js「可观测.成功率_需关注 / 可观测.P99_告警」的登记项，来源栏写的就是这两处
-       —— 总览判红与 Agent 工作台判红必须是同一条线，所以这里改为**引用真源**，不再内联字面量。
-       真源取不到时**不臆造数字**：本屏不判红（宁可不标，也不偷偷退回一个可能与真源漂移的值）。 */
+    /* 🔴 修复（阈值真源）：成功率与 P99 的告警线只认 decisions.js 这一份真源，
+       取不到就不判红 —— 宁可不标，也不偷偷退回一个可能漂移的字面量。
+       阈值文案（"成功率 < 99%"）也必须来自同一份来源，不能另手写一份。 */
     var DECI = global.DECISIONS;
     var TH_SR = (DECI && DECI.value) ? DECI.value('可观测', '成功率_需关注') : null;
     var TH_P99 = (DECI && DECI.value) ? DECI.value('可观测', 'P99_告警') : null;
-    /* 指标卡下钻参数的分段格式化：null / 非数字一律**留空段**，绝不把 'NaN' / 'undefined' 写进 data-id。
-       dp 为 null ⇒ 原样输出（阈值 0.99 就是 '0.99'，不能被四舍五入成 '1'）。 */
-    function numSeg(v, dp) {
-      if (v == null || typeof v !== 'number' || !isFinite(v)) return '';
-      if (dp == null) return String(v);
-      return dp > 0 ? v.toFixed(dp) : String(Math.round(v));
-    }
-    /* 阈值**文案**也必须来自同一份真源：卡片判红用 TH_SR / TH_P99，卡头副标题若另手写一份
-       「99% / 4s」，改了 decisions.js 之后两边就会互相打架（本批修的就是这类"同一根线两处写"）。
-       单位换算：P99 真源单位是 **ms（4000）**，界面上要显示成 **4s** ⇒ 必须 ÷1000，
-       不能把毫秒数直接当秒写成 "4000s"；换算后去掉多余的 .0（4 而不是 4.0），非整数毫秒保留一位（1500 → 1.5s）。 */
-    function secText(ms) { return (Math.round((ms / 1000) * 10) / 10) + 's'; }
     function pctText(ratio) { return (Math.round(ratio * 10000) / 100) + '%'; }
-    var healthCards = [
-      { label: rgLabel + '调用量', value: fmt.compact(k24.calls), deltaHtml: fmt.delta(k24.compare.calls), definition: k24.meta.definitions.calls, sub: '近 7 天 ' + fmt.compact(k7.calls) },
-      { label: '成功率', value: fmt.pct2(sr), alert: TH_SR != null && sr != null && sr < TH_SR, deltaHtml: fmt.delta(k24.compare.successRate, { pp: true }), definition: k24.meta.definitions.successRate, sub: '失败 ' + fmt.int(k24.fails) + ' 次' },
-      { label: 'P99 时延', value: fmt.dur(k24.p99), alert: TH_P99 != null && k24.p99 != null && k24.p99 > TH_P99, deltaHtml: fmt.delta(k24.compare.p99, { higherIsBetter: false }), definition: k24.meta.definitions.p99, sub: 'P50 ' + fmt.dur(k24.p50) },
-      { label: rgLabel + '成本', value: fmt.money(k24.cost), deltaHtml: fmt.delta(k24.compare.cost, { higherIsBetter: false }), definition: k24.meta.definitions.cost, sub: '重试浪费 ' + fmt.money2(k24.retryWaste) },
-      { label: 'token 消耗', value: fmt.compact(k24.tokens), deltaHtml: '', sub: '入 ' + fmt.compact(k24.tokIn) + ' / 出 ' + fmt.compact(k24.tokOut) }
-    ].map(function (m, i) {
-      /* C-1b：异常指标卡可点下钻 —— 把「这个数不正常」接到「哪些对象不正常」。 */
-      /* 🔴 修复（下钻参数）：此前 m.actId 只传**字段名**（'calls' / 'successRate' / 'p99' / 'cost' / 'tokens'），
-         目标页据此筛不出「受影响对象清单」—— 既不知道"这个数是多少"，也不知道"该跟哪条线比"，
-         只能退回该页默认列表，口径与落点又一次不一致。
-         现按本仓既有 `a|b` 分段惯例（如 renderers2.js 的 data-id="a|b"）扩成四段：
-             <指标>|<当前值>|<阈值>|<口径范围>
-           · 当前值：一律取 k24 / sr 的**真实聚合值**（不另造数字；null 留空段）
-           · 阈值  ：只认 decisions.js 这一份真源（成功率 / P99）。该卡在真源里没有对应阈值的，
-                     **段留空** —— 目标页见空段就按"按值排序取前 N"处理，不要自己编一条线；
-                     阈值原样输出（'0.99' 不能变成 '1'）
-           · 末段  ：本屏当前时间范围标签，下钻清单必须与卡片同口径（否则又是一个"控件在说谎"）
-         例：successRate|0.9895|0.99|近 24 小时    calls|120453||近 24 小时
-         ⚠ 只改 data-id 的**内容**：动作名仍是 goto-drill、data-act 不变（注册在别的文件里，本文件不注册动作）。 */
-      var drill = [
-        { id: 'calls' },
-        { id: 'successRate', when: m.alert },
-        { id: 'p99', when: m.alert },
-        { id: 'cost' },
-        { id: 'tokens' }
-      ][i];
-      if (drill && (drill.when === undefined || drill.when)) {
-        /* 当前值与真源阈值按下标取，避免在每个卡对象里重复写一遍字段名 */
-        var DEC_OF = { calls: 0, successRate: 4, p99: 0, cost: 2, tokens: 0 };
-        var MV = [
-          { v: k24.calls, th: null },
-          { v: sr, th: TH_SR },
-          { v: k24.p99, th: TH_P99 },
-          { v: k24.cost, th: null },
-          { v: k24.tokens, th: null }
-        ][i] || { v: null, th: null };
-        m.act = 'goto-drill';
-        m.actId = drill.id + '|' + numSeg(MV.v, DEC_OF[drill.id]) + '|' + numSeg(MV.th, null) + '|' + rgLabel;
-        m.actTitle = '下钻：查看该指标受影响的对象清单';
-      }
-      return h.metricCard(m);
-    }).join('');
+    function secText(ms) { return (Math.round((ms / 1000) * 10) / 10) + 's'; }
 
-    /* --- ③ 告警流水 --- */
-    var incHtml = '<div class="card"><div class="card-h"><h3>近 30 天事故</h3><span class="card-sub">点击看影响与根因</span></div><div class="inc-list">';
-    S.INCIDENTS.slice().reverse().forEach(function (inc) {
-      var impact = Q.incidentImpact(inc);
-      /* 🔴 修复（HTML 内容模型，与 app.js metricCard 同一类问题）：
-         此前这里是 <button class="inc-item"> 里面又放 <button>（确认知悉 / 关闭并复盘 / 看根因）
-         —— 交互内容模型**不允许嵌套 button**，解析器会把内层按钮**提出去**：
-         实测 .inc-acts 变成空 <span>，两个按钮被甩成 .inc-item 的兄弟节点
-         （所以它们看起来"掉到标题下面"）。改为 div[role=button]，
-         行点击看影响/根因仍然成立，行内按钮回到 .inc-acts 里。 */
-      incHtml += '<div class="inc-item lv-' + inc.level + '" role="button" tabindex="0" data-act="show-incident" data-id="' + inc.id + '">' +
-        '<span class="inc-lv">' + inc.level + '</span>' +
-        '<span class="inc-main"><b>' + h.esc(inc.title) + '</b>' +
-        '<span>' + h.esc(F.fmtDate(S.TODAY_START + inc.dayOffset * S.DAY)) + ' ' + inc.hourStart + ':00–' + inc.hourEnd + ':59 · ' +
-        '期间成功率 ' + fmt.pct2(impact.during.successRate) + '（事前 ' + fmt.pct2(impact.before.successRate) + '）</span></span>' +
-        (function () {
-          /* C-1c：状态**从数据算**，不再写死为"已恢复"。
-             开放事件给真动作（ack / 关闭），已恢复的只留"看根因"。
-             🔴 修复（控件在说谎）：此前 `closed` 被**并进** resolved ——
-                `st = (inc.resolvedAt != null || closed) ? 'resolved' : (ack ? 'ack' : 'open')`。
-                后果①：用户点「关闭并复盘」，这条事故在界面上就显示成**「已恢复」**；
-                后果②（更糟）：本就没恢复的事故（resolvedAt == null，如进行中的 P1）
-                也会因为一次"关闭"动作被说成"已恢复"。
-                「关闭并复盘」是**处置动作**，「已恢复」是**数据事实** —— 两者不是一回事，不能互相顶替。
-             现在拆成四档，各自如实：
-                resolved  数据层 resolvedAt != null → 已恢复          （真实恢复 · 色阶 ok）
-                closed    人工关闭并复盘（本会话态） → 已关闭 · 已复盘  （色阶 idle，**不出现"恢复"字样**）
-                ack       已确认知悉（本会话态）     → 已知悉·处理中    （色阶 warn）
-                open      无任何处置                → 未处理          （色阶 bad）
-             样式沿用本仓既有 pill 色阶（h.pill 的 ok/idle/warn/bad ⇒ .pill.* 规则），不新增 CSS。 */
-          var ack = (h.state.incAck || {})[inc.id];
-          var closed = (h.state.incClosed || {})[inc.id];
-          var st = inc.resolvedAt != null ? 'resolved' : (closed ? 'closed' : (ack ? 'ack' : 'open'));
-          var ST = {
-            resolved: { label: '已恢复', tone: 'ok' },
-            closed: { label: '已关闭 · 已复盘', tone: 'idle' },
-            ack: { label: '已知悉·处理中', tone: 'warn' },
-            open: { label: '未处理', tone: 'bad' }
-          }[st];
-          /* 动作：已恢复 / 已关闭都只留只读的「看根因」—— 已关闭的不该再给「关闭并复盘」，
-             点下去什么都不会变，那还是一个假动作。 */
-          var acts = (st === 'resolved' || st === 'closed')
-            ? '<button class="btn-ghost sm" data-act="show-incident" data-id="' + inc.id + '">看根因</button>'
-            : (st === 'open'
-              ? '<button class="btn-ghost sm" data-act="inc-ack" data-id="' + inc.id + '">确认知悉</button>' +
-                '<button class="btn-primary sm" data-act="inc-close" data-id="' + inc.id + '">关闭并复盘</button>'
-              : '<button class="btn-primary sm" data-act="inc-close" data-id="' + inc.id + '">关闭并复盘</button>');
-          /* .inc-state 保留为外层：它只有 flex:0 0 auto / font-size 两条既有规则，
-             用它维持本行布局不变；色与文案都在内层 pill 上（不新增 CSS）。 */
-          return '<span class="inc-state">' + h.pill(ST.tone, ST.label) + '</span>' +
-            '<span class="inc-acts">' + acts + '</span>';
-        })() + '</div>';
-    });
-    incHtml += '</div></div>';
+    /* --- Agent 分档：异常（含灰度的）置顶，其次灰度、运行中，最后已下线 --- */
+    var live = agents.filter(function (a) { return a.status !== 'offline'; });
+    var off = agents.filter(function (a) { return a.status === 'offline'; });
+    var attn = live.filter(function (a) { return a.abnormal; });
+    var agBad = attn.filter(function (a) { return a.severity === 'bad'; });
+    var agWarn = attn.filter(function (a) { return a.severity !== 'bad'; });
+    var gray = live.filter(function (a) { return a.status === 'gray' && !a.abnormal; });
+    var run = live.filter(function (a) { return a.status === 'online' && !a.abnormal; });
+    var ordered = attn.slice().sort(function (a, b) {
+      return (a.severity === 'bad' ? 0 : 1) - (b.severity === 'bad' ? 0 : 1) || b.calls - a.calls;
+    }).concat(gray).concat(run).concat(off);
 
-    /* --- ④ 运行中任务 --- */
-    /* 🔴 此前这里是**纯 <div>，零动作** —— 而总览是全站唯一允许的看板，
-       判据是「每块要么可点要么是证据」，纯摆设不允许。
-       改为同款可点条目：进化任务 → 自进化控制台。
-       2026-10-20：Workflow 一页下线，原「流程 → 该 Workflow 详情」那三条条目一并删除；
-       本块现在只列进化任务，仍是可点条目，判据不变。 */
-    var evs = pipes().evolution.items;
-    var runHtml = '<div class="card"><div class="card-h"><h3>运行中任务</h3>' +
-      '<div class="ab-list">';
-    evs.forEach(function (e) {
-      var st = e.stages.filter(function (s) { return s.state === 'active'; })[0];
-      runHtml += '<button class="ab-item" data-act="goto-cap" data-id="evo">' +
-        '<span class="ab-why">进化</span><b>' + h.esc(e.name) + '</b>' +
-        '<span>' + h.esc(st ? st.name + '：' + st.detail : e.statusText) + '</span>' +
-        '<span class="ab-go">去控制台 →</span></button>';
-    });
-    runHtml += '</div></div>';
-
-    /* --- ⑤ 异常 Agent --- */
-    var abnormal = agents.rows.filter(function (a) { return a.abnormal; });
-    /* 卡头副标题「阈值：成功率 < 99% 或 P99 > 4s」此前是内联字面量 —— 与上面卡片判红用的
-       TH_SR / TH_P99 是同一根线，必须是同一份来源（decisions.js 可观测域）。 */
-    var abTh = (TH_SR != null && TH_P99 != null)
-      ? '阈值：成功率 &lt; ' + pctText(TH_SR) + ' 或 P99 &gt; ' + secText(TH_P99)
-      : '阈值未在 decisions.js 登记（可观测.成功率_需关注 / 可观测.P99_告警）';
-    var abHtml = '';
-    if (abnormal.length) {
-      abHtml = '<div class="card"><div class="card-h"><h3>需关注的 Agent</h3><span class="card-sub">' + abTh + '</span></div>' +
-        '<div class="ab-list">' + abnormal.map(function (a) {
-          return '<button class="ab-item" data-act="goto-agent" data-id="' + a.id + '">' +
-            '<b>' + h.esc(a.name) + '</b><span class="ab-ver">' + h.esc(a.version) + '</span>' +
-            '<span class="ab-why ' + (a.severity === 'bad' ? 'bad' : 'warn') + '">' + h.esc(a.abnormalReasons.join('；')) + '</span>' +
-            '<span class="ab-go">查看监控 →</span></button>';
-        }).join('') + '</div></div>';
+    /* --- 服务器状态（2026-10-27 业主：「也要服务器状态」）---
+       三层各答一件事：平台组件答「应用跑得动吗」，依赖服务答「外部能用吗」，
+       服务器答「机器还剩多少余量」。OOM 与磁盘写满是最常见的线上事故，
+       而它们在应用层往往只表现为成功率抖一下，所以这一层不能缺。
+       水位判据读 decisions.js 的 可观测.资源水位_告警（warn 80% / bad 92%）；
+       真源取不到 ⇒ 不判红，卡头如实说"阈值未登记"，不内联一条私有线。 */
+    var hosts = (Q.hostHealth ? Q.hostHealth() : []) || [];
+    var hTh = hosts.length ? hosts[0].threshold : { warn: null, bad: null };
+    var totalCores = hosts.reduce(function (n, x) { return n + x.cores; }, 0);
+    var totalMem = hosts.reduce(function (n, x) { return n + x.memGB; }, 0);
+    var totalGpu = hosts.reduce(function (n, x) { return n + (x.gpu ? x.gpu.count : 0); }, 0);
+    var totalVram = hosts.reduce(function (n, x) { return n + (x.gpu ? x.gpu.vramTotal : 0); }, 0);
+    function hostPct(v) { return Math.round(v * 100) + '%'; }
+    /* 判色用**界面上显示的那个整数**（四舍五入后的百分比），而不是原始小数：
+       0.7952 显示成 80%，若判定仍按 0.7952 < 0.80 走，就会出现
+       「数字写着 80%、环还是绿的」—— 用户只会认为这个阈值坏了。 */
+    function barTone(v) {
+      var p = Math.round(v * 100);
+      if (hTh.bad != null && p >= Math.round(hTh.bad * 100)) return 'bad';
+      if (hTh.warn != null && p >= Math.round(hTh.warn * 100)) return 'warn';
+      return '';
     }
+    /* 环形仪表（宝塔面板那种：环 + 中心数字）。
+       · 环画的是同一个百分比，不是另算一条线 —— 图形与数字必须一致，
+         否则"看着快满了、数字说还好"就是两个事实；
+       · 中心数字用 HTML 叠在 SVG 上而不是 <text>：字号、字距、等宽数字都跟着页面走，
+         不必在 SVG 里再写一遍字体；
+       · 颜色只取 warn / bad 两档，正常永远是绿 —— 环本来就在表达"余量"，
+         再给它配渐变只会让人分不清是装饰还是告警。 */
+    function ring(pct, tone, label, sub, tip) {
+      /* 尺寸按业主给的那张参考图定：72 的环配 11 的描边（约直径的 15%），
+         内径 50 正好放得下 20px 的数字 + 9px 的百分号。
+         60 的环试过 —— 数字一大就压环内壁，数字一小就没有参考图那种"饱满"。
+         窄屏（1280 下每张卡约 244px）四环放不下会自动折成 2×2，不允许压线。 */
+      var R = 30.5, CIRC = 2 * Math.PI * R;
+      var v = Math.max(0, Math.min(1, pct));
+      var off = CIRC * (1 - v);
+      var color = tone === 'bad' ? 'var(--red)' : (tone === 'warn' ? 'var(--amber)' : 'var(--green)');
+      return '<div class="st-ring">' +
+        '<div class="st-ring-wrap">' +
+        '<svg class="st-ring-svg" viewBox="0 0 72 72" width="72" height="72" aria-hidden="true">' +
+        '<circle class="track" cx="36" cy="36" r="' + R + '" fill="none" stroke-width="11"/>' +
+        '<circle cx="36" cy="36" r="' + R + '" fill="none" stroke="' + color + '" stroke-width="11" stroke-linecap="round" ' +
+        'stroke-dasharray="' + CIRC.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 36 36)"/>' +
+        '</svg>' +
+        '<b class="' + (tone || '') + (Math.round(v * 100) >= 100 ? ' sm' : '') + '">' + Math.round(v * 100) + '<i>%</i></b>' +
+        '</div>' +
+        '<span>' + label + '</span>' +
+        '<em title="' + tip + '">' + sub + '</em>' +
+        '</div>';
+    }
+    /* 未接入的槽位（业主 2026-10-28：「其他服务器换为＋号」）。
+       它是**规划占位**，不是一台坏掉的机器 —— 所以用虚线空位表达，
+       不画成一个“状态未知”的灰卡（那会被读成故障）。 */
+    var slotTotal = S.HOST_SLOTS || hosts.length;
+    var emptySlots = Math.max(0, slotTotal - hosts.length);
+    var slotHtml = '';
+    for (var si = 0; si < emptySlots; si++) {
+      slotHtml += '<button class="st-host-i st-host-add" data-act="host-add" title="接入一台服务器">' +
+        '<span class="st-host-plus" aria-hidden="true">＋</span>' +
+        '<b>添加服务器</b>' +
+        '<span class="st-host-add-s">第 ' + (hosts.length + si + 1) + ' / ' + slotTotal + ' 槽位</span>' +
+        '</button>';
+    }
+    var hostHtml = '<div class="st-host">' + hosts.map(function (x) {
+      return '<article class="st-host-i ' + x.status + '">' +
+        '<header><span class="st-dot ' + x.status + '"></span><b>' + h.esc(x.name) + '</b>' +
+        '<span class="st-host-role">' + h.esc(x.role) + '</span>' +
+        h.pill(x.status, x.statusText) + '</header>' +
+        '<div class="st-rings">' +
+        ring(x.loadRatio, barTone(x.loadRatio), '负载',
+          (Math.round(x.load1 * 10) / 10) + ' / ' + x.cores + ' 核',
+          '1 分钟平均负载 ÷ 核数。' + x.cores + ' 核机器上 100% 表示队列里正好压满这么多活儿') +
+        ring(x.cpu, barTone(x.cpu), 'CPU',
+          x.ghz.toFixed(2) + 'G ×' + x.cores,
+          x.cpuModel + ' · ' + x.cores + ' 核 · 主频 ' + x.ghz.toFixed(2) + ' GHz') +
+        ring(x.mem, barTone(x.mem), '内存',
+          (Math.round(x.memUsedGB * 10) / 10) + '/' + x.memGB + 'G',
+          '已用 ' + (Math.round(x.memUsedGB * 10) / 10) + ' GB / 共 ' + x.memGB + ' GB') +
+        /* 磁盘改用 GB 显示，与内存那格"已用/总量"同一读法：
+           0.2 / 0.5T 这种一位小数的写法会把 45% 显示成 40%，环和数字对不上。 */
+        ring(x.disk, barTone(x.disk), '磁盘',
+          Math.round(x.diskTB * 1024 * x.disk) + '/' + Math.round(x.diskTB * 1024) + 'G',
+          x.diskModel + ' · ' + x.volumes.join(' ') + ' · 已用 ' +
+          (Math.round(x.diskTB * x.disk * 10) / 10) + ' TB / 共 ' + x.diskTB + ' TB') +
+        '</div>' +
+        /* 加速卡单独一行，不挤进上面四个环：
+           GPU 有两个不同维度（利用率 / 显存），一个环只能表达一个；
+           而显存恰恰是 LLM 推理最先见底的那一项 —— 所以两个都摆出来，谁红了看谁。 */
+        (x.gpu ? '<div class="st-gpu">' +
+          '<span class="st-gpu-k">GPU</span>' +
+          '<b>' + h.esc(x.gpu.model) + ' ×' + x.gpu.count + '</b>' +
+          '<span class="st-gpu-m">利用率 <em' + (barTone(x.gpu.util) ? ' class="' + barTone(x.gpu.util) + '"' : '') + '>' +
+          Math.round(x.gpu.util * 100) + '%</em></span>' +
+          '<span class="st-gpu-m">显存 <em' + (barTone(x.gpu.vram) ? ' class="' + barTone(x.gpu.vram) + '"' : '') + '>' +
+          (Math.round(x.gpu.vramUsed * 10) / 10) + '/' + x.gpu.vramTotal + 'G</em></span>' +
+          '<span class="st-gpu-t" title="GPU 核心温度">' + x.gpu.temp + '°C</span>' +
+          '</div>' : '') +
+        (x.incidentBoost ? '<div class="st-host-note">负载与 CPU 已计入事故重试的额外压力</div>' : '') +
+        '</article>';
+    }).join('') + slotHtml + '</div>';
 
-    /* --- ⑥ 快捷入口 --- */
-    /* 2026-10-21：审批下线，快捷入口换成「账号与 Agent 权限」（一个人真正天天要看的是 Agent 能干什么） */
-    var quick = ['agent-wb', 'obs', 'cost', 'compliance', 'assets'];
-    var quickHtml = '<div class="card"><div class="card-h"><h3>快捷入口</h3></div><div class="quick-grid">' +
-      quick.map(function (id) {
-        var c = h.capById(id);
-        return '<button class="quick-item" data-act="goto-cap" data-id="' + id + '">' + h.icon(c.icon, 20) + '<span>' + h.esc(c.name) + '</span></button>';
-      }).join('') + '</div></div>';
+    /* --- 系统组件的原始聚合 --- */
+    var badSvc = svc.filter(function (s) { return s.status !== 'ok'; });
+    var sumQps = 0, sumCap = 0;
+    svc.forEach(function (s) { sumQps += s.qps; sumCap += s.qpsCap; });
+    var worstErr = svc.slice().sort(function (a, b) { return b.errRate - a.errRate; })[0];
+    /* 路由分两种异常，**不能混为一谈**（初版混了，于是 3 条"P99 慢"被说成"网关超标"）：
+       · routeFail：经过网关的调用真的失败了（成功率 < 99%）—— 这是网关/下游链路的可用性问题；
+       · routeSlow：P99 超阈值 —— 下游模型慢，网关本身还在正常工作。
+       组件状态只认 routeFail；routeSlow 进副行，作为"慢但可用"的提示。 */
+    var routeFail = routes.filter(function (r) { return r.calls > 0 && r.successRate != null && r.successRate < 0.99; });
+    var routeSlow = routes.filter(function (r) { return r.p99 != null && TH_P99 != null && r.p99 > TH_P99; });
+    var slowRoute = routes.filter(function (r) { return r.p99 != null; })
+      .sort(function (a, b) { return b.p99 - a.p99; })[0];
+    /* 知识库同步天数：seed 的 lastSync 是「距今天数」（负数），取绝对值比大小。
+       空库时 max/min 都是 0，不写 Infinity（apply(null, []) 会返回 ±Infinity）。 */
+    var syncs = kbs.map(function (x) { return Math.abs(x.lastSync || 0); });
+    var maxSync = syncs.length ? Math.max.apply(null, syncs) : 0;
+    var minSync = syncs.length ? Math.min.apply(null, syncs) : 0;
+    var docTotal = kbs.reduce(function (n, x) { return n + (x.docs || 0); }, 0);
+    var skMissing = (skills.rows || []).filter(function (r) { return (r.missingDeps || []).length; });
+    var sr = k.successRate;
 
-    /* ============ 总览屏重排（2026-10-12）============
-       旧排法把六块（待办/健康/事故/运行中/需关注/快捷）丢进同一个 2 列网格 ⇒ **全部同权**，
-       用户看不出先干什么（实测 14 卡 · 6 KPI · 13 待办 · 30 按钮）。
-       新排法分三层，**信息一个不丢**：
-         ① 焦点区（全宽）：「待我处理」—— 这一屏唯一要用户动手的事
-         ② 健康带（一行）：5 个只读指标压成一条，不再占一整块卡
-         ③ 折叠区（原生 <details>，键盘可达）：事故 / 运行中 / 需关注 / 快捷
-       判红条件与阈值仍取自 decisions.js 真源（TH_SR / TH_P99），未改动。 */
-    var todoTotal = todos.reduce(function (n, t) { return n + (t.count || 0); }, 0);
-    var todoUrgent = todos.filter(function (t) { return t.urgent; }).length;
-    var focusCard =
-      '<div class="card"><div class="card-h"><h3>待我处理</h3>' +
-      '<span class="card-sub">' + todos.length + ' 类 · 合计 ' + todoTotal + ' 件' +
-      (todoUrgent ? ' · <b class="bad">' + todoUrgent + ' 类紧急</b>' : '') + '</span></div>' +
-      '<div class="todo-list">' +
-      todos.map(function (t) {
-        return '<button class="todo-item ' + t.kindColor + '" data-act="goto-todo" data-id="' + h.esc(t.target.cap + '|' + t.id) + '">' +
-          '<span class="todo-n">' + t.count + '</span>' +
-          '<span class="todo-main"><b>' + h.esc(t.kind) + '</b><span>' + h.esc(t.text) + '</span></span>' +
-          (t.urgent ? '<span class="todo-urgent">' + t.urgent + ' 紧急</span>' : '') +
-          '</button>';
-      }).join('') + '</div></div>';
-
-    /* 健康带：把 5 张 KPI 卡压成一行「标签 数值 副注」；判红沿用同一份真源，样式从整卡红框降为数值变红
-       （原 .metric-alert 是卡片级红框，一屏多个红框会造成告警疲劳；这里只在异常的那个数上标红）。
-       ⚠ **下钻必须保留**：旧版这 5 张卡都能点（data-act="goto-drill"，四段 data-id
-       `<指标>|<当前值>|<阈值>|<口径范围>`）。压成一行条后仍逐项可点 —— 重排不能减功能。
-       阈值只认 decisions.js 真源（成功率为 TH_SR、P99 为 TH_P99），真源取不到就留空段，不臆造。 */
-    var stripSrc = [
-      { id: 'calls', label: rgLabel + '调用量', value: fmt.compact(k24.calls), sub: '近 7 天 ' + fmt.compact(k7.calls), v: k24.calls, th: null, dp: 0 },
-      { id: 'successRate', label: '成功率', value: fmt.pct2(sr), sub: '失败 ' + fmt.int(k24.fails) + ' 次', v: sr, th: TH_SR, dp: 4, alert: TH_SR != null && sr != null && sr < TH_SR },
-      { id: 'p99', label: 'P99 时延', value: fmt.dur(k24.p99), sub: 'P50 ' + fmt.dur(k24.p50), v: k24.p99, th: TH_P99, dp: 0, alert: TH_P99 != null && k24.p99 != null && k24.p99 > TH_P99 },
-      { id: 'cost', label: rgLabel + '成本', value: fmt.money(k24.cost), sub: '重试浪费 ' + fmt.money2(k24.retryWaste), v: k24.cost, th: null, dp: 2 },
-      { id: 'tokens', label: 'token 消耗', value: fmt.compact(k24.tokens), sub: '入 ' + fmt.compact(k24.tokIn) + ' / 出 ' + fmt.compact(k24.tokOut), v: k24.tokens, th: null, dp: 0 }
+    /* 五个平台组件。每一格的状态都由**组件自身**的可用性指标推出，不是"有多少对象需要关注"：
+       对象异常（某个 Agent 成功率掉了、某条技能依赖缺失）只作为副行信息，不算组件降级 ——
+       否则一屏下来 5 个组件全黄，等于没有信息量（与早前"9 张卡 6 张红"是同一类失效）。
+       · Agent 运行时 —— 全站成功率 / P99 是否越线（阈值取 decisions.js）
+       · 模型网关   —— 有路由的调用成功率 < 99%（routeFail）；P99 慢只作提示
+       · MCP 网关   —— mcpHealth() 里有未恢复事故的服务算故障，配额接近上限算降级
+       · 知识检索   —— 最近同步超过 7 天的库算降级（本屏的展示判据，非决策真源）
+       · 任务编排   —— 有技能依赖缺失（missingDeps）说明编排跑不起来，算降级
+       statusText 三档统一为「正常 / 降级 / 故障」，与点色、pill 色一一对应。 */
+    var TYPE = { ok: '正常', warn: '降级', bad: '故障' };
+    var comps = [
+      {
+        name: 'Agent 运行时',
+        status: (sr != null && TH_SR != null && sr < TH_SR) || (k.p99 != null && TH_P99 != null && k.p99 > TH_P99) ? 'warn' : 'ok',
+        statusText: TYPE.ok,
+        value: fmt.pct2(sr), unit: '成功率',
+        sub: '在线 ' + live.length + ' 个 · 失败 ' + fmt.int(k.fails) + ' 次 · P99 ' + fmt.dur(k.p99) +
+          (attn.length ? ' · ' + attn.length + ' 个 Agent 需关注' : ''),
+        act: 'goto-cap', id: 'agent-wb'
+      },
+      {
+        name: '模型网关',
+        status: routeFail.length ? 'warn' : 'ok',
+        statusText: TYPE.ok,
+        value: String(routes.length - routeFail.length) + '/' + routes.length, unit: '条正常',
+        sub: (slowRoute ? '最慢 ' + slowRoute.name.replace('llm://', '') + ' ' + fmt.dur(slowRoute.p99) : '本区间没有模型调用') +
+          (routeFail.length ? ' · ' + routeFail.length + ' 条成功率 < 99%' : '') +
+          (routeSlow.length ? ' · ' + routeSlow.length + ' 条 P99 超标' : ''),
+        act: 'ov-gw', id: 'llm'
+      },
+      {
+        name: 'MCP 工具网关',
+        status: badSvc.some(function (s) { return s.status === 'bad'; }) ? 'bad' : (badSvc.length ? 'warn' : 'ok'),
+        statusText: TYPE.ok,
+        value: String(svc.length - badSvc.length) + '/' + svc.length, unit: '个正常',
+        sub: '配额 ' + sumQps + ' / ' + sumCap + ' QPS · 最高错误率 ' + fmt.pct2(worstErr ? worstErr.errRate : 0) +
+          (badSvc.length ? ' · ' + badSvc.length + ' 个需关注' : ''),
+        act: 'ov-gw', id: 'mcp'
+      },
+      {
+        name: '知识检索',
+        status: maxSync > 7 ? 'warn' : 'ok',
+        statusText: TYPE.ok,
+        value: fmt.int(docTotal), unit: '篇文档',
+        sub: kbs.length + ' 个库 · 最近同步 ' + minSync + ' 天前 · 最旧 ' + maxSync + ' 天前',
+        act: 'goto-cap', id: 'knowledge'
+      },
+      {
+        name: '任务编排',
+        status: skMissing.length ? 'warn' : 'ok',
+        statusText: TYPE.ok,
+        value: fmt.int(skills.calls), unit: '次委派',
+        sub: 'A2A 边 ' + ((APP.a2aEdges && APP.a2aEdges().length) || 0) + ' 条 · ' +
+          skills.referenced + '/' + skills.total + ' 条技能被引用' +
+          (skMissing.length ? ' · ' + skMissing.length + ' 条依赖缺失' : ''),
+        act: 'ov-gw', id: 'skill'
+      }
     ];
-    var stripHtml = '<div class="ov-strip">' + stripSrc.map(function (c) {
-      /* 与旧版完全相同的四段下钻参数；例外口径：successRate/p99 只有在**判红**时才给下钻
-         （旧版 `when: m.alert` 就是这个语义 —— 正常值点进去没有"受影响对象"可看）。 */
-      var canDrill = (c.id === 'successRate' || c.id === 'p99') ? !!c.alert : true;
-      var inner = h.esc(c.label) + ' <b' + (c.alert ? ' class="alert"' : '') + '>' + h.esc(c.value) + '</b>' +
-        ' <span class="sub">' + h.esc(c.sub) + '</span>';
-      if (!canDrill) return '<span class="ov-strip-k">' + inner + '</span>';
-      var did = c.id + '|' + numSeg(c.v, c.dp) + '|' + numSeg(c.th, null) + '|' + rgLabel;
-      return '<button class="ov-strip-k as-link" data-act="goto-drill" data-id="' + h.esc(did) + '" ' +
-        'title="下钻：查看该指标受影响的对象清单">' + inner + '</button>';
-    }).join('') +
-      '<span class="tail">' + h.esc(Q.freshness().text) + ' · 只读，可下钻</span></div>';
+    comps.forEach(function (c) { c.statusText = TYPE[c.status] || c.statusText; });
 
-    /* 折叠标签上的数字：让收起状态也能看出"里面有多少事" */
-    var foldN = [];
-    if (S.INCIDENTS.length) foldN.push('事故 ' + S.INCIDENTS.length + ' 起');
-    if (runHtml) foldN.push('运行中任务');
-    if (abHtml) foldN.push('需关注的 Agent');
-    var foldHtml = '<details class="ov-fold"><summary>其他信息' +
-      (foldN.length ? '　<span class="n">' + h.esc(foldN.join(' · ')) + '</span>' : '') +
-      '</summary><div class="ov-fold-body"><div class="ov-grid">' +
-      incHtml + runHtml + abHtml + quickHtml +
-      '</div></div></details>';
+    var compHtml = '<div class="st-comp">' + comps.map(function (c) {
+      /* 副文本按「 · 」拆成不可断的片段：换行只发生在两段之间。
+         否则 "token 2733.2万" 会在数字与单位中间折行（实测），读起来像两个数。 */
+      return '<button class="st-comp-i ' + c.status + '" data-act="' + c.act + '" data-id="' + h.esc(c.id) + '">' +
+        '<span class="st-comp-h"><span class="st-dot ' + c.status + '"></span>' + h.esc(c.name) + '</span>' +
+        '<span class="st-comp-v">' + h.esc(c.value) + '<em>' + h.esc(c.unit) + '</em></span>' +
+        '<span class="st-comp-s">' + c.sub.split(' · ').map(function (t) {
+          return '<span class="st-comp-si">' + h.esc(t) + '</span>';
+        }).join('') + '</span>' +
+        '<span class="st-comp-t">' + h.pill(c.status === 'ok' ? 'ok' : (c.status === 'bad' ? 'bad' : 'warn'), c.statusText) + '</span>' +
+        '</button>';
+    }).join('') + '</div>';
 
-    /* v10b（Top12#4）：总览重排 —— 旧顺序 todo → 健康(span2) → inc → … 在 CSS Grid
-       sparse 自动放置下，span2 卡放不进 row1 右列会把游标推过它，右列整行留白
-       （实测首屏右半 ~45% 纯背景，门面页信息密度砍半）。
-       ⚠ 本轮再次重排（见上）：放弃"六块同权"，改为焦点区 + 健康带 + 折叠区。
-       密度不降（六块内容全在），但**主次建立起来** —— 这一屏先回答"现在要我干什么"。 */
+    /* 依赖服务健康墙：每行都点得动（落到网关的 MCP 分页）——
+       总览是全站入口，这里的每一格都得有去处，不做纯摆设。
+       2026-10-28：加一行列头。右侧四列（配额 / QPS / 错误率 / P99）本来就都是 12px 数字，
+       没有列头时读者只能靠猜；列头与行共用 .st-svc-hd/.st-svc-r 的同一份网格模板，
+       两处任何一边改列宽都不会错位。水位条后面补了百分比 —— 条本身原来不承载已知数字。 */
+    var svcHtml = '<div class="st-svc">' +
+      '<div class="st-svc-hd" aria-hidden="true">' +
+      '<span></span><span></span><span>服务</span><span>用途</span>' +
+      '<span>配额水位</span><span>QPS 用量</span><span>错误率</span><span>P99</span><span>状态</span>' +
+      '</div>' + svc.map(function (s) {
+      var lvl = s.status === 'ok' ? 'ok' : (s.status === 'bad' ? 'bad' : 'warn');
+      var pw = Math.round(s.usage * 100);
+      var w = Math.max(2, Math.min(100, pw));
+      return '<button class="st-svc-r" data-act="ov-gw" data-id="mcp"' +
+        (s.incident ? ' title="' + h.esc(s.incident.title + ' · 根因：' + (s.incident.rootCause || '—')) + '"' : '') + '>' +
+        '<span class="st-dot ' + lvl + '"></span>' +
+        '<span class="st-svc-ico">' + svcTag(h, s.id, 'sm') + '</span>' +
+        '<span class="st-svc-name mono">' + h.esc(s.name) + '</span>' +
+        '<span class="st-svc-p">' + h.esc(s.purpose) + '</span>' +
+        '<span class="st-svc-m"><span class="st-meter"><i class="' + (lvl === 'bad' ? 'bad' : (w > 85 ? 'warn' : '')) + '" style="width:' + w + '%"></i></span>' +
+        '<em>' + pw + '%</em></span>' +
+        '<span class="st-svc-n st-svc-q">' + s.qps + ' / ' + s.qpsCap + ' QPS</span>' +
+        '<span class="st-svc-n' + (s.errRate > 0.02 ? ' bad' : '') + '">错误 ' + fmt.pct2(s.errRate) + '</span>' +
+        '<span class="st-svc-n' + (s.p99 > 4000 ? ' bad' : '') + '">P99 ' + fmt.dur(s.p99) + '</span>' +
+        h.pill(lvl, s.statusText) +
+        '</button>';
+    }).join('') + '</div>';
+
+    /* Agent 状态：紧凑一档（比 Agent 列表页少 desc、少阈值判决行），
+       一屏之内把 13 个 Agent 的状态看全 —— 这是这一屏存在的理由。 */
+    var agHtml = '<div class="st-ag-grid">' + ordered.map(function (a) {
+      var isOff = a.status === 'offline';
+      var kind = isOff ? 'idle' : (a.abnormal ? (a.severity === 'bad' ? 'bad' : 'warn') : (a.status === 'gray' ? 'info' : 'ok'));
+      var txt = isOff ? '已下线' : (a.abnormal ? (a.severity === 'bad' ? '异常' : '观察') : (a.status === 'gray' ? '灰度 ' + Math.round(a.grayRatio * 100) + '%' : '运行中'));
+      var evText = a.now ? a.now.text : (isOff ? '已下线，历史数据保留' : '本小时还没有接到调用');
+      return '<article class="st-ag-i' + (a.severity === 'bad' ? ' is-bad' : (a.abnormal ? ' is-warn' : '')) + '" data-act="goto-agent" data-id="' + a.id + '" tabindex="0" role="button">' +
+        '<header><span class="st-dot ' + (isOff ? 'idle' : (a.abnormal ? (a.severity === 'bad' ? 'bad' : 'warn') : 'run')) + '"></span>' +
+        '<b>' + h.esc(a.name) + '</b>' + h.pill(kind, txt) + '</header>' +
+        '<div class="st-ag-meta">' + h.esc(a.version) +
+        (a.grayVersion ? ' · 灰度 ' + h.esc(a.grayVersion) + ' ' + Math.round(a.grayRatio * 100) + '%' : '') +
+        ' · ' + h.esc(a.bizName) + '</div>' +
+        '<div class="st-ag-ev' + (a.now && a.now.kind === 'run' ? ' run' : '') + '">' +
+        '<span class="st-dot ' + (a.now && a.now.kind === 'run' ? 'run' : 'idle') + '"></span>' +
+        '<span>' + h.esc(evText) + '</span>' +
+        (a.now && a.now.ms != null ? '<em>' + fmt.dur(a.now.ms) + '</em>' : '') + '</div>' +
+        '<div class="st-ag-k">' +
+        '<span><i>调用</i><b>' + fmt.compact(a.calls) + '</b></span>' +
+        '<span><i>成功率</i><b' + (a.successRate != null && a.successRate < 0.99 ? ' class="bad"' : '') + '>' + fmt.pct2(a.successRate) + '</b></span>' +
+        '<span><i>P99</i><b' + (a.p99 > 4000 ? ' class="bad"' : '') + '>' + fmt.dur(a.p99) + '</b></span>' +
+        '<span class="st-ag-sp">' + C.sparkline(a.spark, { abnormal: a.severity === 'bad' }) + '</span>' +
+        '</div>' +
+        (a.abnormal ? '<div class="st-ag-why' + (a.severity === 'bad' ? '' : ' warn') + '">' + h.esc(a.abnormalReasons.join('；')) + '</div>' : '') +
+        '</article>';
+    }).join('') + '</div>';
+
+    /* --- 顶部状态汇总：四块，各自可点 --- */
+    var firstInc = incs[0];
+    /* 分档计数统一用「正常 / 降级 / 故障」三个词，只列出现过的档位 ——
+       "N 正常 · M 需关注"的二分法把"降级"和"故障"混成一档，
+       一个未恢复事故与一个接近配额的服务会显示成同一个数，读者没法判断该先看哪个。 */
+    function tallyOf(arr, st) {
+      var ok = arr.filter(function (x) { return st(x) === 'ok'; }).length;
+      var warn = arr.filter(function (x) { return st(x) === 'warn'; }).length;
+      var bad = arr.filter(function (x) { return st(x) === 'bad'; }).length;
+      return {
+        ok: ok, warn: warn, bad: bad,
+        /* html 里只有我们自己拼的数字与固定词，没有外部输入 —— 调用方标记 rawS 直接输出；
+           其余块（含事故标题这种来自 seed 的文本）仍走 h.esc。 */
+        /* ok 为 0 时不写「0 正常」—— 一排全是降级/故障时前面挂个 0 只是噪音；
+           但三项都为空（数组里确实什么都没有）时给一个破折号，别让汇总格空着。 */
+        html: (ok ? [ok + ' 正常'] : []).concat([
+          warn ? '<em class="w">' + warn + ' 降级</em>' : '',
+          bad ? '<em class="b">' + bad + ' 故障</em>' : ''
+        ]).filter(function (x) { return !!x; }).join(' · ') || '—',
+        tone: bad ? 'bad' : (warn ? 'warn' : 'ok')
+      };
+    }
+    var cT = tallyOf(comps, function (x) { return x.status; });
+    var sT = tallyOf(svc, function (x) { return x.status; });
+    var hT = tallyOf(hosts, function (x) { return x.status; });
+    var summ = [
+      {
+        k: '平台组件', v: comps.length, unit: '个',
+        s: cT.html, rawS: true, tone: cT.tone, act: 'ov-gw', id: 'mcp'
+      },
+      {
+        k: '依赖服务', v: svc.length, unit: '个',
+        s: sT.html, rawS: true, tone: sT.tone, act: 'ov-gw', id: 'mcp'
+      },
+      {
+        /* 服务器没有独立详情页，点了就滚到下面那张资源面板 —— 不给死链，也不做纯摆设。 */
+        k: '服务器', v: hosts.length, unit: '台',
+        s: hT.html + ' · ' + totalCores + ' 核 / ' + totalMem + ' GB' +
+          (totalGpu ? ' · ' + totalGpu + ' 卡 / ' + totalVram + ' GB 显存' : ''), rawS: true,
+        tone: hT.tone, act: 'ov-scroll', id: 'ov-host-card'
+      },
+      {
+        k: 'Agent', v: agents.length, unit: '个',
+        /* 分档互斥计数（异常 / 观察 / 运行中 / 已下线），只列出现过的档位。
+           此前写「需关注 7 · 运行 5 · 灰度 0 · 下线 1」—— 7+5+0+1=13 看着对，
+           但那 7 个里有 2 个正在灰度，读者会把"灰度"理解成"没有 Agent 在灰度"。
+           档位与卡片上的标签一一对应，各档相加恒等于总数。 */
+        s: [
+          agBad.length ? '异常 ' + agBad.length : '',
+          agWarn.length ? '观察 ' + agWarn.length : '',
+          run.length ? '运行中 ' + run.length : '',
+          off.length ? '已下线 ' + off.length : ''
+        ].filter(function (x) { return !!x; }).join(' · '),
+        tone: attn.length ? (agBad.length ? 'bad' : 'warn') : 'ok',
+        act: 'goto-cap', id: 'agent-wb'
+      },
+      {
+        k: '未恢复事故', v: incs.length, unit: '起',
+        s: firstInc ? (firstInc.level + ' · ' + firstInc.title + (incs.length > 1 ? ' 等 ' + incs.length + ' 起' : '')) : '当前没有进行中的事故',
+        tone: incs.length ? 'bad' : 'ok', act: 'goto-cap', id: 'obs'
+      }
+    ];
+    var summHtml = '<div class="ov-state">' + summ.map(function (x) {
+      return '<button class="ov-state-i ' + x.tone + '" data-act="' + x.act + '" data-id="' + h.esc(x.id) + '">' +
+        '<span class="ov-state-k">' + h.esc(x.k) + '</span>' +
+        '<span class="ov-state-v">' + x.v + '<small>' + h.esc(x.unit) + '</small></span>' +
+        '<span class="ov-state-s" title="' + h.esc(String(x.s).replace(/<[^>]+>/g, '')) + '">' + (x.rawS ? x.s : h.esc(x.s)) + '</span>' +
+        '</button>';
+    }).join('') + '</div>';
+
+
     return pageHead(h, cap, {
-      desc: '今日待办、系统健康与运行中任务的统一入口',
+      desc: '系统与 Agent 的实时状态：谁在正常跑、谁在带病跑、谁已经停下',
       side: h.rangePicker(rg)
     }) +
-      '<div class="ov-focus' + (todoUrgent ? ' crit' : '') + '">' + focusCard + '</div>' +
-      stripHtml +
-      foldHtml +
-      /* 只读声明（数据静态块判据）：趋势图本身没有可下钻的**对象**维度
-         （它画的是全站调用量与成功率的时序，不是某一批对象），所以本卡不给动作 ——
-         如实声明 data-static="1" + 一句理由，而不是挂一个点了也不知道去哪的空出口。
-         想下钻的路径已经在同屏别处：上方指标卡 → goto-drill（受影响对象清单）。 */
-      '<div class="card" data-static="1" title="只读说明：曲线由时序聚合直接绘制，本卡没有可下钻维度；时间范围由上方选择器控制。"><div class="card-h"><h3>调用量与成功率（' + h.esc(rgLabel) + '，只读）</h3>' +
-      '<span class="card-sub">灰底为事故区间，绿虚线为发布事件</span></div>' +
-      C.lineChart(ts.points, { granularity: ts.granularity, incidents: ts.meta.incidents, deploys: ts.meta.deploys, showP99: false }) +
-      '<div class="bt-note">只读视图：曲线由时序聚合直接绘制，趋势图没有可下钻的对象维度 ⇒ 本卡无动作；要看明细请用上方指标卡下钻，或到「可观测与评估」按 trace 检索。</div>' +
+      summHtml +
+
+      '<div class="card"><div class="card-h"><h3>系统状态</h3>' +
+      '<span class="card-sub">' + comps.length + ' 个平台组件 · ' + svc.length + ' 个依赖服务，状态由各自运行数据推导（' + h.esc(rgLabel) + '）</span></div>' +
+      compHtml +
+      '<div class="st-split">依赖服务（MCP 工具网关）</div>' +
+      svcHtml +
+      '<details class="ov-why"><summary>判据与口径<em>成功率 / P99 阈值取自 decisions.js</em></summary><p>组件判据（只看组件自身能不能用，不看"有多少对象需要关注"）：Agent 运行时看全站成功率与 P99 是否越 <b>99% / 4s</b>；' +
+      '模型网关看是否有路由的调用成功率低于 99%（P99 慢只作提示，不算网关故障）；MCP 网关看是否有服务存在未恢复事故；' +
+      '知识检索看是否有库超过 7 天未同步；任务编排看是否有技能依赖缺失。' +
+      '服务判据：有未恢复事故、或错误率 &gt; 2% ⇒ 故障（行尾 pill 写明具体原因）；QPS 用量 &gt; 85% 配额 ⇒ 降级。' +
+      '这一块与「MCP / LLM 网关」页的服务健康墙读同一个 QUERY.mcpHealth()，两页不会对同一个服务给出两种状态。</p></details>' +
       '</div>' +
-      /* 总览是全站入口屏，此前是**唯一没有任何 meta-bar 的页面**（34 个数字裸陈）。
-         下面三条各自回答一个追问：数字哪来的 / 时间戳是什么意思 / 哪些块只作展示。
-         「数据截至」「数据集」两行由 h.metaBar 自动追加，这里不重复写（app.js 的 metaBar）。 */
-      h.metaBar(k24.meta, [
-        { k: '对比区间', v: '环比对比 ' + fmt.date(k24.compare.prevRange.from) + ' ~ ' + fmt.date(k24.compare.prevRange.to - 1) + '（上一等长周期）' },
+
+      '<div class="card" id="ov-host-card"><div class="card-h"><h3>服务器状态</h3>' +
+      '<span class="card-sub">已接入 ' + hosts.length + '/' + slotTotal + ' 台 · ' + totalCores + ' 核 / ' + totalMem + ' GB / ' + totalGpu + ' 卡 ' + totalVram + ' GB 显存' +
+      (hTh.warn != null ? ' · 水位 ≥ ' + Math.round(hTh.warn * 100) + '% 降级，≥ ' + Math.round(hTh.bad * 100) + '% 故障' : ' · 阈值未在 decisions.js 登记，本卡不判红') +
+      '</span></div>' +
+      hostHtml +
+      '<details class="ov-why"><summary>判据与口径<em>水位线 ' + (hTh.warn != null ? Math.round(hTh.warn * 100) + '% / ' + Math.round(hTh.bad * 100) + '%' : '未登记') + '</em></summary><p>主机状态取 CPU / 内存 / 磁盘 / <b>显存</b>里最严重的一项，不取平均 —— 取平均会让"一项打满、三项空闲"看起来正常，那是最危险的假绿。' +
+      '显存单独算进来：LLM 推理最先见底的是显存，显存打满时进程直接 OOM，而 CPU 和内存可能都还好看。GPU 利用率到线会标色提示，但不参与主机状态判定 —— 推理卡跑满 90% 是设计工况，不是故障。' +
+      'CPU 折线是近 12 小时的相对波动，绝对水位看右侧百分比。' +
+      '订单服务 P1 事故期间，网关节点会吃重试压力，CPU 已经计入这部分（该机会有一行说明）。' +
+      '资源明细只到主机粒度：要继续往下查（进程 / 容器 / 磁盘分区）请到宿主机监控，本屏不伪造那一层。</p></details>' +
+      '</div>' +
+
+      '<div class="card"><div class="card-h"><h3>Agent 状态</h3>' +
+      '<span class="card-sub">' + agents.length + ' 个 · 需关注 ' + attn.length + ' 个' +
+      (attn.length ? '（已置顶）' : '') + ' · 点卡片进详情</span></div>' +
+      agHtml +
+      '<details class="ov-why"><summary>判据与口径<em>成功率 &lt; 99% 或 P99 &gt; 4s 记需关注</em></summary><p>分档口径：成功率 &lt; 99% 或 P99 &gt; 4s 记为需关注（<b>异常</b>：&lt; 97% 或 &gt; 8s，<b>观察</b>：其余）；' +
+      '灰度中的 Agent 同时显示线上版本与灰度比例；已下线的保留历史数据、排在最后。' +
+      '「此刻在做什么」取该 Agent 当前小时最后一条 trace，右侧为该次调用的真实耗时。</p></details>' +
+      '</div>' +
+
+      /* 总览是全站入口屏，必须自带口径说明：每块数字从哪来、状态怎么判、哪些块只读。 */
+      h.metaBar(k.meta, [
+        { k: '状态判定来源', v: '成功率与 P99 的告警线取自 decisions.js（可观测.成功率_需关注 = ' + TH_SR + '、可观测.P99_告警 = ' + TH_P99 + ' ms）；服务配额 85%、错误率 2% 与网关页同一套判据；Agent 分档沿用 <99% / >4s 的跨屏口径。知识库 7 天未同步、技能依赖缺失这两条是本屏的展示判据，decisions.js 里没有对应登记项 —— 不冒充决策真源，只是"该看一眼"的提示' },
+        { k: '数字怎么来的', v: '调用量 / 成功率 / P99 来自 QUERY.kpi 与 QUERY.agentTable（' + rgLabel + '）；服务配额与错误率来自 QUERY.mcpHealth；委派次数与技能失败率来自 QUERY.skillTable（A2A 边表）。本屏不自己算数，也不写死业务数字' },
         { k: '数据集与生成方式', v: '确定性种子生成的模拟数据集（' + Q.freshness().dataset + '，主随机流种子 aiops-dataset-v1，见 seed.js）；同一 seed 每次刷新产出的数字完全一致 —— 本屏每个数都可复现，不是随机占位' },
         { k: '新鲜度语义', v: '「数据截至」按本机时钟锚定（seed.js 的 NOW = new Date()），不是真实采集：' + Q.freshness().delayNote + '。换台机器或换一天打开，时间戳跟着变、数值序列不变' },
-        { k: '只读边界', v: '「系统健康」指标与「调用量与成功率」趋势图只作展示：可下钻查看受影响对象，但没有任何写入口（改指标、改阈值、改标注都不在本屏）。本屏动作只有「跳转 / 下钻 / 看事故影响」与事故的「确认知悉 / 关闭并复盘」' },
-        { k: '阈值来源', v: '成功率与 P99 的告警线取自 decisions.js（可观测.成功率_需关注 = ' + TH_SR + '、可观测.P99_告警 = ' + TH_P99 + ' ms），卡片下钻带上与卡片同口径的时间范围，目标页据此筛受影响对象' }
+        { k: '只读边界', v: '本屏只做状态聚合与跳转：没有改阈值、改状态、重启服务、发布 Agent 的入口。要看明细请点进对应页 —— 组件格与汇总块落到对应能力页，依赖服务落到网关的 MCP 分页，Agent 卡片落到 Agent 详情' }
       ]);
   };
 
@@ -387,7 +514,8 @@
         '<span class="ag-name">' + h.esc(a.name) + '</span>' + h.pill(stKind, stText) + '</header>' +
         '<p class="ag-desc">' + h.esc(a.desc) + '</p>' +
         '<div class="ag-meta"><span>' + h.esc(a.version) + (a.grayVersion ? ' <em class="ag-gray">灰度 ' + h.esc(a.grayVersion) + ' ' + Math.round(a.grayRatio * 100) + '%</em>' : '') + '</span>' +
-        '<span>' + ((S.nameOf && S.nameOf(a.owner)) ? h.esc(S.nameOf(a.owner)) + ' · ' : '') + h.esc(a.bizName) + '</span></div>' +
+        /* 2026-10-28：卡副行原先是「负责人 · 业务线」，负责人已删，只留业务线。 */
+        '<span>' + h.esc(a.bizName) + '</span></div>' +
         '<div class="ag-kpi">' +
         '<span><i>调用</i><b>' + fmt.compact(a.calls) + '</b></span>' +
         '<span><i>成功率</i><b class="' + (a.successRate < 0.99 ? 'bad' : '') + '">' + fmt.pct2(a.successRate) + '</b></span>' +
@@ -411,7 +539,8 @@
         { key: 'name', label: 'Agent', sortable: true, render: function (r) { return '<button class="lnk" data-act="goto-agent" data-id="' + r.id + '">' + h.esc(r.name) + '</button>' + (r.grayVersion ? ' <em class="tag-mini">灰度 ' + Math.round(r.grayRatio * 100) + '%</em>' : ''); } },
         { key: 'version', label: '线上版本' },
         { key: 'bizName', label: '业务线', sortable: true },
-        { key: 'owner', label: '负责人', sortable: true },
+        /* 2026-10-28：负责人列已删 —— 系统只服务一个人，13 台 Agent 的 owner 全是空，
+           这一列以前整列空白还占着表头。要查谁在用，看「业务线」就够。 */
         { key: 'calls', label: '调用量', sortable: true, align: 'right', fmt: 'int' },
         { key: 'successRate', label: '成功率', sortable: true, align: 'right', fmt: 'pct2', render: function (r) { return '<span class="' + (r.successRate < 0.99 ? 'bad' : '') + '">' + fmt.pct2(r.successRate) + '</span>'; } },
         { key: 'p99', label: 'P99', sortable: true, align: 'right', render: function (r) { return '<span class="' + (r.p99 > 4000 ? 'bad' : '') + '">' + fmt.dur(r.p99) + '</span>'; } },
@@ -547,10 +676,7 @@
       (life <= 0 ? ' <span class="ph-off">已下线</span>' : (a.grayVersion ? ' <span class="ph-gray">灰度中</span>' : '')) + '</div>' +
       '<div class="ph-desc">' + h.esc(a.desc) + '</div>' +
       '<div class="ph-tags"><span>' + h.esc(a.biz) + ' → ' + h.esc(S.BIZ_LINES[S.idx.biz[a.biz]].name) + '</span>' +
-      /* 2026-10-21：责任人字段已清空（单人系统）——没人就整项不显示，不留「负责人 — · 」这种半截 */
-      (Q.ownerName(a.owner) && Q.ownerName(a.owner) !== '—'
-        ? '<span>负责人 ' + h.esc(Q.ownerName(a.owner)) + '</span>'
-        : '') +
+      /* 2026-10-28：整块「负责人 xxx」已删 —— 单人系统里恒等于本人，没有信息量。 */
       '<span>上线于 ' + h.esc(F.fmtDate(S.TODAY_START + a.publishedAt * S.DAY)) + '</span>' +
       '<span>主模型 ' + h.esc((S.MODELS[S.idx.model[a.model]] || {}).name || a.model) + '</span></div>' +
       '</div><div class="ph-side">' + h.rangePicker(state.range) + verActions + '</div></div>';
@@ -597,10 +723,7 @@
       verSummary + '</div>' +
       '<div class="ph-desc">' + h.esc(a.desc) + '</div>' +
       '<div class="ph-tags"><span>' + h.esc(a.biz) + ' → ' + h.esc(S.BIZ_LINES[S.idx.biz[a.biz]].name) + '</span>' +
-      /* 2026-10-21：责任人字段已清空（单人系统）——没人就整项不显示，不留「负责人 — · 」这种半截 */
-      (Q.ownerName(a.owner) && Q.ownerName(a.owner) !== '—'
-        ? '<span>负责人 ' + h.esc(Q.ownerName(a.owner)) + '</span>'
-        : '') +
+      /* 2026-10-28：整块「负责人 xxx」已删 —— 单人系统里恒等于本人，没有信息量。 */
       '<span>上线于 ' + h.esc(F.fmtDate(S.TODAY_START + a.publishedAt * S.DAY)) + '</span>' +
       '<span>主模型 ' + h.esc((S.MODELS[S.idx.model[a.model]] || {}).name || a.model) + '</span></div>' +
       '</div><div class="ph-side">' + h.rangePicker(state.range) + verActions + '</div></div>';
@@ -1080,9 +1203,8 @@
     var refList = subAgents.map(function (x) { return '子 Agent ' + x.name; }).join(' · ');
 
     function riskRow(kind, title, sub, act, actId, actLabel) {
-      var color = kind === 'crit' ? 'var(--red)' : 'var(--amber)';
       return '<div class="ov-focus ' + kind + '" style="border:1px solid ' +
-        (kind === 'crit' ? '#f3c9c9' : '#f0dcae') + ';border-left:3px solid ' + color + ';' +
+        (kind === 'crit' ? '#f3c9c9' : '#f0dcae') + ';' +
         'border-radius:var(--dsw-radius-md);padding:11px 15px;background:#fff;display:flex;' +
         'align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px">' +
         '<span style="flex:1;min-width:300px">' +
@@ -1243,7 +1365,7 @@
        ① 工具授权卡 ×2 —— 改为只在「联系」的工具分类里管（同一份 state.agentToolGrant）
        ② 上游依赖表（MCP 服务 / 知识库 / 规则包）—— 「联系」已按对象列全，且拓扑 chip 已标节点
        ③ 静态校验卡里的「2 个工具节点未配降级」—— 顶部危险行置顶说的就是这一条
-       ④ 影响面速览 4 个数字 —— 下游数在下游引用卡里、日均调用在运行监控、负责人在页头
+       ④ 影响面速览 4 个数字 —— 下游数在下游引用卡里、日均调用在运行监控
      保留下来的都是有唯一出口的东西：版本时间线、下游引用与下线保护、权限边界。 */
   /* 2026-10-18（业主「自述腔」）：分节标只留编号 + 标题 + 右侧一个真出口。
      原先每节下面挂一句"它连了谁 —— 开关即挂上/摘除，点卡片看详情并改这个 Agent 上的参数"，
@@ -1328,7 +1450,7 @@
     var B = { total: 120, bothPass: 102, fixed: 4, regressed: 8, bothFail: 6 };
     B.baseRate = (B.bothPass + B.regressed) / B.total;
     B.candRate = (B.bothPass + B.fixed) / B.total;
-    var focusHtml = '<div class="ov-focus crit" style="border:1px solid #f3c9c9;border-left:3px solid var(--red);' +
+    var focusHtml = '<div class="ov-focus crit" style="border:1px solid #f3c9c9;' +
       'border-radius:var(--dsw-radius-md);padding:12px 16px;background:#fff;display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px">' +
       '<span style="flex:1;min-width:340px">' +
       '<span style="display:block;font-size:15px;font-weight:600;line-height:1.5">草稿比线上基线退化 ' + B.regressed + ' 例（' + B.total + ' 例回归集）</span>' +
@@ -1523,8 +1645,7 @@
         ' · z=' + h.esc(sg.z) + ' · <b>p=' + h.esc(sg.p) + '</b><br>' +
         '另有 ' + blockers.length + ' 项发布阻断项：' + h.esc(blockers.join(' · '));
       focusHtml = '<div class="ov-focus ' + (sg.significant ? '' : 'crit') + '" style="border:1px solid ' +
-        (sg.significant ? 'var(--line)' : '#f3c9c9') + ';border-left:3px solid ' +
-        (sg.significant ? 'var(--green)' : 'var(--red)') + ';border-radius:var(--dsw-radius-md);' +
+        (sg.significant ? '#BBE3C9' : '#f3c9c9') + ';border-radius:var(--dsw-radius-md);' +
         'padding:12px 16px;background:#fff;display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px">' +
         '<span style="flex:1;min-width:340px">' +
         '<span style="display:block;font-size:15px;font-weight:600;line-height:1.5">' + h.esc(verdict) + '</span>' +
@@ -1534,7 +1655,7 @@
         '<button class="btn-primary" data-act="agent-gray" data-id="' + h.esc(a.id) + '|full">全量发布</button>' +
         '</span></div>';
     } else {
-      focusHtml = '<div class="ov-focus" style="border:1px solid var(--line);border-left:3px solid var(--green);' +
+      focusHtml = '<div class="ov-focus" style="border:1px solid #BBE3C9;' +
         'border-radius:var(--dsw-radius-md);padding:12px 16px;background:#fff;display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px">' +
         '<span style="flex:1;min-width:340px">' +
         '<span style="display:block;font-size:15px;font-weight:600;line-height:1.5">当前无灰度版本 · 线上全量 ' + h.esc(a.online) + '</span>' +

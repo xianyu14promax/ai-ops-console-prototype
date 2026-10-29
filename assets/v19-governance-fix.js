@@ -35,7 +35,7 @@
       }
       if (o.s === 'escalated') {
         x.escalated = true;
-        x.approver = '上级审批人（已转交）';
+        x.approver = '已标记外部处理';   /* 2026-10-28：原「上级审批人（已转交）」—— 没有上级 */
         x.escalateN = (it.escalateN || 0) + 1;
         x.decided = null;
       } else {
@@ -110,7 +110,7 @@
       };
     }
 
-    /* ---------- GOV 工具箱：统一动作与审计的公共入口 ---------- */
+    /* ---------- GOV 工具箱：统一的审批/权限公共入口 ---------- */
     global.V19GOV = {
       /* 当前用户（另一会话已在 app.js 建 CURRENT_USER 单一身份源，这里只读） */
       me: function () {
@@ -121,52 +121,27 @@
         var me = global.V19GOV.me();
         return !!(it && (it.mine || it.applicant === me.name));
       },
-      /* 审计留痕：结论/理由/决策人全字段（底层走 V10UI.audit，另一会话已补 actor） */
-      auditDecide: function (o) {
-        if (!global.V10UI || typeof global.V10UI.audit !== 'function') return;
-        global.V10UI.audit({
-          action: (o.decision || '') + '「' + (o.title || '') + '」',
-          target: o.target || '',
-          /* 🔴 各归其位：结论与理由此前被拼进 impact（影响面）字段，语义混用，*/
-          /*    且理由因此不可按字段检索。现改为 decision / reason 独立字段。 */
-          decision: o.decision || '',
-          reason: (o.reason != null && o.reason !== '') ? String(o.reason) : null,
-          impact: null,
-          /* 🔴 不再显式传 null（由 audit() 兜底生成时间戳），保留传入时的值 */
-          at: o.at || null,
-          actor: global.V19GOV.me().name
-        });
-      },
-      /* 🔴 B3：职责分离（SoD）共享校验 —— **供 handler 调用，不只拦在 render 层**。
-         依据 NIST SP 800-53 AC-5："dividing ... among **different individuals**"
-         两条约束：
-           ① 自批禁止：申请人不得审批自己的单据
-           ② 双审须异人：二级审批人必须与一级**不同人**（AC-5 原文要求）
-         返回 { ok, code, msg }（不 ok 时 handler 必须中断，不得进入确认弹层） */
+      /* 2026-10-28：原来的「审计落库」方法随审计一起删除（业主：这系统只负责一个账号） */
+      /* 2026-10-28 改：单人系统里「职责分离」不再是**禁止**，而是**如实标记**。
+         原实现两条约束都建立在「存在第二个人」的前提上；单账号下它们会让**每一张单据都无人可批**
+         （申请人恒等于审批人）—— 那不是合规，是死锁。现在：
+           ① 自批：允许，但返回值带 selfApproval，调用方须在界面上写明「本人审批」；
+           ② 双审异人：整条删除 —— 同一个人不可能「不是同一个人」。
+         真正替代多人的是「确认强度」：P0 要确认两次（see needStages）。 */
       checkSoD: function (it, decision, cover) {
         var me = global.V19GOV.me();
-        if (!it) return { ok: true };
-        /* ① 自批 */
-        if (it.mine || it.applicant === me.name) {
-          return { ok: false, code: 'SELF_APPROVAL',
-            msg: '本人发起的单据由他人审批（申请人：' + (it.applicant || '本人') + '）' };
-        }
-        /* ② 双审须异人（仅对"通过"校验；驳回是对上一级的否定，不属双审） */
-        var st1 = cover && cover.stage1;
-        if (st1 && decision === 'approve' && st1.byId && st1.byId === me.id) {
-          return { ok: false, code: 'SAME_APPROVER_BOTH_STAGES',
-            msg: '本单据需两级审批，两级须为**不同的人**。一级已由「' + st1.byName +
-                 '」于 ' + String(st1.at || '').slice(0, 16).replace('T', ' ') +
-                 ' 通过 —— 二级需由其他审批人完成。可「转交」或登记「单人会签」并说明理由。' };
-        }
-        return { ok: true };
+        if (!it) return { ok: true, selfApproval: false };
+        var self = !!(it.mine || it.applicant === me.name);
+        if (self) return { ok: true, selfApproval: true, note: '本人审批（本系统只有这一个账号）' };
+        return { ok: true, selfApproval: false };
       },
-      /* 一级审批事实（供 stage1 落库；byId 用于"异人"校验） */
+      /* 一次确认的事实记录（供 stage1 落库） */
       stage1Record: function (reason) {
         var me = global.V19GOV.me();
         return { byId: me.id, byName: me.name, role: me.role, at: new Date().toISOString(), reason: reason || '' };
       },
-      /* P0 单据双审两段：一级通过后进入 stage2，仍待二级审批人；两个不同人全过才算 approved */
+      /* P0 单据要确认两次：第一次通过后进 stage2，等**本人**再确认一次才算 approved。
+         这不是「两个人」，是同一件事看两遍 —— 单人系统里唯一能加的强度。 */
       DUAL_LEVELS: { P0: 2, P1: 1, P2: 1, P3: 1 },
       needStages: function (level) {
         return (global.V19GOV.DUAL_LEVELS[String(level || '').toUpperCase()] || 1);

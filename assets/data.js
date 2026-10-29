@@ -65,7 +65,7 @@
   var CAPS = [
     /* ===== 总览：跨域入口，不属于三个业务域 ===== */
     { id: 'overview', domain: 'overview', name: '工作台总览', icon: 'grid', pageType: 'overview',
-      desc: '今日待办、系统健康与运行中任务的统一入口' },
+      desc: '系统与 Agent 的实时状态：组件健康、依赖服务水位、每个 Agent 此刻在做什么' },
 
     /* ===== 洞察域 ===== */
     { id: 'persona', domain: 'insight', name: '企业用户画像库', icon: 'house', pageType: 'personaPage',
@@ -86,7 +86,7 @@
       table: 'persona_sim', desc: '用高保真虚拟 persona 预演触达与转化路径，降低真实投放试错成本',
       action: '新建 persona' },
     /* 能力 id 与路由已改名为 interview（旧的 #/engine/survey 由 app.js 的兼容层重写过来）；
-       数据表键仍叫 T.survey —— 历史名，别按字面理解，改它要连带动生成内容与审计。 */
+       数据表键仍叫 T.survey —— 历史名，别按字面理解，改它要连带动生成内容。 */
     { id: 'interview', domain: 'engine', name: 'AI 访谈作业台', icon: 'chat', pageType: 'interviewHome',
       detailType: 'interviewDetail',
       table: 'survey', desc: '挑人 → 交待清楚（问什么、禁问什么、引哪本知识库）→ 派 AI 做 1 对 1 多轮访谈 → 谈完审核归档',
@@ -872,17 +872,16 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
         { key: 'ents', label: '覆盖企业', sortable: true, align: 'right', fmt: 'int' },
         { key: 'tags', label: '核心标签', fmt: 'tags' },
         { key: 'refCount', label: '被引用', sortable: true, align: 'right', fmt: 'int', hint: '被 Agent / 运营策略引用的次数；分档只说明使用广度，不代表人群价值' },
-        { key: 'owner', label: '负责人' },
-        { key: 'updated', label: '更新时间', sortable: true, fmt: 'rel' },
+                { key: 'updated', label: '更新时间', sortable: true, fmt: 'rel' },
         { key: 'status', label: '状态', fmt: 'status' }
       ],
       /* role 只对角色画像有值；ICP 行显式 null（不是 undefined —— 数据层校验按列逐行查 undefined） */
       rows: [
-        { id: 'ps-mfg', kind: 'icp', role: null, name: '国企制造决策链', industry: '制造', ents: 96, tags: ['采购委员会', '预算周期', '招标偏好', '私有化部署'], refCount: 7, owner: '—', updated: -2, status: 'ok', statusText: '生效中' },
-        { id: 'ps-retail', kind: 'icp', role: null, name: '连锁零售运营层', industry: '零售', ents: 154, tags: ['促销敏感', '巡店频次', '门店规模'], refCount: 12, owner: '—', updated: -3, status: 'ok', statusText: '生效中' },
-        { id: 'ps-fin', kind: 'icp', role: null, name: '金融 IT 评估组', industry: '金融', ents: 61, tags: ['合规优先', 'POC 驱动', '多方比价'], refCount: 5, owner: '—', updated: -5, status: 'ok', statusText: '生效中' },
-        { id: 'ps-gov', kind: 'role', role: '守门人', name: '区域政务接口人', industry: '政务', ents: 43, tags: ['政策口径', '审批路径', '汇报节奏'], refCount: 2, owner: '—', updated: -37, status: 'warn', statusText: '待更新' },
-        { id: 'ps-smb', kind: 'icp', role: null, name: '中小电商卖家', industry: '电商', ents: 312, tags: ['价格敏感', '自助服务', '移动端为主'], refCount: 9, owner: '—', updated: -1, status: 'ok', statusText: '生效中' }
+        { id: 'ps-mfg', kind: 'icp', role: null, name: '国企制造决策链', industry: '制造', ents: 96, tags: ['采购委员会', '预算周期', '招标偏好', '私有化部署'], refCount: 7, updated: -2, status: 'ok', statusText: '生效中' },
+        { id: 'ps-retail', kind: 'icp', role: null, name: '连锁零售运营层', industry: '零售', ents: 154, tags: ['促销敏感', '巡店频次', '门店规模'], refCount: 12, updated: -3, status: 'ok', statusText: '生效中' },
+        { id: 'ps-fin', kind: 'icp', role: null, name: '金融 IT 评估组', industry: '金融', ents: 61, tags: ['合规优先', 'POC 驱动', '多方比价'], refCount: 5, updated: -5, status: 'ok', statusText: '生效中' },
+        { id: 'ps-gov', kind: 'role', role: '守门人', name: '区域政务接口人', industry: '政务', ents: 43, tags: ['政策口径', '审批路径', '汇报节奏'], refCount: 2, updated: -37, status: 'warn', statusText: '待更新' },
+        { id: 'ps-smb', kind: 'icp', role: null, name: '中小电商卖家', industry: '电商', ents: 312, tags: ['价格敏感', '自助服务', '移动端为主'], refCount: 9, updated: -1, status: 'ok', statusText: '生效中' }
       ]
     };
     T.persona.rows.forEach(function (r) {
@@ -1229,7 +1228,7 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
       authRules: [
         { id: 'ar-1', subject: '销售组', agentCap: '客服助手 Agent', action: '读取', scope: '订单库', cond: '工作时间 09:00-21:00', risk: '低', status: 'on', statusText: '启用' },
         { id: 'ar-2', subject: '销售组', agentCap: '客服助手 Agent', action: '回复', scope: '订单 + 售后案例库', cond: '需在会话上下文内', risk: '中', status: 'on', statusText: '启用' },
-        { id: 'ar-3', subject: '—', agentCap: '标书生成 Agent', action: '生成', scope: '客户名单 + 方案库', cond: '需双审（技术 + 商务）', risk: '高', status: 'on', statusText: '启用' },
+        { id: 'ar-3', subject: '—', agentCap: '标书生成 Agent', action: '生成', scope: '客户名单 + 方案库', cond: '高风险：须写明数据用途与范围，越权调用由网关拦截', risk: '高', status: 'on', statusText: '启用' },
         { id: 'ar-4', subject: '合规组', agentCap: '合规问答 Agent', action: '判定', scope: '规则包库', cond: '仅已发布规则', risk: '中', status: 'on', statusText: '启用' },
         { id: 'ar-5', subject: '运营组', agentCap: '用户运营策略', action: '触达', scope: '圈人分群', cond: '免打扰时段 22:00-08:00 禁发', risk: '高', status: 'on', statusText: '启用' },
         { id: 'ar-6', subject: '法务组', agentCap: '合同初审 Agent', action: '生成', scope: '合同库', cond: '草案仅只读输出', risk: '中', status: 'off', statusText: '停用' },
@@ -1256,7 +1255,7 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
             dayOffset: -Math.floor(r() * 14),
             actor: actors[Math.floor(r() * actors.length)],
             action: k.actions[Math.floor(r() * k.actions.length)],
-            target: 'approval 审计',
+            target: 'approval 审批链',
             kind: k.k, kindText: k.name, level: k.level,
             result: res < 0.5 ? '待处置' : (res < 0.85 ? '已阻断' : '已处置'),
             impact: 1 + Math.floor(r() * 30)
@@ -1343,7 +1342,7 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
           lastUsedDay: -9,
           trigger: '项目排期评审、交付前评估，或客户对交付时间提出书面确认要求时。',
           policy: '按「依赖外部接口 / 客户侧数据未就绪 / 双方人力重叠」三类逐项打标，每项给出触发信号与预案，排期结论必须写清依据哪几条。',
-          taboo: '不得把风险清单原文直接发给客户（内部先定责任人与处置口径）。',
+          taboo: '不得把风险清单原文直接发给客户（内部先定处置口径）。',
           example: [
             { q: '这个项目下个月能上线吗？',
               a: '先看三条前置依赖……（逐条给信号与预案），在第二条未关闭前，只能承诺××节点。' }
@@ -1612,7 +1611,7 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
         {
           /* v20 对账修正：净人群 = 42,860 − 9,666 = 33,194；holdout = 净人群 5% = 1,660；
              实验组（全量）= 33,194 − 1,660 = 31,534。此前实验组 38,214 超过净人群上限，属超发。 */
-          id: 'uo-1', name: '双十一预热·沉睡客户唤醒', status: 'running', statusText: '全量投放中', owner: '—', bizText: '运营线',
+          id: 'uo-1', name: '双十一预热·沉睡客户唤醒', status: 'running', statusText: '全量投放中', bizText: '运营线',
           segId: 'sg-2', segName: '沉睡可唤醒',
           stages: [
             { id: 'targeting', name: '圈人', state: 'done', detail: '条件：近90天无访问 ∧ 历史客单>500 ∧ 未退订（对应分群「沉睡可唤醒」）', count: 42860, excluded: { freq: 3120, unsub: 892, blacklist: 14, inOther: 5640 }, snapshotAt: -2, health: { green: 26254, yellow: 10286, red: 6320 } },
@@ -1637,11 +1636,11 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
              净人群 = 2,982 − 656 = 2,326；holdout = 净 5% = 116；灰度 10% 按剔除 holdout 后 2,210 计 = 221。
              此前 holdout 64 / 实验 128 均按未排除的 1,284 计算，口径混用。
              续费按 B2B 行业口径补齐：健康分（绿/黄/红）+ T-90/60/30 节奏 + 按决策角色分三套文案。 */
-          id: 'uo-2', name: '企业客户续费提醒', status: 'gray', statusText: '灰度 10%', owner: '—', bizText: '销售线',
+          id: 'uo-2', name: '企业客户续费提醒', status: 'gray', statusText: '灰度 10%', bizText: '销售线',
           segId: 'sg-5', segName: 'VIP 续费池',
           stages: [
             { id: 'targeting', name: '圈人', state: 'done', detail: '条件：合同到期前 60 天 ∧ 年采购额>1000万（对应分群「VIP 续费池」）', count: 2982, excluded: { freq: 300, unsub: 40, blacklist: 4, inOther: 312 }, snapshotAt: -1, health: { green: 1908, yellow: 746, red: 328 } },
-            { id: 'strategy', name: '策略生成', state: 'done', detail: '健康分驱动：绿 64% 常规提醒 / 黄 25% 客户经理介入 / 红 11% 升级主管；续费节奏 T-90 需求确认 → T-60 方案对齐（当前）→ T-30 商务谈判；文案按角色分三套（CFO·ROI / 使用方·功能 / 采购·条款），已过合规', count: 3, compliance: 'passed' },
+            { id: 'strategy', name: '策略生成', state: 'done', detail: '健康分驱动：绿 64% 常规提醒 / 黄 25% 人工跟进 / 红 11% 优先人工介入；续费节奏 T-90 需求确认 → T-60 方案对齐（当前）→ T-30 商务谈判；文案按角色分三套（CFO·ROI / 使用方·功能 / 采购·条款），已过合规', count: 3, compliance: 'passed' },
             { id: 'reach', name: '触达执行', state: 'active', detail: '灰度 10% 观察中（' + (window.DECISIONS ? DECISIONS.value('灰度', '最小观察期') : 60) + '）；实验组 221 已触达，对照组 holdout 116（净人群 5% 独立抽取；灰度按剔除 holdout 后的 2,210 人计）', count: 221, sent: 221, delivered: 218, holdout: 116, grayRatio: 0.10 },
             { id: 'attribution', name: '效果回收', state: 'wait', detail: '归因窗口 30 天（续费周期长）', count: null }
           ],
@@ -1654,7 +1653,7 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
           }
         },
         {
-          id: 'uo-3', name: '新客首单优惠推送', status: 'draft', statusText: '草稿', owner: '—', bizText: '运营线',
+          id: 'uo-3', name: '新客首单优惠推送', status: 'draft', statusText: '草稿', bizText: '运营线',
           segId: null, segName: null,  /* 注册≤7天实时圈选，不引用分群 —— 行业常态：策略可不走分群，用实时条件圈人 */
           stages: [
             { id: 'targeting', name: '圈人', state: 'done', detail: '条件：注册≤7天 ∧ 未下单', count: 8420, excluded: { freq: 0, unsub: 4, blacklist: 2, inOther: 1240 }, snapshotAt: 0 },
@@ -1672,7 +1671,7 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
         monthlyCapText: '每人每月促销触达 ≤ 4 条 —— 跨所有策略的中心化抑制层，两个策略抢同一人时边际提升高者先发',
         cooling: '48h 促销冷却 · 购买成功后 72h 静默 · 投诉后 5 天冷却',
         quietHours: '22:00–08:00 禁发（按用户本地时区）',
-        emergency: '紧急例外仅限：账户安全 / 欺诈 / 服务中断，且需事后审计',
+        emergency: '紧急例外仅限：账户安全 / 欺诈 / 服务中断，且需事后复核',
         holdoutText: 'holdout ≥ 5% 且不可为 0 —— 否则无法证明提升来自策略而非自然增长',
         rampText: '灰度 1% → ' + (window.DECISIONS ? DECISIONS.value('灰度', '最小观察期') : 60) + ' → 逐步放量，每步异常自动熔断',
         preference: '偏好中心：降频（每月 ≤ 2 条）/ 换渠道 / 按类型退订；退订立即生效并全策略同步，降频优先于退订'
@@ -1703,7 +1702,7 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
       items: [
         {
           id: 'ev-1', name: '客服助手·退货场景 badcase 修复', agentId: 'ag-cs-refund', agentName: '客服助手 Agent',
-          status: 'gray', statusText: '灰度 20% 观察中', owner: '—', triggerText: 'badcase 阈值触发', createdAt: -4,
+          status: 'gray', statusText: '灰度 20% 观察中', triggerText: 'badcase 阈值触发', createdAt: -4,
           stages: [
             { id: 'cluster', name: 'badcase 聚类', state: 'done', detail: '纳入近 14 天 214 例 badcase，聚为 6 类', count: 214,
               clusters: [
@@ -1736,7 +1735,7 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
         },
         {
           id: 'ev-2', name: '知识问答·幻觉抑制', agentId: 'ag-kb-qa', agentName: '知识问答 Agent',
-          status: 'evaluate', statusText: '离线评估中', owner: '—', triggerText: '每周定时', createdAt: -2,
+          status: 'evaluate', statusText: '离线评估中', triggerText: '每周定时', createdAt: -2,
           stages: [
             { id: 'cluster', name: 'badcase 聚类', state: 'done', detail: '纳入 96 例，聚为 4 类', count: 96, clusters: [
               { name: '引用不存在的政策条款', cases: 41, rootCause: '未强制要求引用来源' },
@@ -1755,7 +1754,7 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
         },
         {
           id: 'ev-3', name: '标书生成·章节结构优化', agentId: 'ag-sales-bid', agentName: '标书生成 Agent',
-          status: 'cluster', statusText: '聚类中', owner: '—', triggerText: '人工发起', createdAt: 0,
+          status: 'cluster', statusText: '聚类中', triggerText: '人工发起', createdAt: 0,
           stages: [
             { id: 'cluster', name: 'badcase 聚类', state: 'active', detail: '聚类中 128 / 156', count: 156, clusters: null },
             { id: 'generate', name: '策略生成', state: 'wait', detail: '—', count: null, candidates: null },

@@ -7,7 +7,7 @@
 
   var S = global.DATA_SEED, Q = global.QUERY, F = global.FACTS, C = global.CHARTS, APP = global.APP_DATA;
   var DOMAINS = APP.domains, CAPS = APP.caps;
-  var ME = S.ME;   /* 登录身份单一数据源：顶栏、审计、审批视角、账号菜单都读它 */
+  var ME = S.ME;   /* 登录身份单一数据源：顶栏、审批视角、账号菜单都读它 */
 
   /* SECTION: state */
   var state = {
@@ -504,6 +504,9 @@
       /* v10b（走查 3.1）：行是可点控件，必须键盘可达 —— tabindex + aria-label；
          Enter/Space 在 bindContent() 统一接线（tr 上 role=button 会破坏表格语义，不加）。 */
       var rowAttr = opts.rowAction ? ' class="row-link" tabindex="0" aria-label="查看详情" data-row-act="' + esc(opts.rowAction) + '" data-row-id="' + esc(r[opts.rowIdKey || 'id']) + '"' : '';
+      /* rowDblAct：整行双击 = 触发行内某个 data-act（2026-10-28，知识库列表「双击进库」，
+         与网格视图双击卡片进库对齐）。单击行为不变 —— 只加双击，不动 rowAction。 */
+      if (opts.rowDblAct) rowAttr += ' data-row-dbl="' + esc(opts.rowDblAct) + '"';
       /* row-detail：整行点开一段行内详情（handleRowAction 里已有该分支，但此前**没有任何调用方**
          给它写 data-detail-html —— 等于一个烂尾的接线点。现在由 opts.detailHtml(row) 提供内容。
          内容必须由调用方从**真实数据**里取，不要为了"能点"而编造说明。 */
@@ -722,7 +725,7 @@
 
   /** 路由未命中提示条：说清「你要去的地址不存在」+ 给出正确入口，而不是默默把人丢到总览 */
   function routeMissBar(rawCap) {
-    return '<div class="card" style="border-left:3px solid var(--amber)">' +
+    return '<div class="card" style="border-color:#F0DCAE">' +
       '<div class="card-h pad"><h3>地址不存在：' + esc(rawCap) + '</h3>' +
       '<span class="card-sub">这个链接指向的能力已不存在或改名了。可能是旧书签、复制粘贴时的链接，或页面入口调整。</span></div>' +
       '<div class="pad" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
@@ -755,7 +758,7 @@
       if (c.id === 'overview' || c.menu === false) return;
       idx.push({ kind: 'cap', name: c.name, desc: c.desc, icon: c.icon, domain: c.domain, nav: { domain: c.domain, cap: c.id, agentId: null, tab: null, traceId: null } });
     });
-    idx.push({ kind: 'cap', name: '工作台总览', desc: '待办与健康总览', icon: 'grid', domain: 'overview', nav: { domain: 'overview', cap: 'overview', agentId: null, tab: null, traceId: null } });
+    idx.push({ kind: 'cap', name: '工作台总览', desc: '系统与 Agent 状态总览', icon: 'grid', domain: 'overview', nav: { domain: 'overview', cap: 'overview', agentId: null, tab: null, traceId: null } });
     S.AGENTS.forEach(function (a) {
       idx.push({
         kind: 'agent', name: a.name, desc: a.desc, icon: 'bot', domain: capById('agent-wb').domain,
@@ -1124,7 +1127,7 @@
       /* v10 横切件 */
       detailTabs: v10('detailTabs'), pageCrumb: v10('pageCrumb'), emptyFor: v10('emptyFor'),
       detailMissing: v10('detailMissing'), dangerConfirm: v10('dangerConfirm'), diffViewer: v10('diffViewer'),
-      permTag: v10('permTag'), audit: v10('audit'), auditDrawer: v10('auditDrawer'),
+      permTag: v10('permTag'),
       notificationBell: v10('notificationBell'), tabsBar: v10('tabsBar'),
       asyncResult: v10('asyncResult')
     };
@@ -1141,9 +1144,11 @@
        自动布局给初值，觉得不合适就自己拖。 */
     if (global.__anetDrag || global.__anetMenu) {
       var hh = helpers();
-      /* 卡片下方的小字也要能拖动：它是 <button> 的兄弟节点，按它上面会落到画布平移上
-         （实测「拖卡片没拖动、画布动了」就是这么来的）。 */
-      els.content.querySelectorAll('.anet-tile[data-id], .anet-tile-note[data-drag]').forEach(function (n) {
+      /* 拖动热区 = 卡片本身。
+         以前卡片下方那行小字是 <button> 的兄弟节点，按它上面会落到画布平移上
+         （实测「拖卡片没拖动、画布动了」就是这么来的），所以当时给它也挂了拖动。
+         2026-10-28 业主要求删掉那行小字，这条分支随之作废（data-drag 选择器已无对象）。 */
+      els.content.querySelectorAll('.anet-tile[data-id]').forEach(function (n) {
         /* 拖动挂 pointer 事件：鼠标、触屏、手写笔同一套（原来只挂 mousedown，触屏完全用不了）。
            data-x/data-y 由渲染层直接写进标记（画布已是自然尺寸），这里不再估算坐标 ——
            旧代码按「虚拟画布宽 1000」反算，改自然尺寸后那段既是死代码也是误导。 */
@@ -1152,7 +1157,7 @@
           n.addEventListener('pointerdown', function (ev) {
             if (ev.pointerType === 'mouse' && ev.button !== 0) return;
             n.removeAttribute('data-dragged');       /* 每次按下先清，拖动结束再置上 */
-            global.__anetDrag(ev, n.getAttribute('data-id') || n.getAttribute('data-drag'), hh);
+            global.__anetDrag(ev, n.getAttribute('data-id'), hh);
           });
           n.style.cursor = 'grab';
           /* 键盘可达：卡片能 Tab 聚焦，菜单键 / Shift+F10 就应能打开同一份菜单 */
@@ -1164,8 +1169,7 @@
               return;
             }
             /* 不拖也能做完：空格拿起 → 左右键选列 → 回车确认 → Esc 取消（并逐句播报） */
-            var kid = n.getAttribute('data-id') || n.getAttribute('data-drag');
-            if (global.__anetKbdKey && global.__anetKbdKey(ev, kid, hh)) ev.preventDefault();
+            if (global.__anetKbdKey && global.__anetKbdKey(ev, n.getAttribute('data-id'), hh)) ev.preventDefault();
           });
           n.addEventListener('click', function (ev) {
             if (n.getAttribute('data-dragged')) { ev.stopPropagation(); ev.preventDefault(); }
@@ -1306,6 +1310,30 @@
         handleRowAction(act, id, tr);
       });
     });
+    /* 整行「双击」→ 触发行内指定的动作（data-row-dbl 存动作名）。
+       2026-10-28：知识库列表在表格视图下双击进库，与网格视图「双击卡片进库」一致。
+       ⚠ 不要用原生 dblclick：实测两次真实点击（同坐标、同元素、间隔 120ms、DOM 未变）
+       只派发了两个 click，浏览器不给 dblclick —— 绑定就形同虚设。
+       改成按 click 时间差自己判（450ms 内点同一行第二次 = 双击），内层文档列表也是这套。
+       行内按钮/链接上的点击交还给它们自己（别把「检索测试」吃成进库）。 */
+    var _rowDblKey = null, _rowDblAt = 0;
+    els.content.querySelectorAll('[data-row-dbl]').forEach(function (tr) {
+      tr.addEventListener('click', function (e) {
+        if (e.target.closest('button,a,input,select,textarea')) return;
+        var act = tr.getAttribute('data-row-dbl');
+        var key = act + '|' + (tr.getAttribute('data-row-id') || '');
+        var now = Date.now();
+        if (key === _rowDblKey && now - _rowDblAt < 450) {
+          _rowDblKey = null; _rowDblAt = 0;
+          /* 双击会顺带选中一段文字，跳转前清掉，否则新页面一进来一片蓝底 */
+          try { var sg = window.getSelection(); if (sg) sg.removeAllRanges(); } catch (err) {}
+          var b = tr.querySelector('[data-act="' + act + '"]');
+          if (b) b.click();
+          return;
+        }
+        _rowDblKey = key; _rowDblAt = now;
+      });
+    });
     // 投放规划器控件：预算滑块实时重算，条件下拉即时生效
     els.content.querySelectorAll('[data-kol]').forEach(function (el2) {
       var key = el2.getAttribute('data-kol');
@@ -1420,7 +1448,7 @@
     els.content.querySelectorAll('svg.chart[data-points]').forEach(function (svg) {
       var pts;
       try { pts = JSON.parse(svg.getAttribute('data-points')); } catch (e) { return; }
-      var padL = +svg.getAttribute('data-padl'), iw = +svg.getAttribute('data-iw'), padT = +svg.getAttribute('data-padT'), ih = +svg.getAttribute('data-ih');
+      var padL = +svg.getAttribute('data-padl'), iw = +svg.getAttribute('data-iw'), padT = +svg.getAttribute('data-padt'), ih = +svg.getAttribute('data-ih');
       var gran = svg.getAttribute('data-gran') || '1h';
       var hit = svg.querySelector('.chart-hit');
       var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -1464,22 +1492,24 @@
       hit.addEventListener('mouseleave', function () { line.setAttribute('opacity', '0'); tipBox.classList.add('hidden'); });
     });
 
-    /* ── 堆叠柱的整列浮层（2026-10-22）──────────────────────────────────
-       业主看图后一句「自己看交互」：要的是 DeepSeek 用量页那种 hover ——
-       整列命中、一条虚线落在该天、其余列变淡、浮层给出「日期 + 当天合计 + 各分组金额」。
-       与上面折线图同一套做法（覆盖式命中层 + 自绘浮层 + 指示线），区别只是内容按**列**聚合：
-       折线图的点是时间点，堆叠柱的点是一整根柱子。
-       ⚠ 业务数字一个都不在这里算：colTips 由 charts.js 从 data-sb 带进来，这里只负责交互。
-       ⚠ 只在 charts.js 传了 colTips 的图上生效（目前是成本归因页）；监控页的堆叠柱不受影响。 */
-    els.content.querySelectorAll('svg.chart-stack[data-sb]').forEach(function (svg) {
+    /* ── 图表的整列 / 整点浮层（2026-10-22，2026-10-28 扩到面积图）─────────────
+       业主两次贴参考图（DeepSeek 用量页）：堆叠柱要「虚线 + 其余列变淡 + 当天明细」，
+       面积图要「虚线 + 该点圆点 + 日期/指标值」。两处共用这一套：
+         · 命中层是覆盖整块绘图区的透明 rect（比逐列/逐点挂命中区好点中）；
+         · 指示线、圆点、浮层都由这里驱动，业务数字一律来自 data-sb，不在这里算；
+         · data-mode="point"（面积图）按**最近点**取整，band（堆叠柱）按列取整。
+       ⚠ 只在 charts.js 传了 colTips 的图上生效；监控页的老图表零变化。 */
+    els.content.querySelectorAll('svg.chart-stack[data-sb], svg.chart-area[data-sb]').forEach(function (svg) {
       var cols;
       try { cols = JSON.parse(svg.getAttribute('data-sb')); } catch (e) { return; }
       if (!cols || !cols.length) return;
-      var padT = +svg.getAttribute('data-padT'), ih = +svg.getAttribute('data-ih');
+      var padT = +svg.getAttribute('data-padt'), ih = +svg.getAttribute('data-ih');
       var x0 = +svg.getAttribute('data-x0'), dx = +svg.getAttribute('data-dx');
+      var pointMode = svg.getAttribute('data-mode') === 'point';
       var hit = svg.querySelector('.chart-hit'), guide = svg.querySelector('.sb-guide');
       if (!hit || !guide || !(dx > 0)) return;
       var colEls = Array.prototype.slice.call(svg.querySelectorAll('.sb-col'));
+      var dot = svg.querySelector('.ac-dot');
       var tipBox = document.createElement('div');
       tipBox.className = 'chart-tip hidden';
       svg.parentNode.appendChild(tipBox);
@@ -1488,35 +1518,50 @@
         svg.classList.remove('acting');
         for (var i = 0; i < colEls.length; i++) colEls[i].classList.remove('on');
         guide.setAttribute('opacity', '0');
+        if (dot) dot.setAttribute('r', '0');
         tipBox.classList.add('hidden');
       }
       hit.addEventListener('mousemove', function (e) {
         var rect = svg.getBoundingClientRect();
         var scale = rect.width / (svg.viewBox.baseVal.width || rect.width);
         var x = (e.clientX - rect.left) / scale;
-        var idx = Math.floor((x - x0) / dx);
-        if (idx < 0 || idx >= cols.length) { reset(); return; }
-        var cx = x0 + idx * dx + dx / 2;
+        var idx = pointMode ? Math.round((x - x0) / dx) : Math.floor((x - x0) / dx);
+        if (idx < 0 || idx >= cols.length) {
+          if (!pointMode) { reset(); return; }
+          idx = idx < 0 ? 0 : cols.length - 1;      /* 点图：贴边时吸到首/末点，不停在空白处 */
+        }
+        var col = cols[idx];
+        var cx = col.px != null ? col.px : (x0 + idx * dx + dx / 2);
         guide.setAttribute('x1', cx); guide.setAttribute('x2', cx);
         guide.setAttribute('y1', padT); guide.setAttribute('y2', padT + ih);
         guide.setAttribute('opacity', '1');
-        svg.classList.add('acting');
-        for (var i = 0; i < colEls.length; i++) {
-          colEls[i].classList.toggle('on', +colEls[i].getAttribute('data-col') === idx);
+        if (dot) {
+          dot.setAttribute('cx', col.px != null ? col.px : cx);
+          dot.setAttribute('cy', col.py != null ? col.py : padT + ih / 2);
+          dot.setAttribute('r', '4');
+        }
+        if (colEls.length) {
+          svg.classList.add('acting');
+          for (var i = 0; i < colEls.length; i++) {
+            colEls[i].classList.toggle('on', +colEls[i].getAttribute('data-col') === idx);
+          }
         }
         var C0 = global.CHARTS;
-        tipBox.innerHTML = (C0 && C0.sbTipHtml) ? C0.sbTipHtml(cols[idx]) : '';
+        tipBox.innerHTML = (C0 && C0.sbTipHtml) ? C0.sbTipHtml(col) : '';
         tipBox.classList.remove('hidden');
         var wrapRect = svg.parentNode.getBoundingClientRect();
-        /* 浮层放在该列**右侧**（对标图也是这个位置）：盖住相邻列比盖住正在看的那根好，
-           右侧放不下就翻到左侧，两侧都放不下才夹到卡内。 */
+        /* 浮层放在该点/该列**右侧**：盖住相邻柱比盖住正在看的那根好；右侧放不下翻到左侧。 */
         var tipW = tipBox.offsetWidth || 200;
         var left = cx * scale + 14;
         if (left + tipW > wrapRect.width - 8) left = cx * scale - tipW - 14;
         tipBox.style.left = Math.max(8, Math.min(wrapRect.width - tipW - 8, left)) + 'px';
-        /* 纵向跟随鼠标、并夹在卡内：浮层比卡还高时贴顶（宁可盖住上半张图，也不让它跑出卡外） */
-        var want = (e.clientY - wrapRect.top) - tipBox.offsetHeight / 2;
-        tipBox.style.top = Math.max(6, Math.min(wrapRect.height - tipBox.offsetHeight - 6, want)) + 'px';
+        /* 纵向：优先浮在**该点/该列的上方**（像在标注这个点），上方放不下再落到下方。
+           只按鼠标 y 跟随会有三个毛病：贴着光标抖、盖住 X 轴标签、点在图底时浮层出卡。
+           叠堆柱没有 py（整列一根柱），退回鼠标 y 作锚点。 */
+        var anchorY = (col.py != null ? col.py * scale : (e.clientY - wrapRect.top));
+        var top = anchorY - tipBox.offsetHeight - 12;
+        if (top < 8) top = anchorY + 16;
+        tipBox.style.top = Math.max(6, Math.min(wrapRect.height - tipBox.offsetHeight - 6, top)) + 'px';
       });
       hit.addEventListener('mouseleave', reset);
     });
@@ -1535,7 +1580,6 @@
     return [
       { k: 'profile', t: '个人信息', icon: 'person' },
       { k: 'perms', t: '我的权限', icon: 'grid', tag: (ME.perms || []).length + ' 项' },
-      { k: 'audit', t: '我的操作记录', icon: 'doc' },
       { k: 'rbac', t: '能力与权限', icon: 'grid' }
     ];
   }
@@ -1611,7 +1655,6 @@
       if (k === 'profile') openAccountSheet('profile');
       else if (k === 'perms') openAccountSheet('perms');
       else if (k === 'roles') openAccountSheet('roles');
-      else if (k === 'audit') openAccountSheet('audit');
       else if (k === 'rbac') navigate({ domain: 'platform', cap: 'assets', agentId: null, tab: null, traceId: null });
       else if (k === 'logout') logoutConfirm();
     });
@@ -1627,7 +1670,7 @@
     document.body.appendChild(host.firstChild);
   }
   function openAccountSheet(kind) {
-    var title = { profile: '个人信息', perms: '我的权限', roles: '角色与职责', audit: '我的操作记录' }[kind] || '账号';
+    var title = { profile: '个人信息', perms: '我的权限', roles: '角色与职责' }[kind] || '账号';
     var body;
     if (kind === 'profile') {
       body = '<dl class="dl">' +
@@ -1643,13 +1686,13 @@
     } else if (kind === 'perms') {
       body = '<div class="bt-note" style="margin-bottom:8px">当前角色 <b>' + esc(ME.role) + '</b> 持有 <b>' + (ME.perms || []).length + '</b> / ' +
         esc((S.PERM_POINTS || []).length) + ' 个权限点，由角色矩阵推导、不是手工维护。' +
-        '危险操作会真正校验这些权限点，未授权将被拦截并留审计。</div>' +
+        '危险操作会真正校验这些权限点，未授权将被拦截。</div>' +
         '<div>' + (ME.perms || []).map(function (p) {
           var m = S.permMeta ? S.permMeta(p) : null;
           return '<span class="tag' + (m && m.risk === 'high' ? ' bad' : '') + '">' +
             esc(m ? m.label : p) + '<span class="mono muted"> ' + esc(p) + '</span></span>';
         }).join('') + '</div>' +
-        '<div class="bt-note" style="margin-top:10px">高危动作点击即生效，每次都会写一条审计（谁、什么时候、改了什么、影响面多大）。这套系统只有你一个账号，不需要谁批准。</div>' +
+        '<div class="bt-note" style="margin-top:10px">高危动作点击即生效。这套系统只有你一个账号，不需要谁批准。</div>' +
         '<div class="bt-note">每个 Agent 能碰什么，在 <b>Agent 工作台 › Agent 详情 › 管理 › 联系</b>里改。</div>';
     } else if (kind === 'roles') {
       body = '<div class="bt-note">职责分离要求：<b>同一人不能既申请又审批同一张单据</b>；代理审批必须写明代理期与范围。</div>' +
@@ -1659,17 +1702,8 @@
         '<div class="v10-impacts-row"><span class="v10-impacts-k">越权留痕</span><span class="v10-impacts-v">越权尝试、危险操作、拦截与异常审批统一进安全事件</span></div>' +
         '</div>';
     } else {
-      var list = (global.V10UI && global.V10UI.auditList) ? global.V10UI.auditList() : [];
-      var mine = list.filter(function (r) { return r.actor === ME.name; });
-      body = mine.length
-        ? '<div class="bt-note" style="margin-bottom:8px">本会话共 ' + list.length + ' 条写操作，其中你本人 ' + mine.length + ' 条。</div>' +
-          '<div class="v10-impacts">' + mine.slice().reverse().map(function (r) {
-            return '<div class="v10-impacts-row"><span class="v10-impacts-k">' + esc(String(r.at).slice(5, 16).replace('T', ' ')) + '</span>' +
-              '<span class="v10-impacts-v">' + esc(r.action) + ' · ' + esc(r.target) + '</span></div>';
-          }).join('') + '</div>'
-        : '<div class="empty"><div class="empty-title">本会话还没有你的操作记录</div>' +
-          '<div class="empty-sub">做过写操作并确认后，这里会留下「谁 · 做了什么 · 对谁」</div></div>';
-      body += '<div class="bt-note" style="margin-top:10px">演示环境记录存在浏览器会话存储，<b>刷新页面即清空</b>；生产环境须由后端审计服务留存 ≥ 3 年且不可篡改。</div>';
+      /* 原先这里是「我的操作记录」—— 2026-10-28 随审计一起删除，残留 kind 落到空壳 */
+      body = '';
     }
     acctModal(title, body);
   }
@@ -1677,8 +1711,7 @@
     var h = helpers();
     h.dangerConfirm(h, {
       title: '退出登录', desc: '退出当前账号（' + ME.name + '）？',
-      tone: 'warn', perm: 'session:logout', requireReason: false, confirmText: '确认退出',
-      action: '退出登录', target: ME.name + ' · ' + ME.id,
+      tone: 'warn', perm: 'session:logout', confirmText: '确认退出',
       impacts: [
         { label: '当前身份', value: ME.name + '（' + ME.role + '）' },
         { label: '未提交的草稿', value: '表单内容会丢失', tone: 'warn' },
@@ -1869,25 +1902,13 @@
       render();
     });
 
-    /* v10：顶栏通知面板 + 审计抽屉 */
-    var bell = $('v10-bell'), notif = $('v10-notif'), auditBtn = $('v10-audit-btn');
+    /* v10：顶栏通知面板 */
+    var bell = $('v10-bell'), notif = $('v10-notif');
     if (bell && notif) bell.addEventListener('click', function () {
       if (!notif.classList.contains('hidden')) { notif.classList.add('hidden'); return; }
       notif.innerHTML = global.V10UI ? global.V10UI.notificationBell(helpers()) : '<div class="empty-title">通知组件未加载</div>';
       notif.classList.remove('hidden');
       refreshBellBadge();   /* 面板已视为已读，角标同步清零 */
-    });
-    if (auditBtn) auditBtn.addEventListener('click', function () {
-      var host = document.createElement('div');
-      host.className = 'modal-mask';
-      host.innerHTML = '<div class="modal"><div class="modal-h"><h3>审计记录</h3>' +
-        '<button class="modal-x" aria-label="关闭">×</button></div>' +
-        (global.V10UI ? global.V10UI.auditDrawer(helpers()) : '<div class="empty-title">审计组件未加载</div>') +
-        '</div>';
-      host.addEventListener('click', function (e) {
-        if (e.target === host || (e.target.className || '').indexOf('modal-x') > -1) host.remove();
-      });
-      document.body.appendChild(host);
     });
   }
 

@@ -195,12 +195,6 @@
     return out;
   }
 
-  /* 审计：走工程既有抽屉（V10UI.audit）。不可用时不阻断操作 —— 但绝不假装记了。 */
-  function audit(log) {
-    var u = global.V10UI || {};
-    if (typeof u.audit === 'function') { try { u.audit(log); } catch (e) { /* 审计不可用 */ } }
-  }
-
   /* ---------- 数据层（唯一出口）：明细、分布、会话都从 IV_DATA 取，本页不再自己造数 ---------- */
   var IVD = global.IV_DATA || {};
   function workbench(row) {
@@ -280,7 +274,7 @@
     var todo = '<div class="card"><div class="card-h"><h3>需我处理</h3><span class="card-sub">点进去就是待办清单</span></div>' +
       '<div class="metrics">' + [
         { label: '待审结论', value: String(needReview), unit: '条', sub: '访谈结论需人工复核', alert: needReview > 0 },
-        { label: '异常中止', value: String(aborted), unit: '条', sub: '命中禁问 / 越界，已留痕' },
+        { label: '异常中止', value: String(aborted), unit: '条', sub: '命中禁问 / 越界，已记入时间线' },
         { label: '联系中断超 72h', value: String(interruptedOver), unit: '人', sub: '将转"联系不上"' },
         { label: '待联系', value: String(pendingAll), unit: '人', sub: '按计划时段排队中' }
       ].map(h.metricCard).join('') + '</div></div>';
@@ -424,7 +418,7 @@
             return '<span class="chip' + (on ? ' link on' : '') + '" data-act="iv-tag" data-id="' + esc(h, t.n) + '">' + esc(h, t.n) +
               '<b style="margin-left:6px">' + t.c.toLocaleString('zh-CN') + '</b></span>';
           }).join('') + '</div>' +
-          '<div class="bt-note" style="margin-top:8px">口径随标签走 —— 例：<b>合同到期前 60 天</b>＝合同结束日期 − 今天 ≤ 60 天（来源 CRM 合同表 · 责任人 xianyu · 每日更新）。标签人数是标签自己的口径，不拿画像的"覆盖企业数"顶替。</div>'
+          '<div class="bt-note" style="margin-top:8px">口径随标签走 —— 例：<b>合同到期前 60 天</b>＝合同结束日期 − 今天 ≤ 60 天（来源 CRM 合同表 · 每日更新）。标签人数是标签自己的口径，不拿画像的"覆盖企业数"顶替。</div>'
         : src === 'pool'
           ? '<div class="sub-h">用户池</div><div class="dl">' +
             '<dt>池子</dt><dd>B2B 决策人池 · 全池 1,240 人（已具名 862 / 待判定 378）</dd>' +
@@ -673,7 +667,7 @@
       h.metaBar({}, [
         { k: '联系状态', v: '未联系 / 正在联系中 / 联系中断 / 联系不上 / 联系完成；与访谈进度（第 n 轮、完答、中止）分开记' },
         { k: '会话内容', v: '由访谈引擎返回；每轮带追问理由与实际引用的知识库片段与相关度' },
-        { k: '异常中止', v: '命中禁问项或越界即中止本场，落三处：时间线 / 联系人状态 / 审计记录；可人工接管续谈' }
+        { k: '异常中止', v: '命中禁问项或越界即中止本场，落两处：时间线 / 联系人状态；可人工接管续谈' }
       ]);
   }
 
@@ -930,7 +924,7 @@
       '<span class="card-sub">' + topics.length + ' 个话题 · 必问 ' + mustN + ' · 禁问 ' + banN +
       ' · 有效对话 ' + (an ? an.accounts.done.toLocaleString('zh-CN') : '—') + ' 人</span>' +
       '<div class="card-act">' + pill(h, out ? 'warn' : 'ok', out ? ('已采纳 ' + out + ' 条建议') : '待复盘') + '</div></div>' +
-      '<div style="font-size:14.5px;font-weight:600;line-height:1.8;background:#f8fafc;border:1px solid var(--line);border-left:3px solid #2563eb;border-radius:8px;padding:10px 12px">' +
+      '<div style="font-size:14.5px;font-weight:600;line-height:1.8;background:#f8fafc;border:1px solid #CFE0FF;border-radius:8px;padding:10px 12px">' +
       esc(h, rv.verdict) + '</div>' +
       '<div class="grid2 why-cols" style="margin-top:14px">' +
       '<div><div class="sub-h">保持</div>' + rv.good.map(function (x) {
@@ -1026,7 +1020,6 @@
     var n = num(st.ivReopened[id], 0);
     if (n >= 2) { h.toast('这个人已经重开过 2 次，建议换渠道或线下联系', 'warn'); return; }
     st.ivReopened[id] = n + 1;
-    audit({ action: 'interview.reopen', target: id, detail: '第 ' + (n + 1) + ' 次人工重开' });
     h.toast('已人工重开（第 ' + (n + 1) + ' 次）：回到「未联系」排队尾，不延续上次会话', 'ok');
     h.navigate({}, { scroll: false });
   };
@@ -1069,7 +1062,6 @@
       }, i * 350);
     });
     h.toast('打包中：' + files.length + ' 个文件（分析报告 / 原始对话 / 样本说明 / 结论卡片）依次下载', 'ok');
-    audit({ action: 'interview.pack', target: row.id, detail: files.length + ' 个文件' });
   };
   A['iv-pass'] = function (id, btn, h) { h.state.ivPassed = (h.state.ivPassed || []).concat([id]); h.toast('已通过并归档：结论已写入本会话', 'ok'); h.navigate({}, { scroll: false }); };
   A['iv-reject'] = function (id, btn, h) {

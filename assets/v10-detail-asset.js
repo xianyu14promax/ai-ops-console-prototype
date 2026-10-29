@@ -73,7 +73,7 @@
     if (!edit) return base;
     var edited = Object.assign({}, base, {
       kind: edit.kind, role: edit.role, industry: edit.industry, tags: edit.tags,
-      name: edit.name, owner: edit.owner
+      name: edit.name
     });
     var ents = base.ents;
     if (global.APP_DATA && global.APP_DATA.firmsOf) {
@@ -81,7 +81,7 @@
     }
     return Object.assign({}, base, {
       name: edit.name, kind: edit.kind, role: edit.role,
-      industry: edit.industry, owner: edit.owner, tags: edit.tags, ents: ents,
+      industry: edit.industry, tags: edit.tags, ents: ents,
       kindText: edit.kind === 'role' ? ('角色画像 · ' + (edit.role || '未指定')) : 'ICP · 企业类型',
       rulesDerived: '行业 = ' + edit.industry + ' AND 标签含「' + (edit.tags || []).slice(0, 2).join('、') + '」',
       editedInSession: true, editReason: edit.reason, editedBy: edit.by
@@ -337,7 +337,6 @@
       body = '<div class="metrics">' + [
         { label: '覆盖企业', value: fmt.int(_firmsN), sub: '按 USCC 去重 · 见下方企业清单', definition: '以统一社会信用代码（USCC）为去重主键在主数据上圈出。一家企业只属一个行业，故各画像覆盖数相加即为去重后的合计' },
         { label: '被引用', value: fmt.int(s.refCount), sub: '被 Agent / 策略引用 · ' + s.heatText },
-        { label: '负责人', value: s.owner, sub: '画像维护人' },
         { label: '更新时间', value: fmt.rel(s.updated), alert: s.overdueDays > 0, sub: s.overdueDays > 0 ? '已超期 ' + s.overdueDays + ' 天（有效期 ' + ttl + ' 天）' : '在 ' + ttl + ' 天有效期内' }
       ].map(h.metricCard).join('') + '</div>' +
       (s.editedInSession ? '<div class="alert-banner warn"><b>⚠ 画像内容已在本会话被修改</b><span>' +
@@ -369,7 +368,7 @@
       (s.overdueDays > 0 ? '<div class="card"><div class="card-h"><h3>该更新了</h3>' +
         '<span class="card-sub">' + fmt.rel(s.updated) + '未更新 · 已超期 ' + s.overdueDays + ' 天</span></div>' +
         '<div class="bt-note">画像属性会漂移，超期画像不该继续作为投放依据。' +
-        '重新采集与复核由负责人线下发起。</div>' +
+        '重新采集与复核需线下发起。</div>' +
         (refreshed
           ? '<div class="bt-note" style="margin-top:10px">已登记更新（' + h.esc(refreshed.reason) + ' · 预计' + h.esc(refreshed.eta) + ' · ' + h.esc(refreshed.by) + '）' +
             '　<button class="lnk warn" data-act="persona-refresh-undo" data-id="' + h.esc(s.id) + '">撤销登记</button></div>'
@@ -386,7 +385,6 @@
       (isDisabled
         ? '<button class="btn-ghost ok" data-act="persona-restore" data-id="' + h.esc(s.id) + '">恢复画像</button>'
         : '<button class="btn-ghost" data-act="persona-disable" data-id="' + h.esc(s.id) + '">停用画像</button>') +
-      (isDisabled ? '<span class="pick-or">恢复同样会留审计</span>' : '') +
       '</div></div>';
     } else if (active === 'tags') {
       /* 每个标签下面给出「库内有多少画像共用它、合计被引用多少」——
@@ -401,7 +399,7 @@
           return '<div class="ins"><i>库内 ' + share.length + ' 个画像共用 · 合计被引用 ' + refs + ' 次</i><b>' + firmIco('tag', tg, h) + h.esc(tg) + '</b></div>';
         }).join('') + '</div>' +
         '<div class="bt-note">标签是检索与圈选的依据；<b>标签只是标签，不等于一个可投放的客群</b>。' +
-        '口径（怎么算出来）、数据源、责任人、更新频率是标签资产化的必需品 —— ' +
+        '口径（怎么算出来）、数据源、更新频率是标签资产化的必需品 —— ' +
         '标签字典待补。</div></div>';
     } else if (active === 'refs') {
       body = '<div class="card"><div class="card-h"><h3>被引用关系</h3>' +
@@ -443,12 +441,9 @@
         { label: '影响面', value: '该画像不再被 Agent / 策略圈选到', tone: 'danger' },
         { label: '被引用', value: f.int(s.refCount) + ' 次 · ' + (s.heatText || '—') + '（引用方会失去这个圈选依据）' },
         { label: '覆盖企业', value: f.int(s.ents) + ' 家（数据保留，仅不再参与圈选）' },
-        { label: '负责人', value: s.owner || '—' },
         { label: '可恢复', value: '是' }
       ],
-      requireReason: true, confirmText: '确认停用',
-      action: '停用画像', target: s.id + ' · ' + s.name,
-      auditImpact: '移出检索池',
+      confirmText: '确认停用',
       onConfirm: function (reason) {
         h.state.personaDisabled = h.state.personaDisabled || {};
         h.state.personaDisabled[s.id] = { reason: reason || '', by: (global.V19GOV && global.V19GOV.me) ? global.V19GOV.me().name : '我', at: '刚刚' };
@@ -469,9 +464,7 @@
         { label: '被引用', value: h.fmt.int(s.refCount) + ' 次（历史值）' },
         { label: '建议', value: '恢复前先确认画像口径仍准确，否则等于把过期依据放回投放链路' }
       ],
-      requireReason: true, confirmText: '确认恢复',
-      action: '恢复画像', target: s.id + ' · ' + s.name,
-      auditImpact: '放回检索池',
+      confirmText: '确认恢复',
       onConfirm: function (reason) {
         if (h.state.personaDisabled) delete h.state.personaDisabled[s.id];
         h.state.personaRestored = h.state.personaRestored || {};
@@ -484,7 +477,7 @@
 
   /* ==================================================== 画像内容编辑 */
   /* 🔴 管理型缺的第四刀：画像此前只能改「状态」（停用/恢复）与「登记更新」，
-     名称 / 类型 / 行业 / 负责人 / 标签**建完改不动**。
+     名称 / 类型 / 行业 / 标签**建完改不动**。
      圈选条件不单独编辑 —— 它是 data.js 按「行业 + 前两个标签」反推的，
      所以改行业/标签，条件会自动跟着变（改完在详情页能直接看到）。
      会话内状态 state.personaEdit[id] 覆盖显示；写库仍是演示边界，如实说明。 */
@@ -493,7 +486,6 @@
     var KIND_OPTS = [['icp', 'ICP（哪类企业）'], ['role', '角色画像（哪个岗位的人）']];
     var ROLE_OPTS = ['发起者', '使用者', '影响者', '决策者', '守门人'];
     var IND_OPTS = ['制造', '零售', '金融', '政务', '电商', '互联网', '医疗', '教育'];
-    var OWNER_OPTS = ['xianyu'];
     var TAG_POOL = ['采购委员会', '预算周期', '招标偏好', '私有化部署', '促销敏感', '巡店频次', '门店规模',
       '合规优先', 'POC 驱动', '多方比价', '政策口径', '审批路径', '汇报节奏', '价格敏感', '自助服务', '移动优先'];
     /* 预填：优先会话内已编辑值，否则取当前条目 */
@@ -503,7 +495,6 @@
       role: e.role != null ? e.role : (s.role || ''),
       name: e.name != null ? e.name : s.name,
       industry: e.industry != null ? e.industry : (s.industry || ''),
-      owner: e.owner != null ? e.owner : (s.owner || ''),
       tags: e.tags || (s.tags || []).slice()
     };
     var segHtml = function (k, opts) {
@@ -528,7 +519,6 @@
         '<div class="v15-cf-row"><label class="v15-cf-label">画像类型</label>' + segHtml('kind', KIND_OPTS) + '</div>' +
         '<div class="v15-cf-row"><label class="v15-cf-label">决策链角色<span class="muted" style="font-weight:400">（选「角色画像」时必填）</span></label>' + selHtml('role', ROLE_OPTS) + '</div>' +
         '<div class="v15-cf-row"><label class="v15-cf-label">所属行业</label>' + selHtml('industry', IND_OPTS) + '</div>' +
-        '<div class="v15-cf-row"><label class="v15-cf-label">负责人</label>' + selHtml('owner', OWNER_OPTS) + '</div>' +
         '<div class="v15-cf-sec">画像构成 · 核心标签</div>' + tagHtml +
         '<div class="v10-reason" style="margin-top:10px"><label class="sub-h">备注（选填，随记录留档）</label>' +
         '<textarea data-pk="reason" placeholder="写明为什么改"></textarea>' +
@@ -553,7 +543,7 @@
           }
           if (g !== 'ok') return;
           var rd = function (k) { var el = root.querySelector('[data-pk="' + k + '"]'); return el ? String(el.value || '').trim() : ''; };
-          var name = rd('name'), industry = rd('industry'), owner = rd('owner'), reason = rd('reason');
+          var name = rd('name'), industry = rd('industry'), reason = rd('reason');
           var kindBtn = root.querySelector('[data-pk="kind"] button.on');
           var kind = kindBtn ? kindBtn.getAttribute('data-pick') : 'icp';
           var role = rd('role');
@@ -564,7 +554,6 @@
           /* 校验与创建表单同标准（含条件必填：角色画像必须指定角色） */
           if (!name) return fail('画像名称必填');
           if (!industry) return fail('所属行业必填');
-          if (!owner) return fail('负责人必填');
           if (kind === 'role' && !role) return fail('选了「角色画像」就要指定决策链角色（发起者/使用者/影响者/决策者/守门人）');
           if (!tags.length) return fail('至少要有一个核心标签 —— 圈选条件的标签部分由它反推');
           /* 2026-10-21：备注改选填，不再拦保存（业主：直接通过，留记录） */
@@ -572,7 +561,7 @@
           h.state.personaEdit = h.state.personaEdit || {};
           h.state.personaEdit[s.id] = {
             kind: kind, role: kind === 'role' ? role : null,
-            name: name, industry: industry, owner: owner, tags: tags,
+            name: name, industry: industry, tags: tags,
             reason: reason, at: '刚刚',
             by: (global.V19GOV && global.V19GOV.me) ? global.V19GOV.me().name : '我'
           };
@@ -591,9 +580,7 @@
     h.dangerConfirm(h, {
       title: '修改画像内容',
       desc: '进入「' + s.name + '」的内容编辑？改动会影响 Agent / 策略的圈选依据。',
-      perm: 'persona:content:edit', requireReason: true, confirmText: '进入编辑',
-      action: '编辑画像内容', target: s.id + ' · ' + s.name,
-      auditImpact: '画像内容将可被修改',
+      perm: 'persona:content:edit', confirmText: '进入编辑',
       onConfirm: function () { personaEditSheet(h, s); }
     });
   };
@@ -673,13 +660,11 @@
     var s = byId(h, (q && q.items) || [], id);
     if (!s) { h.toast('经验条目不存在', 'bad'); return; }
     /* 门禁复用 dangerConfirm（它有现成的「权限不足」拦截层；checkPerm 返回的是 {ok,...} 不是布尔）。
-       确认后再开编辑表单 —— 这样权限、留痕、理由三件事都走全站统一路径。 */
+       确认后再开编辑表单 —— 这样权限与二次确认两件事都走全站统一路径。 */
     h.dangerConfirm(h, {
       title: '修改经验正文',
       desc: '进入「' + (s.title || s.id) + '」的正文编辑？正文改动会同时影响模型检索与人工评审。',
-      perm: 'llm-exp:entry:edit', requireReason: true, confirmText: '进入编辑',
-      action: '编辑经验正文', target: s.id + ' · ' + (s.title || ''),
-      auditImpact: '经验正文将可被修改',
+      perm: 'llm-exp:entry:edit', confirmText: '进入编辑',
       onConfirm: function () { expEditSheet(h, s); }
     });
   };
@@ -855,7 +840,6 @@
         '<dt>更新时间</dt><dd>' + h.esc(fmt.rel(d.updatedDay)) + '</dd>' +
         '<dt>索引状态</dt><dd>' + h.pill(st[0], st[1]) + '</dd>' +
         '<dt>有效期</dt><dd>' + h.esc(d.validUntil) + '</dd>' +
-        '<dt>责任人</dt><dd>' + h.esc(d.owner) + '</dd>' +
         '</dl>' +
         '<div class="sub-h" style="margin-top:16px">切片索引（抽样 ' + slices.length + ' / 共 ' + fmt.int(d.slices) + ' 条）</div>' +
         '<div class="doc-stat">' +
@@ -883,14 +867,7 @@
         }).join('') +
         '</tbody></table></div>' +
         '<div class="bt-note">正文与切片按文档 id 确定性生成；命中记录来自检索日志口径。</div>' +
-        '</div></div>' +
-        /* 打开一篇文档就该看到「谁访问过它」——
-           访问记录原来只藏在知识库详情的「检索统计」子页签里，看单篇文档时够不着。
-           这里按**这篇文档**取记录（把 kb 的 id 拼上文档 id 作为记录的作用域键），
-           不是整个库的记录。 */
-        '<div style="margin-top:16px">' +
-        kbAccessCard(h, kb, h.state, fmt, { docName: d.name }) +
-        '</div>',
+        '</div></div>',
       footHtml: '<button class="btn-ghost" data-v10="cancel">关闭</button>',
       onOpen: function (root) {
         root.addEventListener('click', function (ev) {
@@ -920,9 +897,7 @@
         
         { label: '可恢复', value: '是' }
       ],
-      requireReason: true, confirmText: '确认停用',
-      action: '停用知识库', target: kb.id + ' · ' + kb.name,
-      auditImpact: '移出检索池',
+      confirmText: '确认停用',
       onConfirm: function (reason) {
         h.state.kbDisabled = h.state.kbDisabled || {};
         h.state.kbDisabled[kb.id] = {
@@ -945,9 +920,7 @@
         { label: '文档与索引', value: h.fmt.int(kbDocCount(h, kb)) + ' 个文档 / ' + h.fmt.int(kbIndexOf(h, kb).vectors) + ' 条向量' },
         { label: '建议', value: '恢复前先确认索引是最新的，否则等于把过期内容放回检索链路' }
       ],
-      requireReason: true, confirmText: '确认恢复',
-      action: '恢复知识库', target: kb.id + ' · ' + kb.name,
-      auditImpact: '放回检索池',
+      confirmText: '确认恢复',
       onConfirm: function (reason) {
         if (h.state.kbDisabled) delete h.state.kbDisabled[kb.id];
         h.state.kbRestored = h.state.kbRestored || {};
@@ -960,26 +933,10 @@
 
   /* ==================================================== 知识库详情 */
   /* 🔴 C-4：把参数扫描的结论变成**能应用的配置** ——
-     扫描出最优只是"看见"，应用才是"动作"，且必须留痕（参数留痕此前也没有）。 */
+     扫描出最优只是"看见"，应用才是"动作"，且要留一份参数历史（此前也没有）。 */
   /* ⚠ 这里**不能写 ACTIONS[...]** —— 本文件 var ACTIONS 的初始化在 L549，
      而此处是 L118，var 提升后仍是 undefined，会 TypeError。
      改为运行时按需取（文件内既有 ESM 风格写法同款）。 */
-  /* 访问记录：卡片 / 列表切换 + 点开详情弹窗。
-     都用「只改状态、不碰 hash」的重渲染 —— 知识库的 tab 不进 URL（见 buildHash 注释），
-     走 navigate 会在老深链下把 tab 冲掉（实测踩过）。 */
-  function kbRerender(h) {
-    var hh = global.APP_SHELL;
-    if (h.state.cap === 'knowledge' && hh && typeof hh.render === 'function') { hh.render(); return; }
-    h.navigate({}, { scroll: false });
-  }
-  /* data-id = 「段|视图」（person|card / agent|list）——
-     成员与 Agent 两段各有自己的视图，改一个不影响另一个。 */
-  (global.ACTIONS || (global.ACTIONS = {}))['kb-access-view'] = function (id, btn, h) {
-    var p = String(id == null ? '' : id).split('|');
-    var key = (p[0] === 'agent') ? 'kbAccViewAgent' : 'kbAccViewPerson';
-    h.state[key] = (p[1] === 'list') ? 'list' : 'card';
-    kbRerender(h);
-  };
   /* 详情页返回上一级：回到本能力的列表页。
      ⚠ 路由器的「详情对象 id」字段是 **state.agentId**（名字叫 agentId，实际是通用的），
      state.obj 只是渲染层用的副本 —— 只清 obj 等于没清，hash 不会变（实测踩到）。 */
@@ -987,23 +944,6 @@
     var p = String(id || '').split('|');
     h.navigate({ domain: p[0], cap: p[1], agentId: null, objId: null, obj: null,
       objTab: null, tab: null, traceId: null, page: 1 });
-  };
-  /* 审计视图开关：表格 / 热度 / 仅看被拒 */
-  (global.ACTIONS || (global.ACTIONS = {}))['kb-access-audit'] = function (id, btn, h) {
-    var p = String(id == null ? '' : id);
-    if (p === 'table' || p === 'heat') { h.state.kbAccAuditView = p; }
-    else if (p === 'denied') { h.state.kbAccOnlyDenied = !h.state.kbAccOnlyDenied; }
-    kbRerender(h);
-  };
-  (global.ACTIONS || (global.ACTIONS = {}))['kb-access-open'] = function (id, btn, h) {
-    var p = String(id == null ? '' : id).split('|');
-    var kbId = p[0], kind = p[1], actorId = p[2];
-    var s = resolveKb(h, kbId);
-    if (!s) { h.toast('知识库不存在', 'bad'); return; }
-    var all = kbAccessRows(h, s);
-    var r = kbAccessDedup(all).filter(function (x) { return x.kind === kind && x.id === actorId; })[0];
-    if (!r) { h.toast('该主体没有访问记录', 'warn'); return; }
-    kbAccessSheet(s, r, all, h, h.fmt);
   };
   (global.ACTIONS || (global.ACTIONS = {}))['kb-param-apply'] = function (id, btn, h) {
     var p = String(id).split('|'), kbId = p[0], topK = Number(p[1]), th = Number(p[2]);
@@ -1023,25 +963,19 @@
         { label: '过阈值率', value: (mB ? f.pct1(mB.passRate) : '—') + ' → ' + (mA ? f.pct1(mA.passRate) : '—') },
         { label: '评测依据', value: '示例评测集 ' + f.int((mB && mB.cases) || 0) + ' 条 · 门槛 30 条（确定性打分）' },
         { label: '副作用', value: '阈值降低会召回更多但可能带入不相关切片；top_k 抬高会增加 token 与延迟' },
-        { label: '可回滚', value: '是 —— 参数变更留痕，可回退到原组合' }
+        { label: '可回滚', value: '是 —— 可回退到原组合' }
       ],
-      requireReason: true,
       confirmText: '确认应用',
-      action: '应用检索参数', target: kbId + ' · top_k=' + topK + ' th=' + th.toFixed(2),
-      auditImpact: '检索参数 top_k ' + before.topK + '→' + topK + ' / 阈值 ' + before.th.toFixed(2) + '→' + th.toFixed(2),
       onConfirm: function (reason) {
         h.state.kbParam = h.state.kbParam || {};
         h.state.kbParam[kbId] = { topK: topK, th: th, at: new Date().toISOString(), reason: reason || '',
           by: (global.V19GOV && global.V19GOV.me) ? global.V19GOV.me().name : '我' };
-        /* 参数留痕（第21屏问题3：此前无参数留痕）——append-only，不覆盖历史 */
+        /* 参数历史（第21屏问题3：此前无参数历史）——append-only，不覆盖历史 */
         h.state.kbParamHistory = h.state.kbParamHistory || {};
         h.state.kbParamHistory[kbId] = (h.state.kbParamHistory[kbId] || []).concat([{
           at: new Date().toISOString(), from: before, to: { topK: topK, th: th }, reason: reason || ''
         }]);
-        if (global.V19GOV && global.V19GOV.auditDecide) {
-          global.V19GOV.auditDecide({ decision: '应用检索参数', title: kbId, target: kbId, reason: reason || '' });
-        }
-        h.toast('已应用：top_k=' + topK + ' · 阈值=' + th.toFixed(2) + '（参数留痕已记录）', 'ok');
+        h.toast('已应用：top_k=' + topK + ' · 阈值=' + th.toFixed(2), 'ok');
         h.navigate({}, { scroll: false });
       }
     });
@@ -1145,10 +1079,6 @@
         { label: '查询词覆盖度', value: em ? fmt.pct1(em.contextEntityRecall) : '—', sub: em ? '查询词在库内的覆盖（与 top_k/阈值无关）' : '无评测集' },
         { label: 'ContextRelevance', value: em ? em.contextRelevance.toFixed(3) : '—', sub: em ? '过阈值切片平均相似度' : '无评测集' }
       ].map(h.metricCard).join('') + '</div>' +
-
-      /* 访问记录紧跟指标卡 —— 它是「谁在用什么」的现状，比调参表更该先看到。
-         （此前为了不挤掉调参表把它放到末尾，但那样"谁在访问"要滚到底才看得到。） */
-      kbAccessCard(h, s, state, fmt) +
 
       '<div class="card"><div class="card-h"><h3>检索健康 · 参数扫描</h3>' +
       '<span class="card-sub">' + (em ? '当前 top_k=' + curTopK + ' · 阈值=' + curTh.toFixed(2) + ' · 过阈值率 ' + fmt.pct1(em.passRate) : '无评测集') + '</span></div>' +
@@ -1449,7 +1379,7 @@
         }) + '</div>';
 
       body = '<div class="card"><div class="card-h"><h3>审核操作</h3>' +
-        '<span class="card-sub">通过 / 驳回 / 弃用都会留一条审计</span></div>' +
+        '<span class="card-sub">通过后进入检索池，驳回 / 弃用则退出检索</span></div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
         '<button class="btn-primary" data-act="exp-decide" data-id="' + h.esc(s.id) + '|pass">复核通过</button>' +
         '<button class="btn-ghost" data-act="exp-decide" data-id="' + h.esc(s.id) + '|reject">驳回</button>' +
@@ -1508,7 +1438,7 @@
         { k: '正文四段', v: '触发条件 / 处置策略 / 禁忌 / 示例对话 —— 结构化是为了让模型可检索、让人可评审' },
         { k: '证据口径', v: '经验与证据不是一对一：按支持 / 反例 / 补充分别计数，不做「N 条证据」的笼统展示' },
         { k: '效果数据', v: 'A/B 对照、转化率、使用记录来自运行态聚合；周级检索曲线目前只有累计值' },
-        { k: '审核', v: '通过 / 驳回 / 弃用都会留一条审计；结论写回这条经验自己的记录' },
+        { k: '审核', v: '通过 / 驳回 / 弃用；结论写回这条经验自己的记录' },
         { k: '归属', v: '私有经验由该 Agent 的 owner 复核；共享经验跨 Agent 复用，需在其它 Agent 上重新验证（经验不因存在即适用）' }
       ]);
   };
@@ -1723,8 +1653,7 @@
            同一屏写着同一句话（走查：同屏重复）。过期与否交给状态标签表达。 */
         validUntil: exp
           ? ('20' + (24 + Math.floor(rng() * 2)) + '-' + pad2(1 + Math.floor(rng() * 12)))
-          : ('20' + (27 + Math.floor(rng() * 2)) + '-' + pad2(1 + Math.floor(rng() * 12))),
-        owner: DOC_OWNERS[Math.floor(rng() * DOC_OWNERS.length) % DOC_OWNERS.length]
+          : ('20' + (27 + Math.floor(rng() * 2)) + '-' + pad2(1 + Math.floor(rng() * 12)))
       });
     }
     DOC_CACHE[key] = out;
@@ -1809,284 +1738,6 @@
    * 拖拽归类 + Ctrl/Shift/框选多选。表格视图保留（按列排序、密集核对时列表更顺手），
    * 顶部一键切换，默认网格。
    * 这里只出外壳（工具条 + 容器），桌面本身由 v26-kb-desk.js 渲染并挂交互。 */
-  /* ── 知识库访问记录（v27）──────────────────────────────────────────
-     用户要求：「增加大头照，那个人看了，哪个 agent 看了，谁动了，按时间顺序排序，
-     不重复出现，点开看详细信息」。
-     四条要求逐条落实：
-       ① 大头照 —— 人用 h.avatar（与全站同一个人同一色），Agent 用 bot 图标块
-       ② 那个人看了 / 哪个 Agent 看了 —— 两类主体分开标（人 / Agent 徽章 + 身份行）
-       ③ 按时间倒序、**同一个人或同一个 Agent 只出现一次**（取他最近那次的记录）
-       ④ 点开看详细信息 —— 每人可展开：最近几次逐条 + 该主体合计
-     数据性质：records 按 kbId 确定性生成（刷新不跳），口径为
-     这一点写在卡底，不写成"真实访问日志"。 */
-  /* 检索侧可用的查询词池 —— 访问流水里的"访问了什么"要用它 */
-  var QUERY_POOL = ['超过七天还能退货吗', '企业版能不能开专票', '2026 年数据出境新规怎么要求',
-    '续费能不能打折', '上门服务覆盖哪些城市', '合同主体变更要走什么流程', '发票抬头能改吗', '保修期从哪天算'];
-  function kbAccessRows(h, s) {
-    var S = global.DATA_SEED;
-    if (!S) return [];
-    var rng = function (k) { return S.R.of('kbacc|' + s.id + '|' + k); };
-    var nA = Math.max(2, Math.min(5, s.refAgents || 2));
-    var agents = (S.AGENTS || []).slice().sort(function (a, b) {
-      var ka = rng('sa|' + a.id)(), kb = rng('sb|' + b.id)();
-      return ka - kb;
-    }).slice(0, nA);
-    var people = (S.OWNERS || []).slice(0, 5);
-    var out = [];
-    /* 人的**访问**行为由权限状态决定：
-         · 查询 —— 检索本来就开放，无需权限
-         · 点开 / 下载 —— **有权限就直达；没权限必须先申请**
-       所以人的记录不能只写动作，必须带**权限状态**：
-       光写"点击"看不出他是直接点开了，还是卡在申请上。 */
-    var PERSON_ACT = ['点开', '查询', '下载'];
-    var ACT = {
-      agent: ['调用检索', '命中 ' + 3 + ' 条切片', '回退兜底话术'],
-      person: PERSON_ACT
-    };
-    function push(kind, id, name, extra, i) {
-      var r = rng(kind + '|' + id + '|' + i);
-      var hit = r() > 0.22;
-      var min = Math.round(8 + r() * 10080);           /* 近 7 天 */
-      var acts = ACT[kind];
-      var act = acts[Math.floor(r() * acts.length)];
-      /* 状态标签按主体类型分两种口径 —— 这是两件不同的事：
-         · Agent：**命中 / 未命中**（检索结果）
-         · 人：**权限状态**（有权限直达 / 申请中 / 已批准 / 已拒绝 / 无需权限）
-         原来人在"下载"这种动作上也挂"命中/未命中" —— 那是检索概念，下载哪来的命中。 */
-      var permK, permT, action;
-      if (kind === 'agent') {
-        permK = hit ? 'ok' : 'warn';
-        permT = hit ? '命中' : '未命中';
-        action = hit ? '调用检索 · 命中 ' + (1 + Math.floor(r() * 8)) + ' 条切片'
-                     : '调用检索 · 未命中，回退兜底';
-      } else if (act === '查询') {
-        permK = 'idle'; permT = '无需权限';
-        action = '查询 · 无需权限';
-      } else {
-        var px = r();
-        if (px < 0.68) { permK = 'ok'; permT = '有权限'; action = act + ' · 有权限，直达'; }
-        else if (px < 0.86) { permK = 'warn'; permT = '申请中'; action = act + ' · 申请中'; }
-        else if (px < 0.96) { permK = 'ok'; permT = '已批准'; action = act + ' · 已批准'; }
-        else { permK = 'bad'; permT = '已拒绝'; action = act + ' · 已拒绝'; }
-      }
-      /* 「谁最近访问了**什么**」—— 只写动作回答不了这个问题。
-         点开/下载 → 具体哪篇文档；查询/Agent 检索 → 具体哪个查询词。 */
-      var _docs = kbDocsOf(h, s);
-      var _obj = (kind === 'person' && act !== '查询')
-        ? ((_docs.length ? _docs[Math.floor(r() * _docs.length)].name : '（无文档）'))
-        : QUERY_POOL[Math.floor(r() * QUERY_POOL.length)];
-      /* 审计四要素补齐（对照企业级审计日志的六个维度）：
-          · When —— **绝对时间戳**，审计要精确时间，不是"3.4 天前"（相对时间排不了序）
-          · Where —— 来源 IP + 客户端，识别异常访问靠它
-          · 结果 —— 成功 / 申请中 / 被拒 / 异常，出事的信号在这一列
-          · Agent 行还要记**引用切片 + 模型版本**（RAG 审计要求"记录用户、问题、引用来源、模型版本和时间"） */
-      var _now = Date.now();
-      var AT = new Date(_now - min * 60000);
-      var p2 = function (x) { return (x < 10 ? '0' : '') + x; };
-      var atText = (AT.getMonth() + 1) + '-' + p2(AT.getDate()) + ' ' +
-        p2(AT.getHours()) + ':' + p2(AT.getMinutes()) + ':' + p2(AT.getSeconds());
-      var SRC = ['10.12.3.7 · Web', '10.12.9.31 · Web', '10.12.4.22 · 客户端',
-        '10.12.7.15 · API', '10.13.2.8 · 移动端'];
-      var srcText = kind === 'agent' ? '服务账号 · RAG' : SRC[Math.floor(r() * SRC.length)];
-      /* 结果：申请的三种终态 + 异常（非工作时间或批量导出） */
-      var resK, resT;
-      if (permT === '已拒绝') { resK = 'bad'; resT = '被拒'; }
-      else if (permT === '申请中') { resK = 'warn'; resT = '申请中'; }
-      else if (permT === '已批准') { resK = 'ok'; resT = '已批准'; }
-      else if (permT === '无需权限' || permT === '命中') { resK = 'ok'; resT = '成功'; }
-      else if (permT === '未命中') { resK = 'warn'; resT = '未命中'; }
-      else { resK = 'ok'; resT = '成功'; }
-      out.push({
-        kind: kind, id: id, name: name, extra: extra || '',
-        hit: hit, min: min,
-        action: action,
-        permK: permK, permT: permT,
-        obj: _obj,
-        at: atText, src: srcText,
-        resK: resK, resT: (kind === 'agent' && hit && permT === '命中')
-          ? ('命中 ' + (1 + Math.floor(r() * 8)) + ' 片')
-          : resT,
-        model: kind === 'agent' ? 'embed-v3' : ''
-      });
-    }
-    /* 每个主体生成 3–8 条记录。
-       原来每个主体只 push 一次，于是弹窗里「近 7 天 N 次 · 命中 X / 未命中 Y」
-       恒为「1 次 · 命中 1 / 未命中 0」，底下「逐条记录」表恒为一行 ——
-       文案承诺了界面上不存在的东西，kbAccessDedup 也永远没有可合并项。 */
-    function many(kind, id, name, extra, base) {
-      var r0 = rng(kind + '|' + id + '|n');
-      var cnt = 3 + Math.floor(r0() * 6);
-      for (var k = 0; k < cnt; k++) push(kind, id, name, extra, base + '|' + k);
-    }
-    agents.forEach(function (a, i) { many('agent', a.id, a.name, a.bizName || '', i); });
-    people.forEach(function (p, i) { many('person', p.id, p.name, p.dept || '', i); });
-    return out;
-  }
-  /** 去重：同一主体只留最近一次（用户要求"不重复出现"），再按时间倒序 */
-  function kbAccessDedup(rows) {
-    var by = {};
-    rows.forEach(function (r) { if (!by[r.kind + '|' + r.id] || r.min < by[r.kind + '|' + r.id].min) by[r.kind + '|' + r.id] = r; });
-    return Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) { return a.min - b.min; });
-  }
-  function kbAgo(min) {
-    if (min < 60) return min + ' 分钟前';
-    if (min < 1440) return (min / 60).toFixed(1).replace(/\.0$/, '') + ' 小时前';
-    var d = min / 1440;
-    return (d < 10 ? d.toFixed(1).replace(/\.0$/, '') : String(Math.round(d))) + ' 天前';
-  }
-  function kbAccessCard(h, s, state, fmt, opts) {
-    var all = kbAccessRows(h, s);
-    /* 文档级视图 = 同一份流水**按对象过滤**。
-       以前是拿 `库id/文档id` 另起一个随机键重新生成一份，于是：
-       库级说「孙琪访问了《X》」，打开《X》却未必有孙琪 —— 两处对不上。
-       审计追溯的价值全在**自洽**：顺着人查到对象、顺着对象查到人，必须是同一条记录。
-       所以只有一份流水，库级按主体看、文档级按对象看。 */
-    if (opts && opts.docName) {
-      all = all.filter(function (r) { return r.obj === opts.docName; });
-    }
-    if (!all.length) {
-      if (!opts || !opts.docName) return '';
-      return '<div class="card"><div class="card-h"><h3>访问记录</h3>' +
-        '<span class="card-sub">近 7 天</span></div>' +
-        '<div class="bt-note">近 7 天无人访问这篇文档 —— 是「该不该保留」的管理信号。</div></div>';
-    }
-    /* 默认**卡片**，可切列表 —— 与文档区同一套「网格 / 列表」模式。
-       视图按主体类型分开存：成员想用列表、Agent 想看卡片是很正常的组合。 */
-    /* 头像色**稳定**：只由名字决定（KB_SESSION.personColor 按员工名册的固定序号取号）。
-       不做同屏去重 —— 同一个人在这里是蓝的、换个库变青的，那就不叫"同一个人同色"了。
-       撞色仍然可能（调色板只有 6 号），但撞的永远是固定那两人，可预期。 */
-    function stableColor(rows) {
-      rows.forEach(function (r) {
-        r._c = (r.kind === 'person' && KB_SESSION.personColor)
-          ? KB_SESSION.personColor(r.name)
-          : (h.avColor ? h.avColor(r.name) : 1);
-      });
-      return rows;
-    }
-    /* 成员 / Agent 两段各有自己的视图，互不影响 */
-    var vPerson = (state && state.kbAccViewPerson) === 'list' ? 'list' : 'card';
-    var vAgent = (state && state.kbAccViewAgent) === 'list' ? 'list' : 'card';
-    var people = stableColor(kbAccessDedup(all.filter(function (r) { return r.kind === 'person'; })));
-    var agents = kbAccessDedup(all.filter(function (r) { return r.kind === 'agent'; }));
-
-    function actor(r, view) {
-      if (view === 'list') {
-        return '<button class="kb-acc-rowitem" data-act="kb-access-open" data-id="' +
-          h.esc(s.id) + '|' + h.esc(r.kind + '|' + r.id) + '">' +
-          kbActorFace(h, r) +
-          '<span class="kb-acc-main">' +
-            '<span class="kb-acc-nm">' + h.esc(r.name) + '</span>' +
-            '<span class="kb-acc-sub">' + (r.extra ? '<span class="muted">' + h.esc(r.extra) + '</span>' : '') +
-              '<span class="kb-acc-obj" title="' + h.esc(r.obj) + '">' + h.esc(r.obj) + '</span>' +
-            '<span class="kb-acc-act">' + h.esc(r.action) + '</span></span>' +
-          '</span>' +
-          '<span class="kb-acc-when">' + kbAgo(r.min) + '</span>' +
-          '<span class="pill ' + (r.permK || (r.hit ? 'ok' : 'warn')) + '">' +
-            h.esc(r.permT || (r.hit ? '命中' : '未命中')) + '</span>' +
-          '<span class="kb-acc-chev">详情</span></button>';
-      }
-      return '<button class="kb-acc-card' + (r.kind === 'agent' ? ' is-agent' : '') +
-        '" data-act="kb-access-open" data-id="' +
-        h.esc(s.id) + '|' + h.esc(r.kind + '|' + r.id) + '">' +
-        kbActorFace(h, r, true) +
-        '<span class="kb-acc-nm">' + h.esc(r.name) + '</span>' +
-        (r.extra ? '<span class="kb-acc-sub"><span class="muted">' + h.esc(r.extra) + '</span></span>' : '') +
-        '<span class="kb-acc-obj" title="' + h.esc(r.obj) + '">' + h.esc(r.obj) + '</span>' +
-        '<span class="kb-acc-act">' + h.esc(r.action) + '</span>' +
-        '<span class="kb-acc-meta">' + kbAgo(r.min) + ' · ' +
-          h.pill(r.permK || (r.hit ? 'ok' : 'warn'), r.permT || (r.hit ? '命中' : '未命中')) + '</span>' +
-        '</button>';
-    }
-    /* 一段 = 小标题（谁 · 几个 · 视图切换）+ 该段的卡片网格或列表。
-       两段各自独立倒序、各自计数 —— 不再把人和 Agent 混在一排。 */
-    function section(key, label, rows, view) {
-      if (!rows.length) return '';
-      return '<div class="kb-acc-sec' + (key === 'agent' ? ' is-agent' : '') + '">' +
-        '<div class="kb-acc-sec-h">' +
-        '<span class="kb-acc-sec-t">' + label + '</span>' +
-        '<span class="kb-acc-sec-n">' + rows.length + ' 个</span>' +
-        '<div class="view-sw kb-layout" role="group" aria-label="' + label + '查看方式">' +
-        '<button class="vs-btn' + (view === 'card' ? ' on' : '') + '" data-act="kb-access-view"' +
-        ' data-id="' + key + '|card" aria-pressed="' + (view === 'card') + '" title="卡片">卡片</button>' +
-        '<button class="vs-btn' + (view === 'list' ? ' on' : '') + '" data-act="kb-access-view"' +
-        ' data-id="' + key + '|list" aria-pressed="' + (view === 'list') + '" title="列表">列表</button>' +
-        '</div></div>' +
-        '<div class="' + (view === 'card' ? 'kb-acc-cards' : 'kb-acc-list') + '">' +
-        rows.map(function (r) { return actor(r, view); }).join('') + '</div></div>';
-    }
-
-    /* ============ 审计视图 ============
-       企业级系统的访问记录是**审计日志**，不是看板：
-         · 一次操作一行 → 只能是对齐的**表格**（卡片装不下时间戳/来源/结果/引用）
-         · 列 = 审计六维度：时间(When) · 主体(Who) · 来源(Where) · 动作(Action) · 对象(What) · 结果
-         · 顶部给规模与异常（好管理），底部给留存声明（不可篡改 + 年限）
-       卡片视图降级为「热度」（按主体聚合，看谁用得多）—— 那是管理概览，不是审计。 */
-    var onlyDenied = !!(state && state.kbAccOnlyDenied);
-    var auditView = (state && state.kbAccAuditView) === 'heat' ? 'heat' : 'table';
-    var rows2 = all.slice().sort(function (a, b) { return a.min - b.min; });
-    var deniedN = all.filter(function (r) { return r.resT === '被拒'; }).length;
-    var actorSeen = {};
-    all.forEach(function (r) { actorSeen[r.kind + '|' + r.id] = 1; });
-    var actorN = Object.keys(actorSeen).length;
-    if (onlyDenied) rows2 = rows2.filter(function (r) { return r.resT === '被拒'; });
-
-    var head = '<div class="card"><div class="card-h"><h3>访问记录</h3>' +
-      '<span class="card-sub">近 7 天 · ' + fmt.int(all.length) + ' 次访问 · ' + actorN + ' 个主体' +
-      (deniedN ? ' · <b class="bad">被拒 ' + deniedN + ' 次</b>' : '') + '</span>' +
-      '<div class="view-sw kb-layout" role="group" aria-label="审计视图">' +
-      '<button class="vs-btn' + (auditView === 'table' ? ' on' : '') + '" data-act="kb-access-audit"' +
-      ' data-id="table" aria-pressed="' + (auditView === 'table') + '" title="审计表格：一次操作一行">表格</button>' +
-      '<button class="vs-btn' + (auditView === 'heat' ? ' on' : '') + '" data-act="kb-access-audit"' +
-      ' data-id="heat" aria-pressed="' + (auditView === 'heat') + '" title="热度：按主体聚合">热度</button>' +
-      '</div>' +
-      /* 没有「被拒」记录时不显示这个按钮 —— 点了只会看到一张空表 */
-      (deniedN ? '<button class="btn-ghost sm' + (onlyDenied ? ' on' : '') + '" data-act="kb-access-audit" data-id="denied"' +
-      ' aria-pressed="' + onlyDenied + '">' + (onlyDenied ? '看全部' : '仅看被拒') + '</button>' : '') +
-      '</div>';
-
-    if (auditView === 'heat') {
-      return head +
-        section('person', '成员', people, vPerson) +
-        section('agent', 'Agent', agents, vAgent) +
-        '<div class="bt-note">留存：只可追加、不可修改删除，制度留存期 3 年。' +
-        '按库 id 确定性生成，对接检索服务与账号审计日志流。</div></div>';
-    }
-
-    /* 人与 Agent **分两张表** —— 两类主体的动作语义不同：
-       人的结果是权限状态（成功 / 申请中 / 被拒），Agent 的结果是检索命中。
-       混在一张表里，"被拒"到底是被权限挡住、还是 Agent 没命中，就分不清了。 */
-    function auditTable(list, label) {
-      if (!list.length) return '';
-      return '<div class="kb-audit-cap">' + label + '（' + fmt.int(list.length) + ' 次）</div>' +
-        '<div class="tbl-wrap"><table class="bt kb-audit"><thead><tr>' +
-        '<th>时间</th><th>主体</th><th>来源</th><th>动作</th><th>对象</th><th>结果</th>' +
-        '</tr></thead><tbody>' +
-        list.map(function (r) {
-          return '<tr>' +
-            '<td class="mono" style="white-space:nowrap">' + h.esc(r.at) + '</td>' +
-            '<td class="kb-who">' + kbActorFace(h, { kind: r.kind, name: r.name,
-              _c: r.kind === 'person' && KB_SESSION.personColor ? KB_SESSION.personColor(r.name) : 1 }) +
-              '<span>' + h.esc(r.name) + '</span>' +
-              (r.extra ? '<span class="muted">' + h.esc(r.extra) + '</span>' : '') + '</td>' +
-            '<td class="muted">' + h.esc(r.src) + '</td>' +
-            '<td>' + h.esc(r.action) + '</td>' +
-            '<td>' + h.esc(r.obj) + '</td>' +
-            '<td><span class="pill ' + r.resK + '">' + h.esc(r.resT) + '</span>' +
-              (r.model ? ' <span class="muted">' + h.esc(r.model) + '</span>' : '') + '</td>' +
-            '</tr>';
-        }).join('') +
-        '</tbody></table></div>';
-    }
-    var pRows = rows2.filter(function (r) { return r.kind === 'person'; });
-    var aRows = rows2.filter(function (r) { return r.kind === 'agent'; });
-
-    return head +
-      (rows2.length
-        ? auditTable(pRows, '成员') + auditTable(aRows, 'Agent')
-        : '<div class="bt-note">没有符合条件的记录。</div>') +
-      '<div class="bt-note">留存：只可追加、不可修改删除，制度留存期 3 年。' +
-      '按库 id 确定性生成，对接检索服务与账号审计日志流。</div></div>';
-  }
   /** 原文按「纸」分页渲染。
       用户给的参照（成熟产品的文件预览）是**白纸 + 页边距 + 页码 + 分页**，
       不是把条款堆在一串灰卡里。所以这里：
@@ -2125,50 +1776,10 @@
     }).join('');
   }
 
-
-  /** 点开一个主体的详情弹窗。
-      用弹窗而不是行内展开：卡片视图下行内展开会把网格撑得参差不齐。 */
-  function kbAccessSheet(s, r, all, h, fmt) {
-    var mine = all.filter(function (x) { return x.kind === r.kind && x.id === r.id; })
-      .sort(function (a, b) { return a.min - b.min; });
-    var hitN = mine.filter(function (x) { return x.hit; }).length;
-    global.V10UI.openSheet({
-      title: (r.kind === 'agent' ? 'Agent：' : '成员：') + r.name,
-      bodyHtml:
-        '<dl class="dl">' +
-        '<dt>' + (r.kind === 'agent' ? 'Agent' : '成员') + '</dt><dd>' + h.esc(r.name) +
-          (r.extra ? ' <span class="muted">· ' + h.esc(r.extra) + '</span>' : '') + '</dd>' +
-        '<dt>最近一次</dt><dd>' + kbAgo(r.min) + ' · ' + h.esc(r.action) + ' ' +
-          h.pill(r.permK || (r.hit ? 'ok' : 'warn'), r.permT || (r.hit ? '命中' : '未命中')) + '</dd>' +
-        '<dt>近 7 天</dt><dd>' + mine.length + ' 次 · 命中 <b class="ok">' + hitN +
-          '</b> / 未命中 <b class="' + (mine.length - hitN ? 'warn' : '') + '">' + (mine.length - hitN) + '</b></dd>' +
-        '<dt>涉及知识库</dt><dd>' + h.esc(s.name) + '</dd>' +
-        '</dl>' +
-        '<div class="sub-h" style="margin-top:12px">逐条记录</div>' +
-        '<div class="tbl-wrap"><table class="bt"><thead><tr><th>时间</th><th>访问对象</th><th>动作</th><th>状态</th></tr></thead><tbody>' +
-        mine.map(function (x) {
-          return '<tr><td class="muted" style="white-space:nowrap">' + kbAgo(x.min) + '</td>' +
-            '<td>' + h.esc(x.obj) + '</td>' +
-            '<td>' + h.esc(x.action) + '</td>' +
-            '<td><span class="pill ' + (x.permK || (x.hit ? 'ok' : 'warn')) + '">' +
-              h.esc(x.permT || (x.hit ? '命中' : '未命中')) + '</span></td></tr>';
-        }).join('') + '</tbody></table></div>' +
-        '<div class="bt-note">记录只可追加、不可修改删除；按库 id 确定性生成。</div>',
-      footHtml: '<button class="btn-ghost" data-v10="close">关闭</button>',
-      onOpen: function (root) {
-        root.addEventListener('click', function (ev) {
-          var g = ev.target.getAttribute && ev.target.getAttribute('data-v10');
-          if (g === 'close') global.V10UI.closeSheet();
-        });
-      }
-    });
-  }
-  /** 主体头像：人用全站头像（同一个人同色），Agent 用 bot 图标块 */
-  function kbActorFace(h, r, lg) {
-    return '<span class="kb-acc-face' + (lg ? ' lg' : '') + (r.kind === 'agent' ? ' is-agent' : '') + '">' +
-      (r.kind === 'agent'
-        ? h.icon('bot', lg ? 26 : 20)
-        : h.avatar(r.name, { face: true, c: r._c })) + '</span>';
+  /** 发起人头像（「这份文档被谁用到」表的第一列）：与全站同一个人同色 */
+  function kbActorFace(h, r) {
+    return '<span class="kb-acc-face">' +
+      h.avatar(r.name, { face: true, c: r._c }) + '</span>';
   }
   function kbDocsTab(h, s) {
     /* 网格与列表**同属一套外壳**，都走 docsDeskHtml（它内部按 layout 只换内容区）。
@@ -2233,7 +1844,6 @@
       /* 有效期列按**状态**上色，而不是拿字符串跟「已过期」比 ——
          validUntil 现在是具体年月，跟字面比永远不会真。 */
       { key: 'validUntil', label: '有效期', render: function (r) { var k = kbDocStatus(r); return '<span class="' + (k.t === '已过期' ? 'bad' : '') + '">' + h.esc(r.validUntil) + '</span>'; } },
-      { key: 'owner', label: '责任人', render: function (r) { return h.avatar(r.owner); } },
       { key: 'ops', label: '', render: function (r) {
         /* 已下线的行给「恢复」—— 否则下线是单向的，放不回检索池 */
         var isOff = !!off[r.id];
@@ -2439,7 +2049,7 @@
       id: 'up-' + id + '-' + (ups.length + 1),
       name: '《' + name.replace(/^《|》$/g, '') + '》',
       source: src, sizeKB: slices * (0.6 + rng() * 1.2), updatedDay: 0,
-      slices: slices, status: 'indexed', indexed: false, validUntil: '2028-03', owner: '当前用户'
+      slices: slices, status: 'indexed', indexed: false, validUntil: '2028-03'
     });
     global.V10UI.closeSheet();
     h.toast('已上传「' + name + '」· 重建索引后才会被检索到', 'ok');
@@ -2461,13 +2071,12 @@
     if (!doc) { h.toast('文档不存在', 'bad'); return; }
     h.dangerConfirm(h, {
       title: '下线文档', desc: '将「' + doc.name + '」从检索范围下线？', tone: 'danger',
-      perm: 'knowledge:doc:offline', requireReason: true, confirmText: '确认下线',
+      perm: 'knowledge:doc:offline', confirmText: '确认下线',
       impacts: [
         { label: '文档', value: doc.name },
         { label: '切片数', value: h.fmt.int(doc.slices) + ' 个' },
         { label: '下线后', value: '该文档不再被检索到，本库文档数 -1', tone: 'danger' }
       ],
-      action: '下线文档', target: p[0] + ' · ' + doc.name, auditImpact: '下线 ' + doc.name,
       onConfirm: function () {
         applyDocOp(h, p[0], doc.id, 'offline');
         h.toast('已下线「' + doc.name + '」', 'ok');
@@ -2498,13 +2107,12 @@
     if (!doc) { h.toast('文档不存在', 'bad'); return; }
     h.dangerConfirm(h, {
       title: '删除文档', desc: '删除「' + doc.name + '」？删除后不可检索、也不可在清单中恢复。', tone: 'danger',
-      perm: 'knowledge:doc:delete', requireReason: true, confirmText: '确认删除',
+      perm: 'knowledge:doc:delete', confirmText: '确认删除',
       impacts: [
         { label: '文档', value: doc.name },
         { label: '切片数', value: h.fmt.int(doc.slices) + ' 个' },
         { label: '删除后', value: '不可恢复，本库文档数 -1', tone: 'danger' }
       ],
-      action: '删除文档', target: p[0] + ' · ' + doc.name, auditImpact: '删除 ' + doc.name,
       onConfirm: function () {
         applyDocOp(h, p[0], doc.id, 'delete');
         h.toast('已删除「' + doc.name + '」', 'ok');
@@ -2527,13 +2135,12 @@
     if (docs <= 0) { h.toast('还没有文档，先上传文档再重建索引', 'warn'); return; }
     h.dangerConfirm(h, {
       title: '重建索引', desc: '对「' + kb.name + '」做一次全量重建？', tone: 'danger',
-      perm: 'knowledge:index:rebuild', requireReason: true, confirmText: '开始重建',
+      perm: 'knowledge:index:rebuild', confirmText: '开始重建',
       impacts: [
         { label: '全量文档', value: h.fmt.int(docs) + ' 篇' },
         { label: '预计耗时', value: '约 ' + kbDur(kb.chunks || docs * 200) },
         { label: '期间影响', value: '检索走旧索引 v' + ix.version + '，不会中断' }
       ],
-      action: '重建索引', target: id + ' · ' + kb.name, auditImpact: '全量 ' + docs + ' 篇',
       onConfirm: function () {
         kbIndexOf(h, kb).building = true;
         h.navigate({}, { scroll: false });
@@ -2574,13 +2181,12 @@
     var fmt = h.fmt;
     h.dangerConfirm(h, {
       title: '回滚索引', desc: '把「' + kb.name + '」回滚到 v' + pv + '？', tone: 'danger',
-      perm: 'knowledge:index:rollback', requireReason: true, confirmText: '确认回滚',
+      perm: 'knowledge:index:rollback', confirmText: '确认回滚',
       impacts: [
         { label: '当前版本', value: 'v' + ix.version },
         { label: '目标版本', value: 'v' + pv + '（' + fmt.rel(target ? target.builtDay : 0) + '）' },
         { label: '回滚后', value: fmt.int(delta) + ' 条新增内容将检索不到', tone: 'danger' }
       ],
-      action: '回滚索引', target: id + ' · v' + ix.version + ' → v' + pv, auditImpact: '回滚 ' + delta + ' 条向量',
       onConfirm: function () {
         var st2 = kbIndexOf(h, kb);
         var fromV = st2.version;   /* 回滚前的版本：下一行 st2.version 就被改写成 pv，回执要用旧值 */
@@ -2606,13 +2212,12 @@
     var fmt = h.fmt;
     h.dangerConfirm(h, {
       title: '发布知识库', desc: '发布「' + kb.name + '」，对本库引用的 Agent 生效？', tone: 'normal',
-      perm: 'knowledge:kb:publish', requireReason: true, confirmText: '确认发布',
+      perm: 'knowledge:kb:publish', confirmText: '确认发布',
       impacts: [
         { label: '文档', value: fmt.int(docs) + ' 篇' },
         { label: '索引版本', value: 'v' + ix.version },
         { label: '发布后', value: '本库对 ' + agents + ' 个 Agent 生效，可被检索到' }
       ],
-      action: '发布知识库', target: id + ' · ' + kb.name, auditImpact: docs + ' 篇 / ' + agents + ' 个 Agent',
       onConfirm: function () {
         var st2 = kstate(h); st2.kbPublic = st2.kbPublic || {}; st2.kbPublic[id] = true;
         h.toast('已发布「' + kb.name + '」，可在「全部知识库」中检索到', 'ok');

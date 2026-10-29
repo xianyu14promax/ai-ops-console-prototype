@@ -351,7 +351,6 @@
     var tn = m.tenant || '—';
     for (var i = 0; i < tenants.length; i++) if (tenants[i].id === m.tenant) tn = tenants[i].name;
     var sess = countByPrefix('aiops:v27:sessions:');
-    var audit = countArr('aiops:v10:audit');
     var tabs = countArr('aiops:v10:tabs');
     var ses = m.session || {}, left = (ses.ttlMin || 0) - (ses.issuedMin || 0);
     return '<div class="stp-sec">' +
@@ -823,7 +822,6 @@
         '<div class="stp-card">' +
           row('本机数据', esc(st.n + ' 个键 · ' + (st.bytes / 1024).toFixed(1) + ' KB')) +
           row('会话记录', esc(countByPrefix('aiops:v27:sessions:') + ' 条'), true) +
-          row('审计流水', esc(countArr('aiops:v10:audit') + ' 条'), true) +
           row('打开的页签', esc(countArr('aiops:v10:tabs') + ' 个'), true) +
           /* 供应商算内存里的实际条数：没动过时来自种子，还没落盘，按 localStorage 数会显示 0 */
           row('模型供应商', esc(provLoad().list.length + ' 条'), true) +
@@ -832,7 +830,7 @@
           '<span class="stp-sd">把 aiops:* 的键连值导成一个 JSON 文件，可以留档，也可以换台机器对照。</span></span>' +
           '<button type="button" class="stp-btn" data-st-export="1">导出 JSON</button></div>' +
         '<div class="stp-set" data-st-box="1"><span><span class="stp-stt">清空本机数据</span>' +
-          '<span class="stp-sd">会话、审计、页签、供应商配置一起清掉；界面偏好保留。两步确认，不可撤销。</span></span>' +
+          '<span class="stp-sd">会话、页签、供应商配置一起清掉；界面偏好保留。两步确认，不可撤销。</span></span>' +
           '<button type="button" class="stp-btn dg" data-st-reset="1">清空</button></div>' +
         '<div class="stp-note" data-st-status="1"></div>' +
         '<div class="stp-note">全部数据只在本机浏览器，没有任何一条离开过这台机器。</div>' +
@@ -864,7 +862,7 @@
   ];
 
   /* 清掉本原型写下的所有本地状态。前缀 aiops: 是本项目唯一的本地存储命名空间
-     （会话记录 aiops:v27/v28、审计与页签 aiops:v10、问卷标记 aiops:sv/iv…），
+     （会话记录 aiops:v27/v28、页签 aiops:v10、问卷标记 aiops:sv/iv…），
      但**设置本身（aiops:v40:prefs）留着** —— 重置数据不该顺手把人的界面偏好也抹了。 */
   function clearDemoState() {
     var killed = 0;
@@ -1224,7 +1222,7 @@
             if (btn.getAttribute('data-st-armed') !== '1') {
               btn.setAttribute('data-st-armed', '1');
               btn.textContent = '再点一次确认';
-              if (status) { status.style.color = 'var(--red)'; status.textContent = '这一步不可撤销：本地会话与审计记录会被清空。'; }
+              if (status) { status.style.color = 'var(--red)'; status.textContent = '这一步不可撤销：本地会话记录会被清空。'; }
               return;
             }
             var n = clearDemoState();

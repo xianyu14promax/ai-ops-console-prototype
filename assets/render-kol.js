@@ -410,7 +410,7 @@
         deals.map(function (d) {
           var stage = K.STAGES.filter(function (s) { return s.id === d.stage; })[0];
           return '<div class="deal-block"><div class="deal-h"><b>' + h.esc(stage ? stage.name : d.stage) + '</b>' +
-            '<span>' + h.esc(d.formName) + ' · ¥' + d.budget.toLocaleString('zh-CN') + ' · 负责人 ' + h.esc(Q.ownerName(d.owner)) + '</span></div>' +
+            '<span>' + h.esc(d.formName) + ' · ¥' + d.budget.toLocaleString('zh-CN') + '</span></div>' +
             '<div class="deal-next">下一步：' + h.esc(d.nextAction) + '</div>' +
             (d.blocker ? '<div class="bt-warn">⚠ 阻塞：' + h.esc(d.blocker) + '</div>' : '') +
             (d.liveMetrics ? '<div class="deal-live">已发布 ' + d.liveMetrics.daysSince + ' 天（归因窗口 ' + d.liveMetrics.windowDays + ' 天）：曝光 ' +
@@ -433,7 +433,7 @@
       '区间宽度反映样本量：合作次数越少，区间越宽，预期越不可信。' +
       (f.confidence === 'low' ? '当前仅 ' + f.deals + ' 次合作，建议小额试投而非全额投入。' : '') + '</div></div>' +
 
-      '<div class="card"><div class="card-h"><h3>ROI 审计</h3>' +
+      '<div class="card"><div class="card-h"><h3>ROI 核算</h3>' +
       '<span class="card-sub">ROI 不能是黑盒数字 —— 公式与每项来源都摊开</span></div>' +
       '<div class="audit-formula">' + h.esc(audit.formula) + '</div>' +
       h.table({

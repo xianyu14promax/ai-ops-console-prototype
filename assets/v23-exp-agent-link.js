@@ -113,7 +113,7 @@
      * 「改经验的适用域」是一个独立的高危动作：它把一条只对某 Agent 验证过的东西，
      * 放进了其它 Agent 的检索池。既有的 llm-exp:entry:* 里没有这一条，
      * 不登记的话 checkPerm 会走到「 Razwei 无此权限」的拒绝页 —— 动作装了等于没装。
-     * 登记成 high：强制填理由 + 留审计。
+     * 登记成 high：改适用域前必须过一次确认。
      *
      * ⚠ 该权限点已登记在 seed.js 的 PERM_POINTS；这里的 push 是兜底（带 has 判断，不会重复）。
      */
@@ -140,7 +140,7 @@
      * 所以升级后必须重新验证，不能立刻全池生效。
      *
      * dangerConfirm 只支持单个 reason 输入，所以目标 Agent 选择用一个独立的 sheet 承接，
-     * 两段各自校验、各自留痕；不硬塞 form（本体没这能力）。
+     * 两段各自校验；不硬塞 form（本体没这能力）。
      */
     ACTIONS['exp-upgrade-shared'] = function (id, btn, h) {
       var fmt = h.fmt;
@@ -191,7 +191,7 @@
           listHtml +
           '<div class="err" data-v23="err" style="display:none;color:#dc2626;font-size:12.5px;margin-top:6px">至少选一个 Agent</div>' +
           '<div class="bt-note" style="margin-top:10px">默认勾的是同业务线的 Agent（场景最像），但这只是默认值、不是验证结论 —— ' +
-          '每一步「升级」都必须由原 owner 提交理由并留审计。</div>',
+          '每一步「升级」都必须由原 owner 确认。</div>',
         footHtml: '<button class="btn-ghost" data-v23="cancel">取消</button>' +
           '<button class="btn-primary" data-v23="next">下一步：填升级理由</button>',
         onOpen: function (root) {
@@ -222,13 +222,9 @@
         impacts: [
           { label: '共享给', value: names.join('、') + '（' + names.length + ' 个 Agent）', tone: 'danger' },
           { label: '升级后状态', value: '回到「待重验」—— 需在新场景重新验证通过才全池生效' },
-          { label: '影响面', value: '这些 Agent 的检索池会包含它 —— 改一条动一片，后续变更要走共享经验复核流程' },
-          { label: '留痕', value: '升级理由与目标 Agent 写入审计' }
+          { label: '影响面', value: '这些 Agent 的检索池会包含它 —— 改一条动一片，后续变更要走共享经验复核流程' }
         ],
-        requireReason: true, confirmText: '确认升级为共享',
-        action: '升级为共享', target: r.id + ' · ' + r.title,
-        reasonLabel: '升级理由（必填，留审计）',
-        auditImpact: '归属：私有（' + agentName(r.ownerAgent) + '）→ 共享给 ' + names.join('、') + '（待重验）',
+        confirmText: '确认升级为共享',
         onConfirm: function (reason) {
           h.state.expOps = h.state.expOps || {};
           h.state.expOps[r.id] = 'shared-pending';
@@ -415,7 +411,7 @@
       ].map(h.metricCard).join('') + '</div>' +
         '<div class="alert-banner info"><b>这一屏回答的是「这个 Agent 靠什么经验干活」</b>' +
         '<span>私有经验是它自己的沉淀，只有它用；共享经验是别人贡献的，它能检索到但不代表适用 —— ' +
-        '两条来源分开列，是因为责任人不同：私有经验出问题找它的 owner，共享经验出问题要找原贡献方重新验证。</span></div>' +
+        '两条来源分开列，是因为复核责任不同：私有经验出问题由你直接改；共享经验出问题要把来源侧重新验证一遍。</span></div>' +
         mineTable + sharedTable +
         h.metaBar({}, [
           { k: '归属口径', v: '单 Agent 私有：owner 为该 Agent 的经验，只进它的检索池；多 Agent 共享：可被多个 Agent 检索，需在各场景分别验证' },
