@@ -155,6 +155,20 @@ for (const raw of diff.split('\n')) {
   }
 }
 
+/* 新增文件不在 git diff 里，单独查一遍 —— 否则开个新 js 谁都能往任何泳道塞 */
+try {
+  const untracked = execSync('git -c core.quotepath=false ls-files --others --exclude-standard',
+    { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    .split('\n').map(s => s.trim()).filter(Boolean);
+  for (const f of untracked) {
+    const owner = fileOwner(f);
+    touched[owner + '(新增)'] = (touched[owner + '(新增)'] || 0) + 1;
+    if (owner !== myLane && myLane !== 'core') {
+      violations.push({ file: f, where: '新增文件', detail: '新文件默认归 core，要并行得先在 lanes.json 认领' });
+    }
+  }
+} catch (e) { /* 拿不到就跳过 */ }
+
 const uniq = [];
 const dedup = new Set();
 for (const v of violations) {

@@ -75,14 +75,21 @@ git config core.hooksPath .githooks     # 已经配好，新克隆的人跑这�
 | 检查 | 什么时候 | 不过会怎样 |
 |---|---|---|
 | 越界 | 所有分支 | 列出落在别人段落里的改动，挡住推送 |
-| 版本号 | 只在 main | `?v=` 落后于文件改动时挡住，提示跑 `_check/_ver-bump.cjs` |
+| 版本号 | 只在 main | `?v=` 落后于文件改动时挡住，提示跑 `--bump` |
 
 泳道从分支名取：`lane/assets` → assets，不带前缀的按 core 算。
 lane 分支比 `main` 看，main 上看工作区。
 
 **版本号怎么办**：分支里**不要动** `?v=`。那 41 条挤在 72 行里，相邻间距中位数 1 行，
-谁改都可能跟隔壁撞。合并到 main 后跑一次 `_check/_ver-bump.cjs`，一条命令对齐全部，
-由门禁兜底检查。本地调试吃旧缓存就 Ctrl+F5。
+谁改都可能跟隔壁撞。合并到 main 后跑一次：
+
+```bash
+node _parallel/ver-check.cjs --bump     # 只对齐「相对 HEAD 有改动」的脚本
+node _parallel/ver-check.cjs            # 复核，41 条全合格才算完
+```
+
+只看 mtime 会误报：`git checkout` 恢复文件也会刷新 mtime，内容其实没变。
+所以这个脚本跟 git 联动，只检查真有改动的文件。本地吃旧缓存就 Ctrl+F5。
 
 ## 五、脚本用法
 
