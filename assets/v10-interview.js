@@ -956,7 +956,19 @@
    * ============================================================ */
   A['iv-open'] = function (id, btn, h) { h.navigate({ domain: 'engine', cap: 'interview', agentId: id, objId: id, tab: 'plan', objTab: 'plan', traceId: null }); };
   A['iv-home'] = function (id, btn, h) { h.navigate({ objId: null, objTab: null, tab: null, agentId: null }); };
-  A['iv-src'] = function (id, btn, h) { h.state.ivSrc = id; h.navigate({}, { scroll: false }); };
+  /* 切换挑人来源 —— 全站**唯一**一处注册。
+     2026-10-29 收口：v10-interview-home.js 里原先也注册了一份 `iv-src`，它在 HTML 里后加载，
+     会覆盖这一份。两份都是死代码：本文件第 407 行那个「① 找谁谈」的四张来源卡
+     （who / srcBtn）已经不再拼进页面，home 那边的 srcPick 也是 ''。实测详情页
+     `[data-act="iv-src"]` 命中 0 个，点不到。
+     保留这一份而不是删掉，是为了来源卡一旦恢复就直接能用；合并成一份是因为两份实现
+     只差「要不要清 ivScreen / ivTagFilter」，留着迟早有人踩。这里取并集，行为无变化。 */
+  A['iv-src'] = function (id, btn, h) {
+    h.state.ivSrc = id;
+    h.state.ivScreen = null;
+    h.state.ivTagFilter = null;
+    h.navigate({}, { scroll: false });
+  };
   A['iv-tag'] = function (id, btn, h) {
     var st = h.state, cur = (st.ivTags || ['合同到期前 60 天', '年采购额 > 1000 万']).slice();
     var i = cur.indexOf(id);

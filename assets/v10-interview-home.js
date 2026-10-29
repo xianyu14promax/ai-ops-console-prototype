@@ -669,7 +669,9 @@
       if (global.requestAnimationFrame) global.requestAnimationFrame(back); else back();
     }
   };
-  A['iv-src'] = function (id, btn, h) { h.state.ivSrc = id; h.state.ivScreen = null; h.state.ivTagFilter = null; h.navigate({}, { scroll: false }); };
+  /* 2026-10-29：这里的 `iv-src` 已删。本屏的来源卡 2026-10-19 撤掉了（上方 srcPick = ''），
+     处理函数是死代码；而本文件在 HTML 里后加载，它一直在覆盖 v10-interview.js 里那份。
+     两份并成一份，留在 v10-interview.js（来源卡的 DOM 也在那边）。 */
   /* 2026-10-20：「共 2,680 位」原来只给看 40 位、没有出口。这里按 80 递增；
      「展开全部」只在真的还有 80 位以上时出现。滚动位置保持不动，否则点一次跳回页顶。 */
   A['iv-more'] = function (id, btn, h) {
