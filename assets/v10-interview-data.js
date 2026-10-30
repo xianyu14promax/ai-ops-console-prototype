@@ -109,9 +109,70 @@
     if (st && st.ivOutline && st.ivOutline.topics && st.ivOutline.topics.length) return st.ivOutline;
     return NS.OUTLINE_BASE;
   };
+  /* ============================================================
+   * 问卷题目（题型制）
+   * 一张问卷 = 题目列表，每题有题型：单选 / 多选 / 问答 / 量表。
+   * 保存时折算成提纲文本走老的 topics 链路，详情页「谈什么」不用改。
+   * ============================================================ */
+  NS.QTYPE = { single: '单选', multi: '多选', text: '问答', scale: '量表' };
+
+  NS.QUESTIONS_BASE = [
+    { id: 'q1', type: 'single', required: true, topic: '续约意愿',
+      title: '这半年整体用下来，续约的意向如何？',
+      options: ['一定会续', '还在评估', '大概率不续', '已决定不续'] },
+    { id: 'q2', type: 'multi', required: true, maxPick: 3, topic: '使用障碍',
+      title: '哪一步最费时间？',
+      options: ['数据导入', '权限配置', '报表搭建', '审批流配置', '移动端使用'] },
+    { id: 'q3', type: 'text', required: false, topic: '',
+      title: '如果能改一件事，你希望是什么？', options: [] }
+  ];
+
+  /** 当前这张问卷的题目：改过就用改过的，否则用默认 */
+  NS.questions = function () {
+    var st = (global.APP_SHELL && global.APP_SHELL.state) || null;
+    if (st && st.ivQuestions && st.ivQuestions.length) return st.ivQuestions;
+    return NS.QUESTIONS_BASE;
+  };
+
+  /** 题干首个标点前取名字；太长的会把详情页话题树第一列撑开 */
+  var shortName = function (raw) {
+    var s = String(raw || '').replace(/[？?！!。，,；;：:].*$/, '');
+    if (!s) s = String(raw || '');
+    return s.length > 12 ? s.slice(0, 12) : s;
+  };
+
+  /** 题目 → 提纲文本（供详情页老链路）。竖线会破坏解析，先替换掉 */
+  NS.questionsToOutline = function (qs) {
+    return (qs || []).map(function (q) {
+      var raw = String(q.title || '未命名题目').replace(/[｜|]/g, '／');
+      var name = (q.topic || '').replace(/[｜|]/g, '／') || shortName(raw);
+      var opts = (q.options || []).join('／');
+      /* 多选题的「最多选 N 项」跟着题干走，详情页「谈什么」也要看得到 */
+      var lim = (q.type === 'multi' && q.maxPick) ? '（最多选 ' + q.maxPick + ' 项）' : '';
+      var body = (q.type === 'text' || q.type === 'scale')
+        ? (raw + '（开放作答）')
+        : (raw + lim + (opts ? '（' + opts + '）' : ''));
+      return name + '｜' + (q.required ? '必问' : '可选') + '｜' + body;
+    }).join('\n');
+  };
+
+  /** 题型分布 */
+  NS.qtypeStat = function (qs) {
+    var st = { single: 0, multi: 0, text: 0, scale: 0 };
+    (qs || []).forEach(function (q) { if (st[q.type] === undefined) st[q.type] = 0; st[q.type] += 1; });
+    return st;
+  };
+
   /** 首屏文本框该显示什么 */
   NS.outlineText = function () {
     return NS.jpOutlineText(NS.currentOutline());
+  };
+  /** 首屏文本框只回显「人改过的」内容；没人改过就留空，让 placeholder 顶位。
+      默认提纲照样是真源（currentOutline 仍返回 OUTLINE_BASE），只是不再预填给人看。 */
+  NS.outlineEditedText = function () {
+    var st = (global.APP_SHELL && global.APP_SHELL.state) || null;
+    if (st && st.ivOutline && st.ivOutline.topics && st.ivOutline.topics.length) return NS.jpOutlineText(st.ivOutline);
+    return '';
   };
 
   NS.OUTLINE_TEXT =

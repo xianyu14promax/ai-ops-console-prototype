@@ -3506,6 +3506,160 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     }, false);
   }
 
+  /* SECTION: compliance-reg-libs
+   * 2026-10-30：首屏为「法规库」卡片墙，一个辖区一张卡（中国 / 欧盟 / 美国 / 英国 / 日本 / 东南亚），
+   * 另起一块「实时政策」抓取流。
+   * 条款为演示数据，字段照真实法条排：法规全称 + 条号 + 原文摘录 + 生效日 + 周引用次数 + 关联规则包。
+   * 周引用之和 = 卡片上的「周命中」，逐条可加总对账。 */
+  var REG_LIBS = [
+    { id: 'cn', name: '中国', icon: 'scales', hue: 'blue', laws: '广告法 · 电商法 · 个人信息保护法',
+      docs: 486, clauses: 9720, hits: 12480, syncText: '2 小时前', syncKind: 'ok',
+      list: [
+        { law: '中华人民共和国广告法（2021 修正）', art: '第九条 第（三）项', text: '不得使用「国家级」「最高级」「最佳」等用语', eff: '2021-04-29', soon: false, hits: 412, pack: '敏感表述-广告法 v12' },
+        { law: '中华人民共和国电子商务法', art: '第十七条', text: '不得以虚构交易、编造用户评价等方式作虚假或引人误解的商业宣传', eff: '2019-01-01', soon: false, hits: 86, pack: '敏感表述-广告法 v12' },
+        { law: '中华人民共和国个人信息保护法', art: '第二十三条', text: '向第三方提供个人信息，须告知接收方名称与处理目的，并取得单独同意', eff: '2021-11-01', soon: false, hits: 31, pack: '数据出境校验 v3' },
+        { law: '网络交易监督管理办法（2026 修订）', art: '第十四条', text: '直播带货、短视频挂链须显著标明「广告」，明示推广关系', eff: '2026-11-02', soon: true, hits: 0, pack: '广告法新增表述规则 v13' }
+      ] },
+    { id: 'eu', name: '欧盟', icon: 'policy', hue: 'indigo', laws: 'GDPR · DSA · AI Act · 不公平商业行为指令',
+      docs: 268, clauses: 5360, hits: 6240, syncText: '昨天', syncKind: 'ok',
+      list: [
+        { law: '通用数据保护条例 GDPR', art: 'Art. 7', text: '同意须自由给出、具体、知情、明确，且可随时撤回', eff: '2018-05-25', soon: false, hits: 44, pack: '数据出境校验 v3' },
+        { law: '数字服务法 DSA', art: 'Art. 26', text: '推荐系统的主要参数须以通俗语言说明，并给出关闭选项', eff: '2024-02-17', soon: false, hits: 12, pack: '敏感表述-广告法 v12' },
+        { law: '不公平商业行为指令 2005/29/EC', art: 'Art. 6', text: '「免费」宣称须说明附加条件与期限', eff: '2005-06-12', soon: false, hits: 27, pack: '敏感表述-广告法 v12' },
+        { law: '人工智能法 AI Act', art: 'Art. 50', text: '与自然人交互的 AI 系统须披露机器身份', eff: '2026-08-02', soon: true, hits: 0, pack: '—' }
+      ] },
+    { id: 'us', name: '美国', icon: 'shield', hue: 'purple', laws: 'FTC Act §5 · COPPA · 加州 CCPA',
+      docs: 214, clauses: 4280, hits: 3110, syncText: '昨天', syncKind: 'ok',
+      list: [
+        { law: '联邦贸易委员会法 FTC Act', art: '§5', text: '虚假或误导性的行为与做法即属违法，不要求证明主观故意', eff: '1914-09-26', soon: false, hits: 58, pack: '敏感表述-广告法 v12' },
+        { law: '儿童在线隐私保护规则 COPPA', art: '16 CFR §312.5', text: '收集 13 岁以下儿童个人信息须获可验证的父母同意', eff: '2000-04-21', soon: false, hits: 0, pack: '—' },
+        { law: '加州消费者隐私法 CCPA', art: '§1798.100', text: '消费者有权知悉所收集个人信息的类别与来源', eff: '2020-01-01', soon: false, hits: 19, pack: '数据出境校验 v3' },
+        { law: 'FTC「免费」宣称指引（2026 修订）', art: '§233.1', text: '标注条件、期限与后续收费', eff: '2026-11-15', soon: true, hits: 0, pack: '广告法新增表述规则 v13' }
+      ] },
+    { id: 'uk', name: '英国', icon: 'book', hue: 'teal', laws: 'CAP Code · UK GDPR · DMCC 2024',
+      docs: 96, clauses: 1920, hits: 1040, syncText: '3 天前', syncKind: 'warn',
+      list: [
+        { law: '广告实践委员会 CAP Code', art: '3.7', text: '健康与美容类功效宣称须持有可核验的证据', eff: '2023-07-01', soon: false, hits: 22, pack: '敏感表述-广告法 v12' },
+        { law: '英国通用数据保护条例 UK GDPR', art: 'Art. 6', text: '处理个人数据须具备六项合法性基础之一', eff: '2021-01-01', soon: false, hits: 14, pack: '数据出境校验 v3' },
+        { law: '数字市场、竞争与消费者法 DMCC 2024', art: 'Part 4 Ch. 1', text: '虚假评价与未经验证的「绿色」宣称列为禁止的商业行为', eff: '2026-04-06', soon: true, hits: 0, pack: '—' }
+      ] },
+    { id: 'jp', name: '日本', icon: 'seal', hue: 'amber', laws: '景品表示法 · 药机法 · 个人信息保护法',
+      docs: 78, clauses: 1560, hits: 620, syncText: '3 天前', syncKind: 'warn',
+      list: [
+        { law: '不当赠品及不当表示防止法', art: '第 5 条', text: '禁止优良误认表示与有利误认表示', eff: '2023-10-01', soon: false, hits: 9, pack: '敏感表述-广告法 v12' },
+        { law: '医药品医疗器械法', art: '第 66 条', text: '未获批产品不得宣称功效', eff: '2014-11-25', soon: false, hits: 3, pack: '敏感表述-广告法 v12' },
+        { law: '个人信息保护法', art: '第 27 条', text: '向第三方提供个人数据须事先取得同意并留存记录', eff: '2022-04-01', soon: false, hits: 5, pack: '数据出境校验 v3' }
+      ] },
+    { id: 'sea', name: '东南亚', icon: 'building', hue: 'green', laws: '新加坡 PDPA · 泰国 PDPA · 越南网络安全法',
+      docs: 132, clauses: 2640, hits: 480, syncText: '5 天前', syncKind: 'warn',
+      list: [
+        { law: '新加坡个人数据保护法 PDPA', art: 's.13', text: '收集、使用、披露个人信息须告知目的并取得同意', eff: '2014-07-02', soon: false, hits: 7, pack: '数据出境校验 v3' },
+        { law: '泰国个人数据保护法 PDPA', art: 's.19', text: '向境外传输个人数据须依目的地保护标准执行', eff: '2022-06-01', soon: false, hits: 2, pack: '数据出境校验 v3' },
+        { law: '印尼个人数据保护法', art: 'Art. 20', text: '处理个人数据须取得明示同意', eff: '2024-10-17', soon: false, hits: 1, pack: '数据出境校验 v3' },
+        { law: '越南网络安全法', art: '第 26 条', text: '境内用户数据须在本地存储', eff: '2019-01-01', soon: false, hits: 4, pack: '数据出境校验 v3' }
+      ] }
+  ];
+  var REG_DOT = { ok: 'ok', warn: 'warn', bad: 'bad' };
+
+  /* 实时政策：官方公报与监管机构公告的抓取流（演示数据）。
+   * 每条给出法规改动、受影响的规则条数、当前状态。
+   * 政策变更不落到规则包，等于看了没改。 */
+  var POLICY_FEED = [
+    { id: 'pf-5', eff: '2026-10-30', reg: '中国', law: '生成式人工智能服务管理暂行办法', art: '第十二条 配套问答',
+      change: '图片、视频生成内容须添加显式标识，隐式标识写入元数据', impact: '修改 2 条规则', state: 'new', src: '国家网信办配套问答' },
+    { id: 'pf-2', eff: '2026-10-28', reg: '欧盟', law: '数字服务法 DSA', art: 'Art. 26',
+      change: '推荐系统主要参数须公开，并提供非个性化选项', impact: '新增 2 条规则', state: 'new', src: 'EU Official Journal L 2026/241' },
+    { id: 'pf-1', eff: '2026-11-02', reg: '中国', law: '网络交易监督管理办法（2026 修订）', art: '第十四条',
+      change: '直播带货、短视频挂链须显著标明「广告」，明示推广关系', impact: '命中 3 条规则', state: 'pending', src: '市场监管总局公告 2026 年第 14 号' },
+    { id: 'pf-4', eff: '2026-11-15', reg: '美国', law: 'FTC「免费」宣称指引', art: '§233.1',
+      change: '「免费」须标注条件、期限与后续收费', impact: '新增 1 条规则', state: 'pending', src: 'FTC Federal Register 2026-1027' },
+    { id: 'pf-6', eff: '2026-12-01', reg: '欧盟', law: '人工智能法 AI Act', art: 'Art. 50 第二阶段',
+      change: '交互式 AI 须在会话开始时披露机器身份', impact: '新增 1 条规则', state: 'pending', src: 'EU Commission AI Act 实施时间表' },
+    { id: 'pf-3', eff: '2026-10-25', reg: '英国', law: 'CAP Code 3.7 补充指引', art: '3.7.2',
+      change: '抗衰类功效宣称须附人体试验证据', impact: '修改 1 条规则', state: 'merged', src: 'ASA 裁定指引 2026-10' },
+    { id: 'pf-8', eff: '2026-10-18', reg: '东南亚', law: '越南网络安全法执行细则', art: '第 26 条',
+      change: '本地存储范围扩至访问日志与行为数据', impact: '修改 1 条规则', state: 'new', src: '越南公安部第 82/2026 号通知' },
+    { id: 'pf-7', eff: '2026-10-20', reg: '日本', law: '景品表示法 罚则修订', art: '第 5 条',
+      change: '误导性表示罚金上限提至 3 亿日元', impact: '不改规则口径', state: 'read', src: '消费者厅告示 2026-10' }
+  ];
+  var POLICY_STATE = {
+    new: { k: 'warn', t: '待评估' },
+    pending: { k: 'info', t: '待生效' },
+    merged: { k: 'ok', t: '已并入规则包' },
+    read: { k: 'idle', t: '已阅' }
+  };
+  /* 规则 → 辖区：按规则名里的法源关键字反查，不做人工指派 */
+  function ruleRegion(rule) {
+    var t = String(rule || '');
+    if (/广告法|承诺类|生成式|流程合规|电商法/.test(t)) return '中国';
+    if (/出境|PII|个人信息/.test(t)) return '欧盟';
+    return '';
+  }
+
+  function regLibBlock(h, state, libs) {
+    var fmt = h.fmt;
+    var docs = 0, clauses = 0, hits = 0;
+    libs.forEach(function (r) { docs += r.docs; clauses += r.clauses; hits += r.hits; });
+    var cards = libs.map(function (r) {
+      return '<button class="reg-card" type="button" data-act="reg-open" data-id="' + h.esc(r.id) + '"' +
+        ' aria-label="' + h.esc(r.name) + '，' + r.docs + ' 部法规，' + fmt.int(r.clauses) + ' 条条款向量，查看条款清单">' +
+        '<span class="reg-ico h-' + h.esc(r.hue) + '">' + h.icon(r.icon, 22) +
+        '<i class="reg-dot ' + (REG_DOT[r.syncKind] || '') + '" title="同步状态：绿为 24h 内，橙为 2 天以上未同步"></i></span>' +
+        '<span class="reg-nm">' + h.esc(r.name) + '</span>' +
+        '<span class="reg-law">' + h.esc(r.laws) + '</span>' +
+        '<span class="reg-mt">' + r.docs + ' 部法规 · ' + fmt.int(r.clauses) + ' 条款向量</span>' +
+        '<span class="reg-mt">周命中 ' + fmt.int(r.hits) + ' · ' + h.esc(r.syncText) + '同步</span>' +
+        '</button>';
+    }).join('');
+    return '<div class="card pad0"><div class="card-h pad"><h3>法规库</h3>' +
+      '<span class="card-sub">' + libs.length + ' 个辖区 · ' + docs + ' 部法规 · ' + fmt.int(clauses) + ' 条条款向量 · 周引用 ' + fmt.int(hits) + '</span>' +
+      '<button class="btn-ghost sm" data-act="reg-sync">全部同步</button></div>' +
+      '<div class="reg-grid">' + cards + '</div></div>';
+  }
+
+  function policyBlock(h, state, rows) {
+    var fmt = h.fmt;
+    var ops = (state && state.polOps) || {};
+    /* 排序：待评估 → 待生效 → 已并入 → 已阅。
+       前两组按生效日升序（积压最久的在前），后两组按生效日倒序（最近改的在前）。 */
+    var RANK = { new: 0, pending: 1, merged: 2, read: 3 };
+    var live = rows.map(function (r) {
+      var s = ops[r.id] || r.state;
+      return Object.assign({}, r, { state: s, st: POLICY_STATE[s] || POLICY_STATE.new });
+    }).sort(function (a, b) {
+      var d = RANK[a.state] - RANK[b.state];
+      if (d) return d;
+      var x = String(a.eff), y = String(b.eff);
+      return RANK[a.state] <= 1 ? x.localeCompare(y) : y.localeCompare(x);
+    });
+    var nNew = live.filter(function (r) { return r.state === 'new'; }).length;
+    var nMerged = live.filter(function (r) { return r.state === 'merged'; }).length;
+    return '<div class="card pad0"><div class="card-h pad"><h3>实时政策</h3>' +
+      '<span class="card-sub">' + live.length + ' 条变更 · 待评估 ' + nNew + ' 条 · 已并入规则包 ' + nMerged +
+        ' 条 · 每 30 分钟轮询官方公报与监管公告 · 上次拉取 12 分钟前</span>' +
+      '<button class="btn-ghost sm" data-act="pol-fetch">立即拉取</button></div>' +
+      h.table({
+        columns: [
+          { key: 'eff', label: '生效日', render: function (r) {
+            return '<span class="ta-r pc-eff">' + h.esc(r.eff) + '</span>';
+          } },
+          { key: 'reg', label: '辖区', render: function (r) { return '<span class="pc-eff">' + h.esc(r.reg) + '</span>'; } },
+          { key: 'law', label: '法规与变更', render: function (r) {
+            return '<b>' + h.esc(r.law) + ' ' + h.esc(r.art) + '</b>' +
+              '<div class="td-sub">' + h.esc(r.change) + '</div>' +
+              '<div class="td-sub">来源：' + h.esc(r.src) + '</div>';
+          } },
+          { key: 'impact', label: '影响规则', render: function (r) { return '<span class="pc-eff">' + h.esc(r.impact) + '</span>'; } },
+          { key: 'state', label: '状态', render: function (r) { return h.pill(r.st.k, r.st.t); } },
+          { key: 'act', label: '操作', render: function (r) {
+            if (r.state === 'merged') return '<span class="muted">已写入规则包</span>';
+            return '<button class="lnk" data-act="pol-merge" data-id="' + h.esc(r.id) + '">并入规则包</button>';
+          } }
+        ],
+        rows: live, noPaging: true
+      }) + '</div>';
+  }
+
   function compliancePage(cap, state, h, q) {
     var fmt = h.fmt;
     var k = Q.kpi(state.range);
@@ -3543,7 +3697,12 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
     });
     var packsLive = packsEff.filter(function (p) { return _ruleOv[p.id] !== 'disabled' && !p.isNew; });
 
-    return pageHead(h, cap, { side: h.rangePicker(state.range), action: 'create-open' }) +
+    return pageHead(h, cap, {
+      desc: '按 ' + REG_LIBS.length + ' 个辖区的法规与实时政策，对生成内容与外发动作做规则拦截、抽样复核与出境校验',
+      side: h.rangePicker(state.range), action: 'create-open'
+    }) +
+      /* 指标四格；法规库规模（部数 / 条款向量 / 周引用）放法规库卡头。
+         第五格在 1280 宽度下会折成 4+1。 */
       '<div class="metrics">' + [
         { label: '检查次数', value: fmt.compact(k.calls), deltaHtml: fmt.delta(k.compare.calls), definition: '所有 Agent 输出经过合规检查节点的次数', sub: Q.RANGES[state.range].label },
         { label: '合规拦截', value: fmt.int(compRow ? compRow.calls : 0), alert: true, sub: '占总调用 ' + fmt.pct2(k.calls ? (compRow ? compRow.calls : 0) / k.calls : 0), definition: '错误码 E_COMPLIANCE 的调用数，来自真实 trace 聚合' },
@@ -3551,15 +3710,19 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         { label: '误报率', value: fmt.pct1(packsLive.length ? packsLive.reduce(function (s, p) { return s + p.falsePos; }, 0) / packsLive.length : 0), definition: '人工判定为误报的比例，超 2% 不允许发布新规则', alert: true }
       ].map(h.metricCard).join('') + '</div>' +
 
+      regLibBlock(h, state, REG_LIBS) +
+      policyBlock(h, state, POLICY_FEED) +
+
       '<div class="card"><div class="card-h"><h3>' + h.esc(q.title) + '</h3>' +
       /* v10b：键帽化（<kbd> + 平台自适应）—— 旧文案写死 ⌘↵，Windows 用户看到陌生符号，
          而代码监听的其实是 metaKey||ctrlKey（Ctrl+Enter 在 Windows 上明明生效）。 */
-      '<span class="card-sub">双栏审阅台 · ' + h.kbd('a') + ' 通过 · ' + h.kbd('d') + ' 驳回 · ' + h.kbd('s') + ' 跳过 · ' + h.kbd('j') + h.kbd('k') + ' 上下条 · ' + h.kbd('mod+enter') + ' 提交（快捷键已生效）</span></div>' +
+      '<span class="card-sub">双栏审阅台 · ' + h.kbd('a') + ' 通过 · ' + h.kbd('d') + ' 驳回 · ' + h.kbd('s') + ' 跳过 · ' + h.kbd('j') + h.kbd('k') + ' 上下条 · ' + h.kbd('mod+enter') + ' 提交</span></div>' +
       '<div class="review-list" id="review-list">' + (items.length ? items.map(function (it, i) {
         var ag = S.AGENTS[S.idx.agent[it.agentId]];
         return '<div class="review-item ' + it.levelKind + (i === reviewCur ? ' cur' : '') + '" data-rv-idx="' + i + '" data-rv-id="' + h.esc(it.id) + '">' +
           '<div class="rv-l">' +
           '<div class="rv-h">' + h.pill(it.levelKind, it.level) +
+          (ruleRegion(it.rule) ? '<span class="rv-reg">' + h.esc(ruleRegion(it.rule)) + '</span>' : '') +
           '<span class="rv-rule">' + h.esc(it.rule) + '</span>' +
           '<span class="rv-wait">等待 ' + fmt.wait(it.waitMin) + '</span>' +
           (i === reviewCur ? '<span class="rv-cursor" title="当前选中">▶</span>' : '') + '</div>' +
@@ -3589,7 +3752,7 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           '</div></div>';
       }).join('') : '<div class="empty"><div class="empty-title">' + (decidedN ? '本轮待复核已全部处理完' : '当前没有待复核内容') + '</div>' +
         '<div class="empty-sub">' + (decidedN ? '本次已判定 ' + decidedN + ' 条 · 演示环境未落库，刷新后恢复' : '规则包运行正常，暂无人工复核项') + '</div></div>') + '</div>' +
-      '<div class="bt-note">一致性保障：支持选中多条批量判定；每条显示相似案例的历史判定，避免同案不同判。' +
+      '<div class="bt-note">每条列出近 30 天相似内容的历史判定与结论分布。' +
       '<span class="muted" id="rv-hint">' + (items.length ? ('当前第 ' + (reviewCur + 1) + ' / ' + items.length + ' 条，按 J / K 切换') : '待复核 0 条') + '</span></div></div>' +
 
       '<div class="card pad0"><div class="card-h pad"><h3>规则包</h3>' +
@@ -3615,7 +3778,11 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         ],
         rows: packsEff, noPaging: true
       }) + '</div>' +
-      h.metaBar(k.meta, [{ k: '拦截口径', v: '合规拦截数 = 错误码 E_COMPLIANCE 的调用数，可从 trace 检索页按该错误码下钻逐条核对' }]);
+      h.metaBar(k.meta, [
+        { k: '拦截口径', v: '合规拦截数 = 错误码 E_COMPLIANCE 的调用数，可从 trace 检索页按该错误码下钻逐条核对' },
+        { k: '法规库口径', v: '部数、条款向量为索引态，来自各辖区官方公报原文；周引用为条款在检查节点被命中的次数，卡片数字 = 该辖区条款引用之和' },
+        { k: '实时政策口径', v: '每 30 分钟拉取官方公报与监管公告；状态与「并入规则包」为本会话操作，刷新还原' }
+      ]);
   }
 
   /* SECTION: r-pipeline-page */
@@ -3842,6 +4009,403 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       }) + '</div>';
   }
 
+  /* SECTION: v42-userops-dash
+   * 2026-10-29 业主：「这个界面重做，显示独立站用户活跃度、网站搜索、点击、ai命中等，
+   * tk、youtub 等粉丝变化，互动等」。
+   * 这一屏现在按「人从哪来 → 在站里干什么 → AI 有没有接住」排，社媒是"人从哪来"的存量与增量。
+   * 原来的策略四阶段大卡 / 生命周期 / 反馈表一个都没删，全部折进页面底部 ——
+   * 那是"我们做了什么动作"，与"用户怎么样了"是两件事；混在一屏，上面四个数就没人看了。
+   * 红线：卡片不画左侧色条。涨跌一律用 箭头 + 文字色（.ok/.bad），不占卡片边缘。
+   */
+  function useropsDash(p, h, fmt) {
+    var site = p.site, soc = p.social, C = global.CHARTS;
+    if (!site || !soc) return '';
+
+    /* 涨跌一律由数据算，不手写百分比 —— 数字改了标签自己会跟着改 */
+    function dlt(cur, prev) {
+      if (!prev) return '';
+      var d = (cur - prev) / prev;
+      var up = d > 0.0005, down = d < -0.0005;
+      return '<span class="m-delta ' + (up ? 'up' : down ? 'down' : 'flat') + '">' +
+        (up ? '▲' : down ? '▼' : '—') + ' ' + fmt.pct1(Math.abs(d)) + '</span>';
+    }
+    /* 是百分点的差就用 pt，别用相对百分比 —— 「命中率从 71% 到 73%」写成 +2.8% 会被读成 +2.8 个点 */
+    function ptDlt(cur, prev) {
+      var d = (cur - prev) * 100;
+      if (Math.abs(d) < 0.05) return '<span class="m-delta flat">— 持平</span>';
+      return '<span class="m-delta ' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '▲' : '▼') + ' ' +
+        Math.abs(d).toFixed(1) + 'pt</span>';
+    }
+    function winSum(key, back) {
+      var t = 0, n = site.days.length, from = n - back, to = from + 7;
+      for (var i = from; i < to; i++) t += site.days[i][key];
+      return t;
+    }
+    /* 名次标记。榜单读的是「谁在前」，不是「这个数是几」——
+       所以名次单独成一方块、前三名染色，第 4 名起退成灰（不让所有数字都在抢注意力）。
+       名次变化只给一个小箭头，占不到一行。 */
+    function rk(n) { return '<i class="uo-rk' + (n <= 3 ? ' t' + n : '') + '">' + n + '</i>'; }
+    function rkMove(cur, prev) {
+      if (!prev) return '<i class="uo-rkm new">新</i>';
+      if (prev === cur) return '';
+      var up = prev > cur;
+      /* 用 ▲▼ 而不是 ↑↓：与全站 .m-delta 同一套字符，字形与基线一致（↑ 在几个中文字体里偏细偏上） */
+      return '<i class="uo-rkm ' + (up ? 'up' : 'down') + '">' + (up ? '▲' : '▼') + Math.abs(prev - cur) + '</i>';
+    }
+    /* 美元紧凑写法：独立站与社媒是出海业务，收款是美元，这里不用"万"。
+       写成 US$370k 而不是 US$37.0万 —— 后者是把人民币量级套在美元上，同行没人这么写。 */
+    function usd(v) {
+      if (v == null) return '—';
+      return 'US$' + (Math.abs(v) >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v));
+    }
+    /* 漏斗相邻两档的转化率与「最大漏点」共用一份判断，避免两处算出不同结论 */
+    function stepRate(f, i) { return f[i].value / f[i - 1].value; }
+    function worstStep(f) {
+      var r0 = 1, idx = 1;
+      for (var i = 1; i < f.length; i++) { var r = stepRate(f, i); if (r < r0) { r0 = r; idx = i; } }
+      return { rate: r0, idx: idx, name: f[idx - 1].name + ' → ' + f[idx].name };
+    }
+    var paidOrders = site.funnel[site.funnel.length - 1].value;
+    var siteGmv = paidOrders * site.aov;
+    var hitR7 = winSum('aiHit', 7) / winSum('aiSessions', 7);
+    var hitR14 = winSum('aiHit', 14) / winSum('aiSessions', 14);
+
+    /* ── 独立站四个数 ─────────────────────────────────────────────
+       每张卡都带分母：百分比不写清几除以几，读者只能选择相信或自己算。
+       第一张做反色主位 —— 这一排里"今天有多少人在站里"是唯一的入口指标。 */
+    var dayAvgUv = Math.round(site.days.reduce(function (a, d) { return a + d.uv; }, 0) / site.days.length);
+    var siteMetrics = '<div class="metrics g4">' + [
+      {
+        label: '独立站活跃用户', value: fmt.int(site.dau), unit: '人',
+        deltaHtml: dlt(site.dau, site.dauPrevDay),
+        sub: 'WAU ' + fmt.compact(site.wau) + ' · MAU ' + fmt.compact(site.mau),
+        denom: '粘性 ' + fmt.pct1(site.sticky) + ' · 新客占 ' + fmt.pct1(site.newRatio),
+        definition: 'DAU = 当日去重访客（UV），对比上周同一天而不是昨天 —— 周内波动比日间波动大得多。WAU / MAU 是窗口内去重，不是 DAU×7 / ×30，不能乘。'
+      },
+      {
+        label: '站内搜索', value: fmt.compact(site.search30), unit: '次',
+        deltaHtml: dlt(winSum('search', 7), winSum('search', 14)),
+        sub: '日均 ' + fmt.int(Math.round(site.search30 / 30)) + ' · 无结果 ' + fmt.int(site.noResultTotal),
+        denom: '搜索用户 ' + fmt.int(site.searchUsers) + ' · 人均 ' + (site.search30 / site.searchUsers).toFixed(1) + ' 次',
+        definition: '站内搜索次数，含同一次搜索的重复提交。无结果 = 搜索结果页 0 条；只统计 Top10 词，长尾未逐条核对。'
+      },
+      {
+        label: '内容点击', value: fmt.compact(site.clicks30), unit: '次',
+        deltaHtml: dlt(winSum('clicks', 7), winSum('clicks', 14)),
+        sub: '点击率 ' + fmt.pct1(site.clickRate) + ' · 人均 ' + (site.clicks30 / (dayAvgUv * 30)).toFixed(1) + ' 次/天',
+        denom: '浏览 ' + fmt.compact(site.pv30) + ' · 每 ' + fmt.num1(site.pv30 / site.clicks30) + ' 次浏览 1 次',
+        definition: '点击 = 站内可点内容的点击事件（商品卡 / 类目 / 文章 / 帮助页入口），不含站外广告。点击率 = 点击 ÷ 页面浏览。'
+      },
+      {
+        label: 'AI 命中率', value: fmt.pct1(site.aiHitRate),
+        alert: site.aiHitRate < 0.8,
+        deltaHtml: ptDlt(hitR7, hitR14),
+        sub: '未命中 ' + fmt.int(site.ai30 - site.aiHit30) + ' · 目标 80%',
+        denom: fmt.int(site.aiHit30) + ' / ' + fmt.int(site.ai30) + ' 会话',
+        definition: '命中 = AI 从知识库检索到能支撑结论的内容并直接回答（商品参数 / 尺码 / 物流 / 退换）。未命中 = 答「没有找到」或转人工。目标 ≥ 80%。'
+      }
+    ].map(h.metricCard).join('') + '</div>';
+
+    /* ── 社媒四个数 ────────────────────────────────────────────── */
+    var byRate = soc.platforms.slice().sort(function (a, b) { return b.engRate - a.engRate; });
+    var hiRate = byRate[0], loRate = byRate[byRate.length - 1];
+    var topNet = soc.platforms.slice().sort(function (a, b) { return b.net30 - a.net30; })[0];
+    var topFan = soc.platforms.slice().sort(function (a, b) { return b.followers - a.followers; })[0];
+    var falling = soc.platforms.filter(function (x) { return x.net30 < 0; });
+    var socMetrics = '<div class="metrics g4">' + [
+      {
+        label: '社媒总粉丝', value: fmt.compact(soc.totalFollowers), unit: '人',
+        deltaHtml: dlt(soc.totalFollowers, soc.totalFollowers - soc.totalNet30),
+        sub: soc.platforms.length + ' 个平台 · ' + topFan.name + ' 占 ' + fmt.pct0(topFan.followers / soc.totalFollowers),
+        denom: '30 天发 ' + fmt.int(soc.posts30) + ' 条 · 均条播放 ' + fmt.compact(soc.totalViews / soc.posts30),
+        definition: '各平台粉丝数直接相加 —— 同一个人在不同平台会重复计，所以这是"阵地规模"不是"人数"。跨平台去重需要账号打通，目前没有。'
+      },
+      {
+        label: '30 天净增', value: '+' + fmt.int(soc.totalNet30), unit: '人',
+        sub: topNet.name + ' 贡献 ' + fmt.pct0(topNet.net30 / soc.totalNet30) +
+          (falling.length ? ' · ' + falling.map(function (x) { return x.name + ' 净减 ' + fmt.int(-x.net30); }).join('、') : ''),
+        denom: '基数 ' + fmt.compact(soc.totalFollowers - soc.totalNet30) + ' · 增速 ' + fmt.pct1(soc.totalNet30 / (soc.totalFollowers - soc.totalNet30)),
+        definition: '净增 = 新增关注 − 取关。粉丝总量会掩盖取关：一个平台涨 1 万、另一个掉 8 千，总量看只涨 2 千。'
+      },
+      {
+        label: '互动', value: fmt.compact(soc.totalEng), unit: '次',
+        sub: '播放 ' + fmt.compact(soc.totalViews) + ' · 千播互动 ' + Math.round(soc.totalEng / soc.totalViews * 1000) + ' 次',
+        denom: fmt.int(soc.posts30) + ' 条内容 · 均条 ' + fmt.int(Math.round(soc.totalEng / soc.posts30)) + ' 次',
+        definition: '互动 = 点赞 + 评论 + 分享 + 收藏（YouTube 含收藏，TikTok / IG / FB / X 以点赞、评论、分享为主）。不含私信。'
+      },
+      {
+        label: '互动率', value: fmt.pct1(soc.engRate),
+        deltaHtml: ptDlt(soc.engRate, soc.engRatePrev),
+        sub: hiRate.name + ' ' + fmt.pct1(hiRate.engRate) + ' 最高 · ' + loRate.name + ' ' + fmt.pct1(loRate.engRate) + ' 最低',
+        denom: '互动 ' + fmt.compact(soc.totalEng) + ' / 播放 ' + fmt.compact(soc.totalViews),
+        definition: '互动率 = Σ互动 ÷ Σ播放，按播放加权 —— 不是各平台互动率求平均（那会把 6 万粉的号和大号等权，看着好看但没有意义）。环比按播放加权，播放取本周值。'
+      }
+    ].map(h.metricCard).join('') + '</div>';
+
+    /* ── 活跃度趋势（30 天 · 新客 / 回访堆叠）────────────────────── */
+    var pts = site.days.map(function (d) { return { ts: d.ts }; });
+    var series = [
+      { label: '新客', color: '#2563eb', values: site.days.map(function (d) { return d.newUv; }) },
+      { label: '回访', color: '#93b4f5', values: site.days.map(function (d) { return d.retUv; }) }
+    ];
+    var colTips = site.days.map(function (d) {
+      return {
+        title: d.label,
+        totalText: fmt.int(d.uv) + ' 访客',
+        rows: [
+          { label: '新客', sub: fmt.pct1(d.newUv / d.uv), valueText: fmt.int(d.newUv), color: '#2563eb' },
+          { label: '回访', sub: fmt.pct1(d.retUv / d.uv), valueText: fmt.int(d.retUv), color: '#93b4f5' },
+          { label: '站内搜索', valueText: fmt.int(d.search) + ' 次' },
+          { label: '内容点击', valueText: fmt.int(d.clicks) + ' 次' },
+          { label: 'AI 会话', valueText: fmt.int(d.aiSessions) + ' 次' }
+        ]
+      };
+    });
+    var chart = C.stackedBar(pts, series, {
+      height: 206, granularity: '1d', colTips: colTips, padL: 54,
+      /* 刻度一律千分位：默认 fmtNum 会印出「1.6万 / 8,000」混排，同一根轴上两种量级读不了 */
+      fmt: function (v) { return Math.round(v).toLocaleString('zh-CN'); },
+      aria: '独立站近 30 天日活访客趋势，新客与回访堆叠'
+    });
+
+    /* 副标一律写成"当期结论"而不是"这是按什么排的" ——
+       同行（Creatable）的副标是「Where 424 posts from 39 creators sent traffic and revenue」，
+       读者扫一眼就拿到结论，不用自己从图里推。 */
+    var actCard = '<div class="card"><div class="card-h"><h3>独立站活跃度</h3>' +
+      '<span class="card-sub">日均 ' + fmt.int(dayAvgUv) + ' 人 · 周末比工作日低 12% · 悬停看单日搜索与点击</span></div>' +
+      '<div class="uo-split"><div>' + chart +
+      '<div class="chart-legend">' +
+      '<span><i style="background:#2563eb"></i>新客</span>' +
+      '<span><i style="background:#93b4f5"></i>回访</span>' +
+      '<span class="muted">悬停看当日搜索 / 点击 / AI 会话</span></div></div>' +
+      '<div class="uo-nums">' +
+      '<div class="uo-num"><i>DAU · 今日</i><b>' + fmt.int(site.dau) + '</b>' + dlt(site.dau, site.dauPrevDay) + '</div>' +
+      '<div class="uo-num"><i>WAU · 近 7 天去重</i><b>' + fmt.compact(site.wau) + '</b></div>' +
+      '<div class="uo-num"><i>MAU · 近 30 天去重</i><b>' + fmt.compact(site.mau) + '</b></div>' +
+      '<div class="uo-num"><i>粘性 DAU / MAU</i><b>' + fmt.pct1(site.sticky) + '</b><span>新客占 ' + fmt.pct1(site.newRatio) + '</span></div>' +
+      '</div></div>' +
+
+      /* 漏斗：与上面的日活同源（MAU 为基数），相邻两档的转化率由数据即时算，不写死 */
+      '<div class="sub-h">从访问到支付（近 30 天去重人数）</div>' +
+      '<div class="uo-fn">' + site.funnel.map(function (f, i) {
+        var prev = i ? site.funnel[i - 1].value : null;
+        var w = (f.value / site.funnel[0].value) * 100;
+        return '<div class="uo-fn-r"><i>' + h.esc(f.name) + '</i>' +
+          '<span class="hbar-track"><i style="display:block;height:100%;border-radius:999px;background:' +
+          (i === site.funnel.length - 1 ? '#15803d' : '#2563eb') + ';width:' + w.toFixed(1) + '%"></i></span>' +
+          '<b>' + fmt.int(f.value) + (prev ? '<em>' + fmt.pct1(f.value / prev) + '</em>' : '<em>基数</em>') + '</b></div>';
+      }).join('') + '</div>' +
+      '<div class="bt-note">最大漏点在「' + (function () {
+        var worst = 1, name = '';
+        for (var i = 1; i < site.funnel.length; i++) {
+          var r = site.funnel[i].value / site.funnel[i - 1].value;
+          if (r < worst) { worst = r; name = site.funnel[i - 1].name + ' → ' + site.funnel[i].name; }
+        }
+        return name + '」，只有 ' + fmt.pct1(worst) + ' 走到下一步';
+      })() + ' —— 这一步的流失是产品与结账流程问题，触达救不回来。</div></div>';
+
+    /* ── 站内行为三卡：搜索 / 点击 / AI ─────────────────────────── */
+    var avgCtr = site.topTerms.reduce(function (a, t) { return a + t.n * t.ctr; }, 0) /
+      site.topTerms.reduce(function (a, t) { return a + t.n; }, 0);
+    var searchCard = '<div class="card"><div class="card-h"><h3>站内搜索</h3>' +
+      '<span class="card-sub">Top10 里 ' + fmt.int(site.noResultTotal) + ' 次没搜到结果，占 ' + fmt.pct1(site.noResultTotal / site.termCovered) + '</span></div>' +
+      '<div class="uo-big">' + fmt.compact(site.search30) + '<small>次</small></div>' +
+      '<div class="uo-sub">日均 ' + fmt.int(Math.round(site.search30 / 30)) + ' 次 · 搜索后点击 ' + fmt.pct1(avgCtr) +
+      ' · 无结果 ' + fmt.int(site.noResultTotal) + ' 次</div>' +
+      '<div class="uo-list">' + site.topTerms.slice(0, 5).map(function (t) {
+        var bad = t.noResult >= 0.08;
+        return '<div class="uo-li"><div class="uo-li-t">' + rk(t.rank) +
+          '<b title="' + h.esc(t.q) + '">' + h.esc(t.q) + '</b>' + rkMove(t.rank, t.prevRank) +
+          '<em>' + fmt.int(t.n) + '</em></div>' +
+          '<div class="uo-li-w' + (bad ? ' bad' : '') + '">' + (bad ? '无结果 ' + fmt.pct1(t.noResult) + '（' + fmt.int(t.noResultN) + ' 次）' : '点击 ' + fmt.pct1(t.ctr)) +
+          ' · ' + h.esc(t.tag) + '</div></div>';
+      }).join('') + '</div>' +
+      '<div class="uo-note">搜索带动成交 <b>' + usd(site.searchRevenue) + '</b>，占 GMV ' + fmt.pct1(site.searchOrders / paidOrders) +
+      '；搜索用户 ' + fmt.int(site.searchUsers) + ' 人，转化 ' + fmt.pct2(site.searchOrders / site.searchUsers) +
+      '，是站均的 ' + (site.searchOrders / site.searchUsers / site.convRate).toFixed(1) + ' 倍。<br>' +
+      'Top10 覆盖 ' + fmt.pct1(site.termCovered / site.search30) + '（其余 ' + fmt.pct1(site.termLongTail) +
+      ' 为长尾，未逐条统计）· 无结果超 8% 标红。</div></div>';
+
+    var clickCard = '<div class="card"><div class="card-h"><h3>内容点击</h3>' +
+      '<span class="card-sub">前 6 个入口吃掉 ' + fmt.pct0(site.clickPaths.reduce(function (a, c) { return a + c.n; }, 0) / site.clicks30) + ' 的点击</span></div>' +
+      '<div class="uo-big">' + fmt.compact(site.clicks30) + '<small>次</small></div>' +
+      '<div class="uo-sub">点击率 ' + fmt.pct1(site.clickRate) + ' · 浏览 ' + fmt.compact(site.pv30) +
+      ' · 每 ' + fmt.num1(site.pv30 / site.clicks30) + ' 次浏览 1 次点击</div>' +
+      '<div class="uo-list">' + site.clickPaths.slice(0, 5).map(function (c) {
+        var share = c.n / site.clicks30;
+        return '<div class="uo-li"><div class="uo-li-t">' + rk(c.rank) +
+          '<b>' + h.esc(c.label) + '</b>' + rkMove(c.rank, c.prevRank) +
+          '<em>' + fmt.int(c.n) + '</em></div>' +
+          '<div class="uo-li-w">' + h.esc(c.path) + ' · 占 ' + fmt.pct1(share) + '</div></div>';
+      }).join('') + '</div>' +
+      '<div class="uo-note">只统计站内点击。前 6 个入口占 ' + fmt.pct0(site.clickPaths.reduce(function (a, c) { return a + c.n; }, 0) / site.clicks30) +
+      '，其余分散在商品详情与文章内链。</div></div>';
+
+    /* 知识条目两条轴：被引用多少（AI 有没有用它）、解决了多少（用了有没有用）。
+       cited 高但 rate 低 = 这条内容本身写错了，加新条目救不了 —— Intercom Fin 的 content performance 就是看这个。 */
+    var aiMissN = site.aiMiss.reduce(function (a, m) { return a + m.n; }, 0);
+    var kbBest = site.knowledgeTop.slice().sort(function (a, b) { return b.cited - a.cited; })[0];
+    var kbWorst = site.knowledgeTop.slice().filter(function (k) { return k.cited > 300; })
+      .sort(function (a, b) { return a.rate - b.rate; })[0];
+    var aiCard = '<div class="card"><div class="card-h"><h3>AI 命中</h3>' +
+      '<span class="card-sub">' + fmt.int(site.ai30 - site.aiHit30) + ' 次没接住，前 5 个问题占 ' + fmt.pct1(aiMissN / (site.ai30 - site.aiHit30)) + '</span></div>' +
+      '<div class="uo-big">' + fmt.pct1(site.aiHitRate) + '<small>命中率</small></div>' +
+      '<div class="uo-sub">AI 会话 ' + fmt.compact(site.ai30) + ' 次 · 未命中 ' +
+      fmt.int(site.ai30 - site.aiHit30) + ' 次 · 目标 80%</div>' +
+      '<div class="uo-list">' + site.aiMiss.slice(0, 5).map(function (m, i) {
+        return '<div class="uo-li"><div class="uo-li-t">' + rk(i + 1) +
+          '<b title="' + h.esc(m.q) + '">' + h.esc(m.q) + '</b><em>' + fmt.int(m.n) + '</em></div>' +
+          '<div class="uo-li-w">' + h.esc(m.why) + '</div></div>';
+      }).join('') + '</div>' +
+      '<div class="uo-note">' +
+      (kbBest ? '用得最多：' + h.esc(kbBest.title) + '（' + fmt.int(kbBest.cited) + ' 次 · 解决 ' + fmt.pct0(kbBest.rate) + '）<br>' : '') +
+      (kbWorst ? '最该改：' + h.esc(kbWorst.title) + '（' + fmt.int(kbWorst.cited) + ' 次 · 只解决 ' + fmt.pct0(kbWorst.rate) + '）' : '') +
+      '</div></div>';
+
+    /* ── 社媒矩阵 ────────────────────────────────────────────────
+       列的组合是刻意排的：粉丝（存量）→ 净增（变化）→ 播放/互动（内容效果）→ 访客/成交（钱）。
+       只看前三列容易得出"TikTok 最大"的结论，加上后两列才知道它是不是也最值钱。
+       粉丝走势塞进「粉丝」格里，省一列宽度 —— 表格已经 7 列，再宽窄屏就得横滚。 */
+    var pfRows = soc.platforms.map(function (pf) {
+      return {
+        id: pf.id, name: pf.name, handle: pf.handle, note: pf.note,
+        followers: pf.followers, net30: pf.net30, trend: pf.trend,
+        views30: pf.views30, eng30: pf.eng30, engRate: pf.engRate,
+        clicks: pf.clicks, sessions: pf.sessions, orders: pf.orders, revenue: pf.revenue,
+        convRate: pf.convRate
+      };
+    });
+    var socTable = h.table({
+      columns: [
+        { key: 'name', label: '平台', render: function (r) {
+          return '<div><b>' + h.esc(r.name) + '</b></div>' +
+            '<div class="uo-li-w">' + h.esc(r.handle) + '</div>';
+        } },
+        { key: 'followers', label: '粉丝', align: 'right', render: function (r) {
+          return '<div>' + fmt.int(r.followers) + '</div>' +
+            '<div style="margin-top:3px;line-height:0">' +
+            C.sparkline(r.trend, { color: r.net30 >= 0 ? '#15803d' : '#b91c1c', width: 68, height: 16 }) + '</div>';
+        } },
+        { key: 'net30', label: '30 天净增', align: 'right', render: function (r) {
+          return '<span class="' + (r.net30 >= 0 ? 'ok' : 'bad') + '">' + (r.net30 > 0 ? '+' : '') + fmt.int(r.net30) + '</span>';
+        } },
+        { key: 'views30', label: '播放', align: 'right', render: function (r) { return fmt.compact(r.views30); } },
+        { key: 'eng30', label: '互动', align: 'right', render: function (r) {
+          return fmt.compact(r.eng30) + ' <em class="muted">' + fmt.pct1(r.engRate) + '</em>';
+        } },
+        { key: 'sessions', label: '带来访客', align: 'right', render: function (r) {
+          return '<div>' + fmt.int(r.sessions) + '</div>' +
+            '<div class="uo-li-w">匹配 ' + fmt.pct0(r.sessions / r.clicks) + '</div>';
+        } },
+        { key: 'revenue', label: '带动成交', align: 'right', render: function (r) {
+          return '<div><b>' + usd(r.revenue) + '</b></div>' +
+            '<div class="uo-li-w">' + fmt.int(r.orders) + ' 单 · 转化 ' + fmt.pct1(r.convRate) + '</div>';
+        } }
+      ],
+      rows: pfRows, noPaging: true
+    });
+    /* 社媒 → 站内 → 成交 的五段链路。同行（Creatable / Umbrex）都把这条链当核心视图：
+       曝光到成交之间任何一段断了，粉丝和播放再好看也不产生收入，而且四段断点对应四类完全不同的修法。 */
+    var chain = '<div class="uo-chain">' + soc.funnel.map(function (f, i) {
+      var prev = i ? soc.funnel[i - 1].value : null;
+      return (i ? '<span class="uo-ch-a">→<em>' + fmt.pct1(f.value / prev) + '</em></span>' : '') +
+        '<div class="uo-ch' + (i === soc.funnel.length - 1 ? ' end' : '') + '">' +
+        '<i>' + h.esc(f.name) + '</i><b>' + fmt.compact(f.value) + '</b></div>';
+    }).join('') + '</div>';
+    var socCard = '<div class="card pad0"><div class="card-h pad"><h3>社媒矩阵</h3>' +
+      '<span class="card-sub">' + fmt.compact(soc.totalFollowers) + ' 粉带来 ' + fmt.int(soc.totalSessions) + ' 次访客、' + fmt.int(soc.totalOrders) + ' 单成交</span></div>' +
+      socTable + chain +
+      '<div class="bt-note" style="padding:0 16px 14px">' + h.esc(
+        '30 天社媒带来 ' + fmt.int(soc.totalSessions) + ' 次站内访问（占 MAU ' +
+        fmt.pct1(soc.totalSessions / site.mau) + '）、' + fmt.int(soc.totalOrders) + ' 单成交，' + usd(soc.totalRevenue) +
+        '（占 GMV ' + fmt.pct1(soc.totalOrders / paidOrders) + '）。'
+      ) + '<br>' + h.esc(
+        '口径提醒：UTM 覆盖率约 82%，未带参的社媒流量会落进「direct」，实际贡献被低估 —— ' +
+        '行业里暗社交通常占社媒流量的 10–40%，所以这组数只能当地板看，不能当天花板。'
+      ) + (soc.platforms.filter(function (x) { return x.net30 < 0; }).length
+        ? '<br>' + h.esc('掉粉的那个先看发布节奏：' + soc.platforms.filter(function (x) { return x.net30 < 0; })
+            .map(function (x) { return x.name + '（' + x.note + '）'; }).join('、') + '。')
+        : '') + '</div></div>';
+
+    var topRows = soc.contentTop.map(function (c, i) {
+      return {
+        rank: i + 1, prev: c.prev,
+        platform: c.platform, title: c.title, type: c.type,
+        views: c.views, eng: c.eng, follows: c.follows, day: c.day
+      };
+    });
+    var topCard = '<div class="card pad0 uo-top6"><div class="card-h pad"><h3>内容 Top 6</h3>' +
+      '<span class="card-sub">6 条带来 ' + fmt.int(soc.contentTop.reduce(function (a, c) { return a + c.follows; }, 0)) + ' 新粉，占 30 天净增 ' + fmt.pct0(soc.contentTop.reduce(function (a, c) { return a + c.follows; }, 0) / soc.totalNet30) + '</span></div>' +
+      h.table({
+        columns: [
+          { key: 'rank', label: '名次', render: function (r) {
+            return '<div class="uo-tbrk">' + rk(r.rank) + rkMove(r.rank, r.prev) + '</div>';
+          } },
+          { key: 'platform', label: '平台' },
+          { key: 'title', label: '内容', render: function (r) {
+            return '<div>' + h.esc(r.title) + '</div><div class="uo-li-w">' + h.esc(r.type) + ' · ' + fmt.rel(r.day) + '</div>';
+          } },
+          { key: 'views', label: '播放', align: 'right', render: function (r) { return fmt.compact(r.views); } },
+          { key: 'eng', label: '互动', align: 'right', render: function (r) { return fmt.compact(r.eng); } },
+          { key: 'follows', label: '新增粉丝', align: 'right', render: function (r) {
+            return '<span class="ok">+' + fmt.int(r.follows) + '</span>';
+          } }
+        ],
+        rows: topRows, noPaging: true
+      }) + '</div>';
+
+    /* ── 今天该动哪几件事 ──────────────────────────────────────── */
+    var worstStep = (function () {
+      var r0 = 1, nm = '';
+      for (var i = 1; i < site.funnel.length; i++) {
+        var r = site.funnel[i].value / site.funnel[i - 1].value;
+        if (r < r0) { r0 = r; nm = site.funnel[i - 1].name + ' → ' + site.funnel[i].name; }
+      }
+      return { rate: r0, name: nm };
+    })();
+    var t0 = site.topTerms[0];
+    var tt = soc.platforms.filter(function (x) { return x.id === 'tt'; })[0];
+    var ins = [
+      { tone: 'bad', tag: '搜索 · 无结果 ' + fmt.pct1(t0.noResult),
+        text: '「' + t0.q + '」搜了 ' + fmt.int(t0.n) + ' 次，' + fmt.int(t0.noResultN) + ' 次一条商品都没搜到 —— 这批人当场就走了',
+        act: 'knowledge', go: '去补同义词' },
+      { tone: 'bad', tag: 'AI · 未命中 ' + fmt.pct0(1 - site.aiHitRate),
+        text: 'Top5 问题 ' + fmt.int(aiMissN) + ' 次没接住，防水（shower with it）与巴西物流最集中',
+        act: 'knowledge', go: '补 5 条知识' },
+      { tone: 'warn', tag: '加购未付 ' + fmt.pct0(1 - site.funnel[3].value / site.funnel[2].value),
+        text: worseMsg(worstStep, site, fmt),
+        act: null, go: '产品侧问题 · 观察' },
+      /* 标签只放"平台 + 一个变化量"，长结论挪到正文 —— 标签列宽固定，写长必然压到正文（踩过一次） */
+      { tone: 'warn', tag: tt.name + ' · 互动率 ' + (tt.engRateDelta < 0 ? '−' : '+') + Math.abs(tt.engRateDelta).toFixed(1) + 'pt',
+        text: '30 天净增 ' + fmt.compact(tt.net30) + '，播放涨了但评论和收藏没跟上 —— 内容在迎合算法，品牌记忆没留下',
+        act: 'kol', go: '看内容策略' }
+    ];
+    var insCard = '<div class="card"><div class="card-h"><h3>今天该动哪几件事</h3>' +
+      '<span class="card-sub">按「能立刻改、改完当天见效」排 · 只有真正有去处的才给按钮</span></div>' +
+      '<div class="uo-ins">' + ins.map(function (x) {
+        var inner = '<div class="uo-ins-t"><span class="pill ' + x.tone + '">' + h.esc(x.tag) + '</span>' +
+          '<div class="uo-ins-x">' + h.esc(x.text) + '</div>' +
+          (x.act
+            ? '<button class="lnk" data-act="goto-cap" data-id="' + h.esc(x.act) + '">' + h.esc(x.go) + ' →</button>'
+            : '<span class="muted uo-ins-go">' + h.esc(x.go) + '</span>') + '</div>';
+        return inner;
+      }).join('') + '</div></div>';
+
+    return '<div class="uo-sec"><h2>独立站</h2><span class="uo-sec-t">' + fmt.compact(site.mau) + ' 访客 · 搜索 ' + fmt.compact(site.search30) + ' 次 · 成交 ' + fmt.int(paidOrders) + ' 单</span>' +
+      '<span class="uo-sec-n">访客口径，与下方 CRM 联系人池不是同一个池子</span></div>' +
+      siteMetrics + actCard +
+      '<div class="uo-3">' + searchCard + clickCard + aiCard + '</div>' +
+      '<div class="uo-sec"><h2>社媒</h2><span class="uo-sec-t">' + fmt.compact(soc.totalFollowers) + ' 粉 · 净增 ' + fmt.int(soc.totalNet30) + ' · 带来 ' + fmt.int(soc.totalSessions) + ' 访客</span>' +
+      '<span class="uo-sec-n">' + soc.platforms.length + ' 个平台 · 近 30 天</span></div>' +
+      socMetrics + socCard + topCard + insCard;
+  }
+
+  /* 漏斗最大漏点的一句话（放外面是为了能被上面两处复用，避免两套判断） */
+  function worseMsg(w, site, fmt) {
+    return '「' + w.name + '」只有 ' + fmt.pct1(w.rate) + ' 走到下一步：' +
+      fmt.int(site.funnel[2].value) + ' 人加购，' + fmt.int(site.funnel[3].value) + ' 人进了结账';
+  }
+
   function useropsPage(cap, state, h, p) {
     var fmt = h.fmt;
     /* v15：策略的「停」此前是空动作 —— 而这是全中台唯一对真人用户产生副作用的链路，
@@ -3890,19 +4454,31 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       cols: function (o) { return o.segName + ' · 灰度 ' + (o.rate || '-') + '% · ' + (o.ownerName || ''); }
     });
 
-    return pageHead(h, cap, { action: 'create-open' }) + newBlock +
-      '<div class="metrics">' + [
-        { label: '在跑策略', value: String(p.items.filter(uoIsActive).length), sub: '共 ' + p.items.length + ' 条策略' },
-        { label: '实际触达', value: fmt.compact(p.items.reduce(function (s, i) { return s + (reachOf(i).sent || 0); }, 0)), sub: '实验组（不含 holdout 对照组）' },
-        { label: '对照(holdout)', value: fmt.compact(p.items.reduce(function (s, i) { return s + (reachOf(i).holdout || 0); }, 0)), sub: '用于证明提升非自然增长' },
-        { label: '合规拦截待处理', value: String(queues().compliance.items.length), alert: queues().compliance.items.length > 0, sub: '未过合规的文案不允许投放' }
-      ].map(h.metricCard).join('') + '</div>' +
+    /* 底部这些区块一个都没删，只是折起来 —— 主视觉让给「用户怎么样了」，
+       而「我们做了什么动作」仍然是同一页要说的事，展开就在。 */
+    function fold(title, note, body, open) {
+      return '<div class="uo-exec"><details class="gv-fold"' + (open ? ' open' : '') + '>' +
+        '<summary>' + h.esc(title) + ' <span class="n">' + h.esc(note) + '</span></summary>' +
+        '<div class="uo-exec-b">' + body + '</div></details></div>';
+    }
+    var pendingComp = queues().compliance.items.length;
 
-      lifecycleBlock(p, h, fmt) +
-      feedbackBlock(p, h, fmt) +
-      segmentsBlock(p, h, fmt) +
+    return pageHead(h, cap, {
+      action: 'create-open',
+      desc: '独立站与社媒：人从哪来、在站里搜什么点什么、AI 有没有接住，各平台粉丝和互动怎么变'
+    }) + newBlock +
 
-      p.items.map(function (it) {
+      useropsDash(p, h, fmt) +
+
+      fold('用户生命周期与分群',
+        'CRM 联系人池 ' + fmt.compact(p.pool) + ' 人 —— 与上面的独立站访客不是同一个池子',
+        lifecycleBlock(p, h, fmt) + segmentsBlock(p, h, fmt)) +
+
+      fold('触达策略',
+        p.items.length + ' 条 · ' + p.items.filter(uoIsActive).length + ' 条在跑 · 触达 ' +
+        fmt.compact(p.items.reduce(function (s, i) { return s + (reachOf(i).sent || 0); }, 0)) +
+        ' 人 · 合规拦截待处理 ' + pendingComp + ' 条',
+        p.items.map(function (it) {
         var r = it.result;
         // 显著性不在数据里存值，这里按页面统一口径（双比例 z 检验）即时推导，任何数据改动下都自洽
         var grp = (r && r.sampleExp && r.sampleCtrl) ? Q.twoPropTest(Math.round(r.convExp * r.sampleExp), r.sampleExp, Math.round(r.convCtrl * r.sampleCtrl), r.sampleCtrl) : null;
@@ -3953,108 +4529,378 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
           (state.userops && state.userops[it.id] ? '<div class="bt-note">灰度比例已调至 ' + Math.round(state.userops[it.id] * 100) + '%</div>' : '') +
           '<div class="gray-acts uo-ops">' + uoOps(it) + '</div>' +
           '</div>';
-      }).join('') +
+      }).join('')) +
 
-      '<div class="card" data-static="1" title="只读说明：本卡是生效中的防护策略汇总（预算/冷却/实验纪律/用户偏好）。改动这些策略点击即生效；单条策略在「能力与权限 › 授权规则」里改。"><div class="card-h"><h3>触达防护</h3>' +
-      '<span class="card-sub">全中台唯一对真人用户产生副作用的链路（短信 / Push / 站内信触达真实用户），防护最重</span></div>' +
-      (p.guardrails ? '<div class="excl-row"><i>全局预算</i><span>' + h.esc(p.guardrails.monthlyCapText) + '</span></div>' +
-      '<div class="excl-row"><i>冷却静默</i><span>' + h.esc(p.guardrails.cooling) + '</span>' +
-        '<span>' + h.esc(p.guardrails.quietHours) + '</span>' +
-        '<span class="muted">' + h.esc(p.guardrails.emergency) + '</span></div>' +
-      '<div class="excl-row"><i>实验纪律</i><span>' + h.esc(p.guardrails.holdoutText) + '</span>' +
-        '<span>' + h.esc(p.guardrails.rampText) + '</span>' +
-        '<span class="muted">发送前确认页显示完整影响面（触达人数、预计成本、holdout 人数、合规结果），超阈值需你确认</span></div>' +
-      '<div class="excl-row"><i>用户偏好</i><span>' + h.esc(p.guardrails.preference) + '</span>' +
-        '<span class="muted">降频优先于退订 —— 退订是全有或全无，每强制一次选择就永久丢一个用户</span></div>'
-      : '<div class="bt-note">触达防护配置加载失败。</div>') +
-      '</div>' +
+      fold('用户反馈', feedbackN(p) + ' 条 · 待处理 ' +
+        p.feedback.items.filter(function (i) { return i.status === 'open'; }).length + ' 条 · 明细与「今天该动哪几件事」同源',
+        feedbackBlock(p, h, fmt)) +
+
+      fold('触达防护', '预算 / 冷却 / 实验纪律 / 用户偏好 —— 全中台唯一对真人产生副作用的链路',
+        '<div class="card" data-static="1" title="只读说明：本卡是生效中的防护策略汇总（预算/冷却/实验纪律/用户偏好）。改动这些策略点击即生效；单条策略在「能力与权限 › 授权规则」里改。"><div class="card-h"><h3>触达防护</h3>' +
+        '<span class="card-sub">短信 / Push / 站内信触达真实用户，防护最重</span></div>' +
+        (p.guardrails ? '<div class="excl-row"><i>全局预算</i><span>' + h.esc(p.guardrails.monthlyCapText) + '</span></div>' +
+        '<div class="excl-row"><i>冷却静默</i><span>' + h.esc(p.guardrails.cooling) + '</span>' +
+          '<span>' + h.esc(p.guardrails.quietHours) + '</span>' +
+          '<span class="muted">' + h.esc(p.guardrails.emergency) + '</span></div>' +
+        '<div class="excl-row"><i>实验纪律</i><span>' + h.esc(p.guardrails.holdoutText) + '</span>' +
+          '<span>' + h.esc(p.guardrails.rampText) + '</span>' +
+          '<span class="muted">发送前确认页显示完整影响面（触达人数、预计成本、holdout 人数、合规结果），超阈值需你确认</span></div>' +
+        '<div class="excl-row"><i>用户偏好</i><span>' + h.esc(p.guardrails.preference) + '</span>' +
+          '<span class="muted">降频优先于退订 —— 退订是全有或全无，每强制一次选择就永久丢一个用户</span></div>'
+        : '<div class="bt-note">触达防护配置加载失败。</div>') +
+        '</div>') +
       h.metaBar({}, [
+        { k: '独立站口径', v: 'DAU = 当日去重访客（UV）；WAU / MAU 为窗口内去重，不是 DAU×7 / ×30。访客与 CRM 联系人池不设换算关系（访客可未留资，一个联系人也可对应多个访客）' },
+        { k: '搜索 / 点击口径', v: '搜索含重复提交，无结果只统计 Top10 词；点击 = 站内可点内容的点击事件，点击率 = 点击 ÷ 页面浏览，不含站外广告。搜索带动成交 = 搜索用户 × 搜索转化率 × 客单价（Klevu 的 Search Led Sales 同口径），搜索用户按人均 4.5 次搜索折算' },
+        { k: 'AI 命中口径', v: '命中 = 检索到能支撑结论的内容并直接回答（商品参数 / 尺码 / 物流 / 退换）；未命中 = 答「没有找到」或转人工；目标 ≥ 80%。知识条目的「解决率」= 该条被引用后用户未追问、未转人工的比例' },
+        { k: '社媒口径', v: '粉丝为各平台直接相加（跨平台会重复计人）；净增 = 新增关注 − 取关；互动率 = Σ互动 ÷ Σ播放（按播放加权，不是各平台求平均）。社媒带来的访客与成交按 UTM 归因，覆盖率约 82%，未带参会落进「direct」，所以社媒贡献是下限不是上限' },
         { k: '显著性检验', v: '双比例 z 检验，α = 0.05；样本量不足时会明确标注「不显著」而非展示提升数字' },
-        { k: '触达口径', v: 'holdout = 净人群（圈人 − 排除）的 5% 独立抽取；灰度按剔除 holdout 后的人数计 —— 实验组 + holdout 恒等于净人群，超发不可能发生' },
-        { k: '生命周期口径', v: '存量分布：Σ各阶段 = 池规模；流失率为近 30 天口径，已流失不计；已流失进入 60–90 天赢回窗口' },
-        { k: '分群口径', v: '覆盖 = 池规模 × 群占比；群间可重叠，占比不可相加；活跃率近 7 日；被引用数由策略的目标分群真实推导' },
-        { k: '反馈口径', v: '近 7 天明细；待处理/趋势均由明细聚合，与列表逐条一致；影响人数为关联用户估算；「申请降频」未及时响应会升级为退订' }
+        { k: '触达口径', v: 'holdout = 净人群（圈人 − 排除）的 5% 独立抽取；灰度按剔除 holdout 后的人数计 —— 实验组 + holdout 恒等于净人群，超发不可能发生' }
       ]);
   };
 
+  function feedbackN(p) { return (p.feedback && p.feedback.items || []).length; }
+
+  /* SECTION: r-evolution (v53 · 2026-10-29 整屏重做)
+   * 业主原话：「这个页面应该显示 agent 改进了什么，工具调用？流程优化？经验记忆改进？」
+   * 旧版以流水线四阶段（聚类 → 生成 → 评估 → 灰度）为骨架 —— 它回答「这条任务走到哪一步」，
+   * 不回答「到底改了什么」。而看这一屏的人想知道的是：动了工具的哪个参数、流程里加了哪个节点、
+   * 写进了哪条经验、提示词改的是哪一句。
+   * 骨架因此换成**改进面**（tool / flow / memory / prompt），四阶段降级为任务卡底部的一行溯源。
+   * 纪律不变：AI 提候选、人做决定；每处改动都要能说出「依据几例 badcase、改完差多少、怎么回滚」。
+   */
+  var EVO_FACES = [
+    { k: 'tool',   name: '工具调用',     icon: 'chip',     ink: '#1d4ed8', bg: '#eef4ff', line: '#CFE0FF', hint: '工具与参数变更、调用失败兜底' },
+    { k: 'flow',   name: '流程编排',     icon: 'order',    ink: '#6d28d9', bg: '#f5f1ff', line: '#D9D4FB', hint: '节点增删、分支条件、顺序与等待' },
+    { k: 'memory', name: '经验记忆',     icon: 'bulb',     ink: '#0f766e', bg: '#effaf6', line: '#C3E7DA', hint: '经验条目新增 / 改写 / 废弃与召回情况' },
+    { k: 'prompt', name: '提示词与知识', icon: 'database', ink: '#475569', bg: '#f4f6f9', line: '#DFE3EA', hint: '系统提示词约束与知识库条目' }
+  ];
+  var EVO_STATE = {
+    live: { tone: 'ok', dot: 'ok' }, gray: { tone: 'info', dot: 'run' },
+    eval: { tone: 'warn', dot: 'warn' }, draft: { tone: 'idle', dot: 'idle' }
+  };
+  function evoFace(k) {
+    for (var i = 0; i < EVO_FACES.length; i++) if (EVO_FACES[i].k === k) return EVO_FACES[i];
+    return EVO_FACES[0];
+  }
+  function evoFaceIdx(k) {
+    for (var i = 0; i < EVO_FACES.length; i++) if (EVO_FACES[i].k === k) return i;
+    return 9;
+  }
+
+  /* 流程改动的节点条带：节点类型写在上方小字（触发器 / 判断 / 动作 / 工具），新增与改动各有角标。
+     只说「新增订单锁定节点」看不出加在哪、前后是谁 —— 所以位置要画出来。
+     v53b：支持分支。原来所有节点排成一条直线，把「判完之后二选一」画成了先后顺序，
+     等于在说一句错话。带 split 的流程改成：公共段 / 分叉的两条 lane（各带标签）/ 汇合段。 */
+  function evoFlowNode(n, h) {
+    var st = n.st || 'base';
+    return '<span class="evfn ' + st + '">' +
+      (st === 'new' ? '<i class="evfn-b">新增</i>' : (st === 'chg' ? '<i class="evfn-b chg">改</i>' : '')) +
+      '<i class="evfn-k">' + h.esc(n.kind || '') + '</i>' +
+      '<b>' + h.esc(n.name) + '</b>' +
+      '<u>' + h.esc(n.sub || '') + '</u></span>';
+  }
+  function evoFlowStrip(list, h) {
+    return '<div class="evf-strip">' + (list || []).map(function (n, i) {
+      return (i ? '<span class="evf-arr" aria-hidden="true"></span>' : '') + evoFlowNode(n, h);
+    }).join('') + '</div>';
+  }
+  function evoFlowBlock(c, h) {
+    var fl = c.flow;
+    if (!fl) return '';
+    var body;
+    if (fl.split && fl.split.length) {
+      body = evoFlowStrip(fl.head, h) +
+        '<div class="evf-split">' + fl.split.map(function (ln) {
+          return '<div class="evf-lane ' + (ln.tone || 'ok') + '">' +
+            '<span class="evf-lane-k">' + h.esc(ln.label || '') + '</span>' +
+            '<span class="evf-lane-nodes">' +
+            (ln.nodes || []).map(function (n, i) {
+              return (i ? '<span class="evf-arr" aria-hidden="true"></span>' : '') + evoFlowNode(n, h);
+            }).join('') + '</span></div>';
+        }).join('') + '</div>' +
+        ((fl.tail && fl.tail.length) ? evoFlowStrip(fl.tail, h) : '');
+    } else {
+      body = evoFlowStrip(fl.nodes, h);
+    }
+    return '<div class="evf">' +
+      '<div class="evf-hd"><b>' + h.esc(fl.name || '流程') + '</b>' +
+        '<span class="muted">' + h.esc(fl.from || '') + ' → ' + h.esc(fl.to || '') + '</span>' +
+        '<span class="evf-lg"><i class="evf-d sw-new"></i>新增<i class="evf-d sw-chg"></i>改动</span></div>' +
+      body +
+      (fl.note ? '<div class="evf-note">' + h.esc(fl.note) + '</div>' : '') +
+      '</div>';
+  }
+
+  /* 经验记忆改动：条目原文就是「改了什么」，所以不摆参数表，摆旧口径 / 新口径两段话。 */
+  function evoMemBlock(c, h) {
+    var m = c.mem, fmt = h.fmt;
+    if (!m) return '';
+    return '<div class="evc-lbl">改动内容</div>' +
+      '<div class="evm">' +
+        '<div class="evm-t"><span class="evm-act">' + h.esc(m.action || '新增') + '</span>' + h.esc(m.entry) + '</div>' +
+        '<div class="evm-q">触发：' + h.esc(m.trigger || '—') + '</div>' +
+        '<div class="evm-o"><b>旧</b>' + h.esc(m.before || '—') + '</div>' +
+        '<div class="evm-n"><b>新</b>' + h.esc(m.after || '—') + '</div>' +
+        '<div class="evm-meta"><span>被召回 <b>' + h.esc(fmt.int(m.searches)) + '</b> 次</span>' +
+          '<span>命中 <b>' + h.esc(fmt.pct1(m.hit)) + '</b></span>' +
+          '<span>采纳 <b>' + h.esc(fmt.pct1(m.adopt)) + '</b></span></div>' +
+      '</div>';
+  }
+
+  function evoDiffBlock(c, h) {
+    if (c.face === 'memory' && c.mem) return evoMemBlock(c, h);
+    return '<div class="evc-lbl">改动内容</div><div class="evd-list">' + (c.diff || []).map(function (d) {
+      return '<div class="evd"><span class="evd-k">' + h.esc(d.k) + '</span>' +
+        '<span class="evd-b">' + h.esc(d.b) + '</span>' +
+        '<span class="evd-arr" aria-hidden="true"></span>' +
+        '<span class="evd-a">' + h.esc(d.a) + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function evoEffectBlock(c, h) {
+    /* good 三态：true 绿的、false 红的、null 灰的。
+       null 是给「被召回 412 次 · 近 14 天」这种**不是涨跌**的行用的 ——
+       把它们涂成绿色等于在说"这是收益"，不诚实。 */
+    return '<div class="evc-lbl">实测效果</div><div class="eve-list">' + (c.effect || []).map(function (e) {
+      var tone = e.good === true ? 'ok' : (e.good === false ? 'bad' : 'mute');
+      return '<div class="eve"><span class="eve-k">' + h.esc(e.k) + '</span>' +
+        '<span class="eve-v"><span class="eve-b">' + h.esc(e.b) + '</span>' +
+        '<span class="evd-arr" aria-hidden="true"></span><b>' + h.esc(e.a) + '</b></span>' +
+        '<span class="eve-d ' + tone + '">' + h.esc(e.d) + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function evoChange(c, h) {
+    var face = evoFace(c.face), st = EVO_STATE[c.state] || EVO_STATE.draft;
+    return '<div class="evc" style="border-color:' + face.line + '">' +
+      '<div class="evc-h">' +
+        '<span class="evc-tag" style="color:' + face.ink + ';background:' + face.bg + '">' +
+          h.icon(face.icon, 12) + h.esc(c.kindText || face.name) + '</span>' +
+        '<b class="evc-title">' + h.esc(c.title) + '</b>' +
+        '<span class="pill ' + st.tone + '">' + h.esc(c.stateText || '') + '</span>' +
+      '</div>' +
+      '<div class="evc-obj">' + h.esc(c.obj || '') +
+        (c.objSub ? '<span class="evc-objsub">' + h.esc(c.objSub) + '</span>' : '') + '</div>' +
+      (c.face === 'flow' ? evoFlowBlock(c, h) : '') +
+      '<div class="evc-body">' +
+        '<div class="evc-col">' + evoDiffBlock(c, h) + '</div>' +
+        '<div class="evc-col">' + evoEffectBlock(c, h) + '</div>' +
+      '</div>' +
+      '<div class="evc-f">' +
+        '<span><b>依据</b> ' + h.esc((c.cause && c.cause.name) || '') +
+          (c.cause && c.cause.cases ? ' · ' + h.esc(String(c.cause.cases)) + ' 例' : '') + '</span>' +
+        '<span><b>验证</b> ' + h.esc(c.verify || '') + '</span>' +
+      '</div>' +
+      '</div>';
+  }
+
   function evolutionPage(cap, state, h, p) {
     var fmt = h.fmt;
+    var f = state.filters || {};
+    var faceOn = f.evoFace || '';
+    var tr = state.evoTrace || {};
+
+    var all = [];
+    p.items.forEach(function (it) {
+      (it.changes || []).forEach(function (c) { all.push({ it: it, c: c }); });
+    });
+    var cnt = {}, nLive = 0, nGray = 0, nEval = 0;
+    EVO_FACES.forEach(function (x) { cnt[x.k] = 0; });
+    all.forEach(function (x) {
+      cnt[x.c.face] = (cnt[x.c.face] || 0) + 1;
+      if (x.c.state === 'live') nLive++;
+      else if (x.c.state === 'gray') nGray++;
+      else if (x.c.state === 'eval') nEval++;
+    });
+    var pendTasks = p.items.filter(function (it) { return it.status === 'gray'; });
+    var grayDays = 0, grayRatio = 0;
+    p.items.forEach(function (it) {
+      var g = (it.stages || []).filter(function (s) { return s.id === 'gray'; })[0];
+      if (it.status === 'gray' && g && g.gray) {
+        if (g.gray.days > grayDays) grayDays = g.gray.days;
+        if (g.gray.ratio > grayRatio) grayRatio = g.gray.ratio;
+      }
+    });
+    /* 指标卡只有 190px 宽，放不下「工具调用 3 · 流程编排 3 · 经验记忆 2 · 提示词与知识 4」——
+       中文可以在任意两字之间断行，加不换行空格也拦不住，会断成「提示 / 词与知识 4」。
+       面级数字本来就在下面四张面卡上各显示一次，这里不重复，只说明总数由什么构成。 */
+    var faceN = EVO_FACES.filter(function (x) { return cnt[x.k]; }).length;
+
+    /* ── 顶部四个数：改了几处 / 生效几处 / 灰度几处 / 几处等你点头 ────────── */
+    var metrics = '<div class="metrics">' + [
+      { label: '本轮改动', value: String(all.length), unit: '处', sub: '分布在 ' + faceN + ' 个改进面',
+        definition: '一处改动 = 一个可指认的对象：工具参数、流程节点、经验条目或提示词段落。仅更换模型版本、无具体对象的变更不计入' },
+      { label: '已生效', value: String(nLive), unit: '处', sub: '线上生效中，可回滚',
+        definition: '经验条目与知识库条目走各自库的生效流程，不随 Agent 版本灰度；提示词 / 编排 / 工具参数的改动必须随版本灰度' },
+      { label: '灰度中', value: String(nGray), unit: '处',
+        sub: (grayRatio ? Math.round(grayRatio * 100) + '% 流量 · 已观察 ' + grayDays + ' 天' : '暂无灰度') + (nEval ? ' · 另有 ' + nEval + ' 处在评估' : '') },
+      { label: '待确认', value: String(pendTasks.length), unit: '个任务', alert: pendTasks.length > 0,
+        sub: '转全量由人工确认，AI 无自发布权限' }
+    ].map(h.metricCard).join('') + '</div>';
+
+    /* ── 四个改进面 = 页面的骨架，同时就是筛选器 ─────────────────────────── */
+    var faceCards = '<div class="ev-sums">' + EVO_FACES.map(function (x) {
+      var n = cnt[x.k] || 0, on = faceOn === x.k;
+      var rep = '';
+      var first = all.filter(function (y) { return y.c.face === x.k; })[0];
+      if (first) {
+        var e = (first.c.effect || []).filter(function (z) { return z.good; })[0] || (first.c.effect || [])[0];
+        if (e) rep = '代表改动：' + e.k + ' ' + e.b + ' → ' + e.a;
+      }
+      return '<button class="ev-sum' + (on ? ' on' : '') + (n ? '' : ' off') + '"' +
+        (n ? ' data-act="evo-face" data-id="' + h.esc(x.k) + '" aria-pressed="' + on + '"' : ' disabled') +
+        ' style="border-color:' + (on ? x.ink : x.line) + '">' +
+        '<span class="ev-sum-h"><span class="ev-sum-ico" style="color:' + x.ink + ';background:' + x.bg + '">' + h.icon(x.icon, 13) + '</span>' + h.esc(x.name) + '</span>' +
+        '<span class="ev-sum-b">' + n + '<small>处</small></span>' +
+        '<span class="ev-sum-d">' + h.esc(rep || x.hint) + '</span>' +
+        '</button>';
+    }).join('') + '</div>' +
+      (faceOn ? '<div class="ev-filter">正在只看「' + h.esc(evoFace(faceOn).name) + '」的改动 ' +
+        '<button class="lnk" data-act="evo-face" data-id="' + h.esc(faceOn) + '">看全部 ' + all.length + ' 处</button></div>' : '');
+
+    /* ── 任务卡：一条进化任务 = 一个版本 = 一组改动 ────────────────────────── */
+    var cards = p.items.map(function (it) {
+      var list = (it.changes || []).filter(function (c) { return !faceOn || c.face === faceOn; });
+      if (faceOn && !list.length) return '';
+      list = list.slice().sort(function (a, b) { return evoFaceIdx(a.face) - evoFaceIdx(b.face); });
+
+      var tone = it.status === 'gray' ? 'info' : (it.status === 'evaluate' ? 'warn' : (it.status === 'done' ? 'ok' : 'idle'));
+      /* 改动都挂在某个版本上：「改了什么」不写清落在哪个版本，事后对不上 trace。 */
+      var ag = (S.AGENTS || []).filter(function (a) { return a.id === it.agentId; })[0] || {};
+      var verTxt = (it.status === 'gray' && ag.grayVersion)
+        ? '灰度版本 <b>' + h.esc(ag.grayVersion) + '</b>（线上 ' + h.esc(ag.online || '—') + '）' : '';
+      var head = '<div class="card-h"><h3>' + h.esc(it.name) + '</h3>' +
+        h.pill(tone, it.statusText) +
+        '<span class="card-sub"><button class="lnk" data-act="goto-agent" data-id="' + h.esc(it.agentId) + '">' +
+        h.esc(it.agentName) + '</button>' + (verTxt ? ' · ' + verTxt : '') + ' · ' + h.esc(it.triggerText) + ' · 建于 ' + h.esc(fmt.rel(it.createdAt)) + '</span></div>';
+
+      var perFace = EVO_FACES.map(function (x) {
+        var n = (it.changes || []).filter(function (c) { return c.face === x.k; }).length;
+        return n ? x.name + ' ' + n : '';
+      }).filter(Boolean).join(' · ');
+      var lead = (it.changes && it.changes.length)
+        ? '<div class="evo-lead"><b>这轮改了 ' + it.changes.length + ' 处</b><span>' + h.esc(perFace) + '</span>' +
+          (faceOn ? '<span class="evo-lead-on">下面只列「' + h.esc(evoFace(faceOn).name) + '」的 ' + list.length + ' 处</span>' : '') +
+          '</div>'
+        : '';
+
+      var body;
+      if (!it.changes || !it.changes.length) {
+        body = '<div class="evo-empty">' + h.esc(it.pendingNote || '这条任务还没产出改动') + '</div>';
+      } else {
+        body = list.map(function (c) { return evoChange(c, h); }).join('');
+      }
+
+      /* 溯源：四阶段压成一行，明细按需展开 —— 页面主体让给「改了什么」 */
+      var steps = (it.stages || []).map(function (s) {
+        return '<span class="evo-step">' + h.esc(s.name) +
+          (s.count != null ? ' · ' + h.esc(fmt.int(s.count)) : '') + '</span>';
+      }).join('<span class="evf-arr" aria-hidden="true"></span>');
+      var origin = '<div class="evo-origin"><span class="evo-origin-k">溯源</span>' +
+        '<span class="evo-steps">' + steps + '</span>' +
+        '<button class="lnk" data-act="evo-trace" data-id="' + h.esc(it.id) + '">' +
+        (tr[it.id] ? '收起推导明细' : '看推导明细') + '</button></div>' +
+        (tr[it.id] ? evoTraceBlock(it, h, fmt) : '');
+
+      /* 灰度任务才给决策按钮；已全量的给上线后跟踪 */
+      var acts = '';
+      var gs = (it.stages || []).filter(function (s) { return s.id === 'gray'; })[0] || {};
+      if (it.status === 'gray' && gs.gray) {
+        var opNote = (state.evoOps && state.evoOps[it.id])
+          ? '<div class="bt-note">本会话已处置：' + ({ rollback: '已回滚（灰度停止）', full: '已转全量（承接 100% 流量）' }[state.evoOps[it.id]] || '—') +
+            '　<button class="btn-ghost sm" data-act="evo-undo" data-id="' + h.esc(it.id) + '">撤销（演示）</button></div>'
+          : '';
+        acts = '<div class="gray-rules">以上改动随 ' + (it.agentName || '该 Agent') + ' 的灰度版本发布，当前 ' +
+          Math.round(gs.gray.ratio * 100) + '% 流量、已运行 ' + gs.gray.days + ' 天。自动回滚条件：' +
+          h.esc(gs.gray.autoRollback) + '；该条件为示例，未接入自动执行。转全量需人工确认，确认页附灰度期数据。</div>' +
+          opNote +
+          '<div class="gray-acts">' +
+          '<button class="btn-ghost" data-act="evo-gray" data-id="' + h.esc(it.agentId || '') + '">灰度对比</button>' +
+          '<button class="btn-danger" data-act="evo-decide" data-id="' + h.esc(it.id) + '|rollback">回滚</button>' +
+          '<button class="btn-primary" data-act="evo-decide" data-id="' + h.esc(it.id) + '|full">转全量</button></div>';
+      }
+      if (it.track) {
+        acts += '<div class="evo-track"><b>上线后跟踪</b>' + h.esc(it.track.line) + '</div>';
+      }
+
+      return '<div class="card pipe-card">' + head + lead + body + origin + acts + '</div>';
+    }).join('');
+
+    var emptyAll = all.length ? '' : '<div class="empty"><div class="empty-title">还没有产出改动</div>' +
+      '<div class="empty-sub">全部任务处于聚类或评估阶段；改动清单于聚类完成后生成</div></div>';
+
     return pageHead(h, cap, { action: 'create-open' }) +
       global.UI.sessionNewBlock(state, h, 'evo', { title: '本会话发起的进化任务' }) +
-      '<div class="metrics">' + [
-        { label: '进化任务', value: String(p.items.length), sub: '灰度中 ' + p.items.filter(function (i) { return i.status === 'gray'; }).length + ' · 评估中 ' + p.items.filter(function (i) { return i.status === 'evaluate'; }).length },
-        { label: '本月采纳策略', value: '23', sub: '平均收益 +5.8%' },
-        { label: '待确认转全量', value: String(p.items.filter(function (i) { return i.status === 'gray'; }).length), alert: true, sub: '绝不允许 AI 自动全量上线' }
-      ].map(h.metricCard).join('') + '</div>' +
+      metrics + faceCards + emptyAll + cards +
+      '<div class="card" data-static="1" title="只读说明：本块是口径声明，不含数据对象，因此没有可下钻目标。">' +
+      '<div class="card-h"><h3>改动口径</h3><span class="card-sub">四个改进面 · 一处改动对应一个可指认对象</span></div>' +
+      '<div class="bt-note"><b>一处改动 = 一个可指认的对象。</b>' +
+      '对象限定四类：工具参数、流程节点、经验条目、提示词段落。无法指认到对象的变更不计入本表。' +
+      '每处改动附三项：依据（badcase 类别与例数）、验证（回归集或灰度样本的前后对比）、状态（已生效 / 灰度中 / 评估中）。' +
+      '<b>AI 提候选，人做决定，每一步可解释、可回滚。</b></div></div>' +
+      h.metaBar({}, [
+        { k: '改动口径', v: '一处 = 一个可指认对象的一次变更；同一对象的多次变更分别计数，经验条目 v2 → v3 记 1 处，v3 → v4 另记 1 处' },
+        { k: '生效口径', v: '经验条目与知识库条目按各自库的生效流程发布；工具参数 / 流程节点 / 提示词随 Agent 版本灰度，转全量需人工确认' },
+        { k: '效果口径', v: '数字来自灰度样本或回放样本，与全量线上口径不同；每处改动单独标注样本来源' }
+      ]);
+  }
 
-      p.items.map(function (it) {
-        return '<div class="card pipe-card"><div class="card-h"><h3>' + h.esc(it.name) + '</h3>' +
-          h.pill(it.status === 'gray' ? 'info' : (it.status === 'evaluate' ? 'warn' : 'idle'), it.statusText) +
-          '<span class="card-sub"><button class="lnk" data-act="goto-agent" data-id="' + h.esc(it.agentId) + '">' + h.esc(it.agentName) + '</button> · ' +
-          h.esc(it.triggerText) + ' · 创建于 ' + fmt.rel(it.createdAt) + '</span></div>' +
-          stageFlow(it.stages, h) +
-
-          (it.stages[0].clusters ? '<div class="sub-h">badcase 聚类结果（' + it.stages[0].count + ' 例 → ' + it.stages[0].clusters.length + ' 类）</div>' +
-            '<div class="cluster-list">' + it.stages[0].clusters.map(function (c, i) {
-              return '<div class="cl' + (c.name.indexOf('其他') >= 0 ? ' skip' : '') + '">' +
-                '<span class="cl-n">' + c.cases + '</span>' +
-                '<span class="cl-main"><b>' + h.esc(c.name) + '</b><span>根因假设：' + h.esc(c.rootCause) + '</span></span>' +
-                '<span class="cl-pri">' + (c.name.indexOf('其他') >= 0 ? '暂不处理' : '优先级 ' + (i + 1)) + '</span></div>';
-            }).join('') + '</div>' : '') +
-
-          (it.stages[1].candidates ? '<div class="sub-h">候选策略（' + it.stages[1].candidates.filter(function (c) { return c.selected; }).length + ' / ' + it.stages[1].candidates.length + ' 已选入评估）</div>' +
-            h.table({
-              columns: [
-                { key: 'type', label: '类型' },
-                { key: 'target', label: '针对问题' },
-                { key: 'diff', label: '具体改动', render: function (r) { return '<span class="diff-txt">' + h.esc(r.diff) + '</span>'; } },
-                { key: 'expect', label: '预期效果' },
-                { key: 'risk', label: '风险' },
-                { key: 'selected', label: '入选', render: function (r) { return r.selected ? '<span class="ok">✓ 已选</span>' : '<span class="muted">未选</span>'; } }
-              ],
-              rows: it.stages[1].candidates, noPaging: true
-            }) + '<div class="bt-note">每个候选都给出具体改动 diff，而不是「优化提示词」这类空话 —— 你要能看懂改了什么。</div>' : '') +
-
-          (it.stages[2].result ? (function () {
-            var r = it.stages[2].result;
-            return '<div class="sub-h">离线评估结果（' + it.stages[2].count + ' 样本）</div>' +
-              '<div class="dim-cmp">' + [
-                { name: '回归通过率', base: r.baseline.pass, cand: r.candidate.pass, better: true, fmt: 'pct1' },
-                { name: '准确性', base: r.baseline.accuracy, cand: r.candidate.accuracy, better: true, fmt: 'pct1' },
-                { name: 'P99 时延', base: r.baseline.latency, cand: r.candidate.latency, better: false, fmt: 'dur' },
-                { name: '单次成本', base: r.baseline.cost, cand: r.candidate.cost, better: false, fmt: 'money4' }
-              ].map(function (d) {
-                var f2 = fmt[d.fmt];
-                var diff = d.fmt === 'pct1' ? (d.cand - d.base) : ((d.cand - d.base) / d.base);
-                var txt = d.fmt === 'pct1' ? ((diff >= 0 ? '+' : '') + (diff * 100).toFixed(1) + 'pp') : ((diff >= 0 ? '+' : '') + (diff * 100).toFixed(1) + '%');
-                return '<div class="dim-row"><span class="dim-name">' + h.esc(d.name) + '</span>' +
-                  '<span class="dim-vals"><b>' + f2(d.base) + '</b> → <b class="' + (d.better ? 'ok' : 'bad') + '">' + f2(d.cand) + '</b></span>' +
-                  '<span class="dim-diff ' + (d.better ? 'ok' : 'bad') + '">' + txt + '</span></div>';
-              }).join('') + '</div>' +
-              '<div class="bt-warn">⚠ 副作用检查：' + h.esc(r.sideEffect.regressedNote) + '</div>' +
-              '<div class="bt-note">结论：' + h.esc(r.verdict) + '。副作用检查是最容易被忽略但最致命的一步 —— 修好 A 场景搞坏 B 场景。</div>';
-          })() : (it.stages[2].state === 'active' ? '<div class="bt-note">离线评估进行中：' + h.esc(it.stages[2].detail) + '</div>' : '')) +
-
-          (it.stages[3].gray ? '<div class="sub-h">灰度状态</div>' +
-            '<div class="gray-rules">当前灰度 ' + Math.round(it.stages[3].gray.ratio * 100) + '%，已运行 ' + it.stages[3].gray.days + ' 天。' +
-            '自动回滚条件：' + h.esc(it.stages[3].gray.autoRollback) + '。（注：自动回滚为示例条件，未接入自动执行）' +
-            '转全量必须由你确认，确认页自动附灰度期数据；回滚后不会自动重试，需确认原因。</div>' +
-            ((state.evoOps && state.evoOps[it.id]) ?
-              '<div class="bt-note">本会话已处置：' + ({ rollback: '已回滚（灰度停止）', full: '已转全量（承接 100% 流量）' }[state.evoOps[it.id]] || '—') +
-              '　<button class="btn-ghost sm" data-act="evo-undo" data-id="' + h.esc(it.id) + '">撤销（演示）</button></div>'
-              : '') +
-            '<div class="gray-acts"><button class="btn-ghost" data-act="evo-gray" data-id="' + h.esc(it.agentId || '') + '">灰度对比</button>' +
-            '<button class="btn-danger" data-act="evo-decide" data-id="' + h.esc(it.id) + '|rollback">回滚</button>' +
-            '<button class="btn-primary" data-act="evo-decide" data-id="' + h.esc(it.id) + '|full">转全量</button></div>' : '') +
-          '</div>';
-      }).join('') +
-
-      '<div class="card" data-static="1" title="只读说明：本块是方法论声明（AI 提候选、人做决定），不含数据对象，因此没有可下钻目标。"><div class="card-h"><h3>设计原则</h3></div>' +
-      '<div class="bt-note">这是最能体现「AI 中台」差异化的页面，也是最需要防过度自动化的页面。核心原则：' +
-      '<b>AI 提候选，人做决定，每一步可解释、可回滚。</b>' +
-      '每条被采纳的策略会长期跟踪实际效果（30 天后是否仍有效），失效的自动提示复核。</div></div>' +
-      h.metaBar({}, [{ k: '数据来源', v: '评估结果中的时延与成本口径与真实 trace 聚合一致' }]);
-  };
+  /* 推导明细：聚类 / 候选 / 评估。默认收起 —— 它是「怎么来的」，不是这一屏要回答的问题。 */
+  function evoTraceBlock(it, h, fmt) {
+    var st = it.stages || [];
+    var cl = st[0] || {}, gen = st[1] || {}, ev2 = st[2] || {};
+    var html = '<div class="evo-trace">';
+    if (cl.clusters) {
+      html += '<div class="sub-h">badcase 聚类结果（' + fmt.int(cl.count) + ' 例 → ' + cl.clusters.length + ' 类）</div>' +
+        '<div class="cluster-list">' + cl.clusters.map(function (c, i) {
+          return '<div class="cl' + (c.name.indexOf('其他') >= 0 ? ' skip' : '') + '">' +
+            '<span class="cl-n">' + c.cases + '</span>' +
+            '<span class="cl-main"><b>' + h.esc(c.name) + '</b><span>根因假设：' + h.esc(c.rootCause) + '</span></span>' +
+            '<span class="cl-pri">' + (c.name.indexOf('其他') >= 0 ? '暂不处理' : '优先级 ' + (i + 1)) + '</span></div>';
+        }).join('') + '</div>';
+    } else {
+      html += '<div class="bt-note">' + h.esc(cl.detail || '聚类尚未完成') + '</div>';
+    }
+    if (gen.candidates) {
+      var sel = gen.candidates.filter(function (c) { return c.selected; }).length;
+      html += '<div class="sub-h">候选（' + sel + ' / ' + gen.candidates.length + ' 入选）· 未入选的也留着，说明为什么没选</div>' +
+        h.table({
+          columns: [
+            { key: 'type', label: '类型' },
+            { key: 'target', label: '针对问题' },
+            { key: 'diff', label: '具体改动', render: function (r) { return '<span class="diff-txt">' + h.esc(r.diff) + '</span>'; } },
+            { key: 'expect', label: '预期效果' },
+            { key: 'risk', label: '风险' },
+            { key: 'selected', label: '入选', render: function (r) { return r.selected ? '<span class="ok">✓ 已选</span>' : '<span class="muted">未选</span>'; } }
+          ],
+          rows: gen.candidates, noPaging: true
+        });
+    }
+    if (ev2.result) {
+      var r = ev2.result;
+      html += '<div class="sub-h">离线评估（' + fmt.int(ev2.count) + ' 样本）</div>' +
+        '<div class="dim-cmp">' + [
+          { name: '回归通过率', base: r.baseline.pass, cand: r.candidate.pass, better: true, f: 'pct1' },
+          { name: '准确性', base: r.baseline.accuracy, cand: r.candidate.accuracy, better: true, f: 'pct1' },
+          { name: 'P99 时延', base: r.baseline.latency, cand: r.candidate.latency, better: false, f: 'dur' },
+          { name: '单次成本', base: r.baseline.cost, cand: r.candidate.cost, better: false, f: 'money4' }
+        ].map(function (d) {
+          var f2 = fmt[d.f];
+          var diff = d.f === 'pct1' ? (d.cand - d.base) : ((d.cand - d.base) / d.base);
+          var txt = d.f === 'pct1' ? ((diff >= 0 ? '+' : '') + (diff * 100).toFixed(1) + 'pp')
+            : ((diff >= 0 ? '+' : '') + (diff * 100).toFixed(1) + '%');
+          return '<div class="dim-row"><span class="dim-name">' + h.esc(d.name) + '</span>' +
+            '<span class="dim-vals"><b>' + f2(d.base) + '</b> → <b class="' + (d.better ? 'ok' : 'bad') + '">' + f2(d.cand) + '</b></span>' +
+            '<span class="dim-diff ' + (d.better ? 'ok' : 'bad') + '">' + txt + '</span></div>';
+        }).join('') + '</div>' +
+        '<div class="bt-warn">⚠ 副作用检查：' + h.esc(r.sideEffect.regressedNote) + '</div>' +
+        '<div class="bt-note">结论：' + h.esc(r.verdict) + '。副作用检查记录同类场景的反向退化，是离线评估中最易遗漏的一项。</div>';
+    } else if (ev2.state === 'active') {
+      html += '<div class="bt-note">离线评估进行中：' + h.esc(ev2.detail) + '</div>';
+    }
+    return html + '</div>';
+  }
 
   /* SECTION: r-persona-page
    * 企业用户画像库 —— 任务视角：用户点开是想知道「库里有哪些画像、哪些过期了、谁在用」。
@@ -6980,6 +7826,21 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
       '</div></div></div>');
   };
 
+  /* v53：自进化的两个纯视图动作 —— 按改进面筛选、展开推导明细。
+     都是会话内状态（state.filters.evoFace / state.evoTrace），刷新即还原，不落任何数据。 */
+  ACTIONS['evo-face'] = function (id, btn, h) {
+    h.state.filters = h.state.filters || {};
+    if (h.state.filters.evoFace === id) delete h.state.filters.evoFace;
+    else h.state.filters.evoFace = id;
+    h.navigate({}, { scroll: false });
+  };
+  ACTIONS['evo-trace'] = function (id, btn, h) {
+    h.state.evoTrace = h.state.evoTrace || {};
+    if (h.state.evoTrace[id]) delete h.state.evoTrace[id];
+    else h.state.evoTrace[id] = true;
+    h.navigate({}, { scroll: false });
+  };
+
   /* v15：自进化「回滚 / 转全量」—— 此前两个按钮都是空动作，
      而旁边还写着「自动回滚条件：…（已启用）」这种无从验证的承诺。会话内状态 state.evoOps[id]。 */
   ACTIONS['evo-decide'] = function (id, btn, h) {
@@ -8026,6 +8887,62 @@ var roleOfUser = function (uid) { var S2 = global.DATA_SEED; return S2.roleOfUse
         h.toast('回测完成：' + p.rules + ' 条规则 / ' + fmt.int(p.hit) + ' 次历史命中 / 误报率 ' + fmt.pct1(p.falsePos) + '（演示环境，未落库）', pass ? 'ok' : 'warn');
       }
     });
+  };
+  /* 法规库卡片 → 条款清单（右侧滑出）。
+     清单按周引用次数倒序并标出每条落到哪个规则包，未建规则的只作原文对照。
+     「周命中」是该清单引用数之和的口径。 */
+  ACTIONS['reg-open'] = function (id, btn, h) {
+    var lib = REG_LIBS.filter(function (x) { return x.id === id; })[0];
+    if (!lib) { h.toast('法规库不存在', 'bad'); return; }
+    var fmt = h.fmt;
+    var rows = lib.list.slice().sort(function (a, b) { return b.hits - a.hits; });
+    var soon = rows.filter(function (c) { return c.soon; }).length;
+    var body = '<dl class="dl">' +
+      '<dt>辖区</dt><dd>' + h.esc(lib.name) + '</dd>' +
+      '<dt>收录</dt><dd>' + lib.docs + ' 部法规 · ' + fmt.int(lib.clauses) + ' 条条款向量</dd>' +
+      '<dt>法源</dt><dd>' + h.esc(lib.laws) + '</dd>' +
+      '<dt>周引用</dt><dd>' + fmt.int(lib.hits) + ' 次 · 上次同步 ' + h.esc(lib.syncText) + '</dd>' +
+      '<dt>待生效</dt><dd>' + soon + ' 条（已入索引，未参与拦截）</dd>' +
+      '</dl>' +
+      '<div class="bt-note">按周引用次数降序的 ' + rows.length + ' 条，该辖区条款合计 ' + fmt.int(lib.clauses) + ' 条。</div>' +
+      h.table({
+        columns: [
+          { key: 'law', label: '法规', render: function (r) {
+            /* 条号与生效日并进法规格：四条一屏看得完，比单列日期更省宽 */
+            return '<b>' + h.esc(r.law) + '</b>' +
+              '<div class="td-sub">' + h.esc(r.art) + ' · ' + h.esc(r.eff) +
+              (r.soon ? ' <span class="warn">待生效</span>' : ' 生效') + '</div>';
+          } },
+          { key: 'text', label: '原文摘录' },
+          { key: 'hits', label: '周引用', align: 'right', render: function (r) {
+            return r.hits ? fmt.int(r.hits) : '<span class="muted">—</span>';
+          } },
+          { key: 'pack', label: '落到规则包', render: function (r) {
+            return r.pack === '—' ? '<span class="muted">未建规则</span>' : h.esc(r.pack);
+          } }
+        ],
+        rows: rows, noPaging: true
+      });
+    openModal('<div class="modal-mask slide" data-act="close-modal"><div class="modal wide" role="dialog" aria-modal="true">' +
+      '<div class="modal-h"><h3>法规库 · ' + h.esc(lib.name) + '</h3>' +
+      '<button class="modal-x" data-act="close-modal" aria-label="关闭">×</button></div>' +
+      '<div class="modal-b">' + body + '</div></div></div>');
+  };
+  /* 全部同步 / 立即拉取：演示环境不执行真实抓取 */
+  ACTIONS['reg-sync'] = function (id, btn, h) {
+    h.toast('已触发 ' + REG_LIBS.length + ' 个辖区的公告拉取与索引重建（演示环境，不执行真实抓取）', 'ok');
+  };
+  ACTIONS['pol-fetch'] = function (id, btn, h) {
+    h.toast('已拉取官方公报与监管公告，新增 0 条（演示环境，不执行真实抓取）', 'info');
+  };
+  /* 政策变更并入规则包：写会话态，列表状态与计数同步变化 */
+  ACTIONS['pol-merge'] = function (id, btn, h) {
+    var p = POLICY_FEED.filter(function (x) { return x.id === id; })[0];
+    if (!p) { h.toast('政策条目不存在', 'bad'); return; }
+    h.state.polOps = h.state.polOps || {};
+    h.state.polOps[id] = 'merged';
+    h.toast('「' + p.law + '」已并入规则包，相关规则进入灰度', 'ok');
+    h.navigate({}, { scroll: false });
   };
   /* v15：规则包「引用方」—— 从合规队列里反查哪些 Agent 命中过该包（真实数据，不编）。 */
   ACTIONS['rule-refs'] = function (id, btn, h) {

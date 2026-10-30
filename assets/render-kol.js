@@ -16,25 +16,29 @@
 
   R.kolPage = function (cap, state, h) {
     var fmt = h.fmt;
-    var st = state.kol || {};
-    var view = st.view || 'board';      // board（决策看板） | library（达人库） | detail（单达人）
-    var detailId = st.kolId || null;
+    var st = state.kol = state.kol || {};
+    if (!st.__libReady) {
+      var saved = libLoad();
+      if (saved.libF) st.libF = saved.libF;
+      if (saved.libSort) st.libSort = saved.libSort;
+      if (saved.libView) st.libView = saved.libView;
+      if (saved.libFav) st.libFav = saved.libFav;
+      if (saved.libFavOnly) st.libFavOnly = saved.libFavOnly;
+      st.__libReady = true;
+    }
 
     var head = '<div class="page-head"><div class="ph-main">' +
       '<div class="ph-title">' + h.esc(cap.name) + '</div>' +
       '<div class="ph-desc">' + h.esc(cap.desc) + '</div></div>' +
       '<div class="ph-side">' +
-      '<div class="view-sw" role="group">' +
-      '<button class="vs-btn' + (view === 'board' ? ' on' : '') + '" data-act="kol-view" data-id="board">投放决策</button>' +
-      '<button class="vs-btn' + (view === 'library' ? ' on' : '') + '" data-act="kol-view" data-id="library">达人库（' + K.KOLS.length + '）</button>' +
-      '</div>' +
       '<button class="btn-primary" data-act="create-open" data-create="kol" data-primary-action title="新建投放计划：定预算、目标与候选达人">' + h.esc(cap.action) + '</button>' +
       '</div></div>' + global.UI.sessionNewBlock(state, h, 'kol', { title: '本会话新建的投放计划' });
 
-    if (view === 'library') return head + libraryView(h, fmt);
-    if (view === 'detail' && detailId) return head + detailView(h, fmt, detailId);
-    if (view === 'planner') return head + plannerView(h, fmt, st);
-    return head + boardView(h, fmt, st);
+    /* 2026-10-30 业主：「默认达人库，投放决策删了」。
+       这一屏只剩达人库；单达人不再是独立视图，点卡片在右侧抽屉里看（见 openKolSheet）。
+       boardView / plannerView / detailView 的渲染代码留在本文件备回滚，但已经没有入口，
+       ⚠ 不要再往这两个视图里加功能 —— 它们不可达。 */
+    return '<div class="kol-v2">' + head + libraryView(h, fmt, st) + '</div>';
   };
 
   /* SECTION: kol-board
@@ -133,6 +137,8 @@
   }
 
   function confLabel(c) { return { high: '高（≥5 次）', medium: '中（3-4 次）', low: '低（1-2 次）', none: '无' }[c] || c; }
+  /* 卡片底部只有一格位置，置信度用单字（完整写法在详情页与列表视图里） */
+  function confShort(c) { return { high: '高', medium: '中', low: '低', none: '无' }[c] || '无'; }
   function whyWorst(m) {
     if (m.kol.authenticity < 0.7) return '粉丝真实性仅 ' + Math.round(m.kol.authenticity * 100) + '%，曝光虚高但转化差';
     if (m.kol.overlap < 0.4) return '客群重合度仅 ' + Math.round(m.kol.overlap * 100) + '%，人群不匹配';
@@ -322,76 +328,291 @@
   }
 
   /* SECTION: kol-library
-   * ④ 达人库：降级为证据材料视图，仍保留但不再是首屏
+   * ④ 达人库 —— 2026-10-30 按业主提供的「网红筛选」界面 1:1 搬过来（结构照搬，样式用本站令牌）。
+   *    左：搜索 / 平台 / 风格标签 / 地区 / 粉丝量级（双滑块）/ 合作状态 / 重置
+   *    右：工具条（结果数 + 排序 + 卡片列表切换 + 收藏 + 导出）+ 卡片网格（或表格）
+   *    卡片：星标收藏、头像、名字 + 分数、类目·地区、平台徽标、粉丝/客群/报价/真粉、
+   *          标签行、合作状态、更多信息
+   *    · 所有数值来自 K.allMetrics()；「数据不足」的达人 ROI 位显示 —，不补数字
+   *    · 筛选/排序/收藏都不写 URL：页签按完整 hash 去重，写一次就多一个同名页签
    */
-  function libraryView(h, fmt) {
-    var ms = K.allMetrics();
-    var rows = ms.map(function (m) {
+  /* 达人库的筛选 / 排序 / 视图 / 收藏存在本地：刷新不丢，但不写进地址栏 ——
+     页签按完整 hash 去重，写一次就往页签条上多一个同名页签。 */
+  var LIB_KEY = 'kolLibView';
+
+  function libLoad() {
+    try {
+      return JSON.parse((global.localStorage && global.localStorage.getItem(LIB_KEY)) || '{}');
+    } catch (e) { return {}; }
+  }
+  function libSave(st) {
+    if (!st) return;
+    try {
+      if (!global.localStorage) return;
+      global.localStorage.setItem(LIB_KEY, JSON.stringify({
+        libF: st.libF || {}, libSort: st.libSort || 'roi', libView: st.libView || 'grid',
+        libFav: st.libFav || [], libFavOnly: !!st.libFavOnly
+      }));
+    } catch (e) { /* 隐私模式写不进去也不影响用 */ }
+  }
+
+  var AVA_COLORS = ['#2563eb', '#7c3aed', '#0e7490', '#b45309', '#15803d', '#be185d', '#4f46e5', '#0f766e', '#9333ea'];
+
+  var FANS_MIN = 0, FANS_MAX = 2200000, FANS_STEP = 50000;
+
+  var DEAL_STATE = {
+    active: { text: '合作中', tone: 'ok' },
+    done: { text: '已合作', tone: 'info' },
+    none: { text: '未联系', tone: 'idle' }
+  };
+
+  function uniq(arr) {
+    var seen = {}, out = [];
+    arr.forEach(function (x) { if (!seen[x]) { seen[x] = 1; out.push(x); } });
+    return out;
+  }
+
+  function libRows() {
+    return K.allMetrics().map(function (m) {
+      var bad = m.kol.authenticity < 0.7;
+      var live = K.ACTIVE_DEALS.filter(function (d) { return d.kolId === m.kol.id && d.stage !== 'closed'; })[0];
       return {
-        /* v28 单位统一：粉丝数走 fmt.compact（86.0万）。原写法 (followers/10000).toFixed(0)+'w'
-           有两个毛病：① 单位是 'w'，全站唯一；② toFixed(0) 把 9.6 万印成「10w」——
-           凭空多出一万粉，是会误导投放决策的取整错误。fmt.compact 用 toFixed(1)。 */
-        id: m.kol.id, name: m.kol.name, platformText: m.kol.platform + ' · ' + fmt.compact(m.kol.followers),
-        quote: m.kol.quote, category: m.kol.category, overlap: m.kol.overlap, authenticity: m.kol.authenticity,
-        deals: m.deals, roi: m.predictable ? m.roi : null,
-        roiRange: m.predictable ? (m.roiLow.toFixed(1) + '~' + m.roiHigh.toFixed(1)) : null,
-        conf: m.confidence, predictable: m.predictable,
-        costPerConv: m.costPerConv,
-        risk: m.kol.authenticity < 0.7 ? '⚠ 粉丝增长异常' : (m.kol.overlap < 0.35 ? '客群重合度低' : (m.kol.exclusivity ? '有竞品排他协议' : '—')),
-        status: !m.predictable ? 'idle' : (m.kol.authenticity < 0.7 ? 'bad' : (m.roi >= 3 ? 'ok' : 'warn')),
-        statusText: !m.predictable ? '数据不足' : (m.kol.authenticity < 0.7 ? '不建议' : (m.roi >= 3 ? '推荐' : '可考虑'))
+        id: m.kol.id, kol: m.kol, m: m,
+        roi: m.predictable ? m.roi : null,
+        deals: m.deals, conf: m.confidence, pred: m.predictable,
+        risk: bad ? '粉丝增长异常' : (m.kol.overlap < 0.35 ? '客群重合度低' : (m.kol.exclusivity ? '竞品排他' : '')),
+        status: !m.predictable ? 'idle' : (bad ? 'bad' : (m.roi >= 3 ? 'ok' : 'warn')),
+        statusText: !m.predictable ? '数据不足' : (bad ? '不建议' : (m.roi >= 3 ? '推荐' : '可考虑')),
+        /* 合作状态：有在跑的合作用「合作中」，只有历史用「已合作」，一条都没有是「未联系」 */
+        deal: live ? 'active' : (m.deals > 0 ? 'done' : 'none')
+      };
+    });
+  }
+
+  function libFilterRows(rows, f) {
+    var tags = f.tags || [];
+    return rows.filter(function (r) {
+      if (f.platform && r.kol.platform !== f.platform) return false;
+      if (tags.length && tags.indexOf(r.kol.category) < 0) return false;
+      if (f.region && r.kol.region !== f.region) return false;
+      if (f.deal && r.deal !== f.deal) return false;
+      var fMin = f.fMin == null ? FANS_MIN : f.fMin;
+      var fMax = f.fMax == null ? FANS_MAX : f.fMax;
+      if (r.kol.followers < fMin || r.kol.followers > fMax) return false;
+      if (f.q) {
+        var q = String(f.q).trim().toLowerCase();
+        if (q && (r.kol.name + r.kol.category + r.kol.region + r.kol.platform).toLowerCase().indexOf(q) < 0) return false;
+      }
+      return true;
+    });
+  }
+
+  function libSortRows(rows, key) {
+    var arr = rows.slice();
+    arr.sort(function (a, b) {
+      if (key === 'fans') return b.kol.followers - a.kol.followers;
+      if (key === 'quote') return a.kol.quote - b.kol.quote;
+      if (key === 'overlap') return b.kol.overlap - a.kol.overlap;
+      /* 无数据达人一律排在末尾：当 0 处理会被读成「表现最差」，与「没测过」是两件事 */
+      var va = a.roi == null ? -1 : a.roi, vb = b.roi == null ? -1 : b.roi;
+      return vb - va;
+    });
+    return arr;
+  }
+
+  /* 当前视图下的结果集：页面渲染与 CSV 导出共用，避免两处算出口径不一致 */
+  function libCurrentRows(st) {
+    st = st || {};
+    var favs = st.libFav || [];
+    var all = libRows();
+    var pool = st.libFavOnly ? all.filter(function (r) { return favs.indexOf(r.id) >= 0; }) : all;
+    return libSortRows(libFilterRows(pool, st.libF || {}), st.libSort || 'roi');
+  }
+
+  function libraryView(h, fmt, st) {
+    st = st || {};
+    var view = st.libView || 'grid';
+    var f = st.libF || {};
+    var sortKey = st.libSort || 'roi';
+    var favs = st.libFav || [];
+    var favOnly = !!st.libFavOnly;
+
+    var rows = libCurrentRows(st);
+
+    var plats = uniq(K.KOLS.map(function (k) { return k.platform; }));
+    var cats = uniq(K.KOLS.map(function (k) { return k.category; }));
+    var regions = uniq(K.KOLS.map(function (k) { return k.region; }));
+    var tags = f.tags || [];
+
+    function chip(group, val, text, on) {
+      return '<button class="k2-chip' + (on ? ' on' : '') + '" data-act="kol-lib-filter" data-k="' + group +
+        '" data-v="' + h.esc(val) + '">' + h.esc(text) + '</button>';
+    }
+
+    var fMin = f.fMin == null ? FANS_MIN : f.fMin;
+    var fMax = f.fMax == null ? FANS_MAX : f.fMax;
+
+    var side = '<aside class="k2-side">' +
+      '<div class="k2-sgroup"><div class="k2-slabel">搜索</div>' +
+        '<input class="k2-sinput" type="text" data-kolq="1" value="' + h.esc(f.q || '') +
+        '" placeholder="昵称或类目关键词">' +
+      '</div>' +
+      '<div class="k2-sgroup"><div class="k2-slabel">平台</div><div class="k2-schips">' +
+        chip('platform', '', '全部', !f.platform) +
+        plats.map(function (p) { return chip('platform', p, p, f.platform === p); }).join('') +
+      '</div></div>' +
+      '<div class="k2-sgroup"><div class="k2-slabel">风格标签</div><div class="k2-schips">' +
+        cats.map(function (c) { return chip('tags', c, c, tags.indexOf(c) >= 0); }).join('') +
+      '</div></div>' +
+      '<div class="k2-sgroup"><div class="k2-slabel">地区</div><div class="k2-schips">' +
+        chip('region', '', '全部', !f.region) +
+        regions.map(function (r) { return chip('region', r, r, f.region === r); }).join('') +
+      '</div></div>' +
+      '<div class="k2-sgroup"><div class="k2-slabel">粉丝量级</div>' +
+        '<div class="k2-ranrow"><span class="k2-ranl">最低</span>' +
+          '<input type="range" min="' + FANS_MIN + '" max="' + FANS_MAX + '" step="' + FANS_STEP +
+            '" value="' + fMin + '" data-kolfans="min" aria-label="粉丝下限">' +
+          '<b class="k2-ranv">' + fmt.compact(fMin) + '</b></div>' +
+        '<div class="k2-ranrow"><span class="k2-ranl">最高</span>' +
+          '<input type="range" min="' + FANS_MIN + '" max="' + FANS_MAX + '" step="' + FANS_STEP +
+            '" value="' + fMax + '" data-kolfans="max" aria-label="粉丝上限">' +
+          '<b class="k2-ranv">' + fmt.compact(fMax) + '</b></div>' +
+      '</div>' +
+      '<div class="k2-sgroup"><div class="k2-slabel">合作状态</div><div class="k2-schips">' +
+        chip('deal', '', '全部', !f.deal) +
+        chip('deal', 'active', '合作中', f.deal === 'active') +
+        chip('deal', 'done', '已合作', f.deal === 'done') +
+        chip('deal', 'none', '未联系', f.deal === 'none') +
+      '</div></div>' +
+      '<button class="k2-sreset" data-act="kol-lib-reset">重置所有筛选</button>' +
+    '</aside>';
+
+    function stat(k, v) {
+      return '<span class="k2-stat"><i>' + k + '</i><b>' + v + '</b></span>';
+    }
+
+    var grid = rows.length ? '<div class="k2-libgrid">' + rows.map(function (r, i) {
+      var fav = favs.indexOf(r.id) >= 0;
+      var ds = DEAL_STATE[r.deal];
+      return '<div class="k2-lcard" role="button" tabindex="0" data-act="kol-detail" data-id="' + h.esc(r.id) + '"' +
+        ' aria-label="查看 ' + h.esc(r.kol.name) + ' 的完整档案">' +
+        '<button class="k2-fav' + (fav ? ' on' : '') + '" data-act="kol-lib-fav" data-id="' + h.esc(r.id) + '"' +
+          ' aria-label="' + (fav ? '取消收藏' : '收藏') + '">' + (fav ? '★' : '☆') + '</button>' +
+        '<span class="k2-ltop">' +
+          '<span class="k2-lava" style="background:' + AVA_COLORS[i % AVA_COLORS.length] + '">' + h.esc(r.kol.name.slice(0, 2)) + '</span>' +
+          '<span class="k2-lid">' +
+            '<span class="k2-lnm"><b>' + h.esc(r.kol.name) + '</b>' +
+              '<em class="k2-score ' + r.status + '">' + (r.pred ? r.roi.toFixed(2) : '—') + '</em></span>' +
+            '<i>' + h.esc(r.kol.platform) + ' · ' + h.esc(r.kol.region) + '</i>' +
+          '</span>' +
+        '</span>' +
+        '<span class="k2-lstats">' +
+          stat('粉丝', fmt.compact(r.kol.followers)) +
+          stat('客群重合', fmt.pct0(r.kol.overlap)) +
+          stat('参考报价', fmt.money(r.kol.quote)) +
+          stat('真实粉丝', fmt.pct0(r.kol.authenticity)) +
+        '</span>' +
+        '<span class="k2-ltags">' +
+          '<i>' + h.esc(r.kol.category) + '</i>' +
+          (r.kol.exclusivity ? '<i>竞品排他</i>' : '') +
+          (r.risk ? '<i class="bad">' + h.esc(r.risk) + '</i>' : '') +
+        '</span>' +
+        '<span class="k2-lfoot">' +
+          '<span class="k2-deal ' + r.deal + '"><i></i>' + ds.text + '</span>' +
+          '<b>更多信息 →</b>' +
+        '</span>' +
+      '</div>';
+    }).join('') + '</div>' : '<div class="k2-lempty"><b>没有符合条件的达人</b>' +
+      '<span>放宽筛选条件，或重置后重新选</span></div>';
+
+    /* 列表视图：原表格保留（排序、下钻都在） */
+    var tableRows = rows.map(function (r) {
+      return {
+        id: r.id, name: r.kol.name, platformText: r.kol.platform + ' · ' + fmt.compact(r.kol.followers),
+        quote: r.kol.quote, category: r.kol.category, overlap: r.kol.overlap, authenticity: r.kol.authenticity,
+        deals: r.deals, roi: r.roi, predictable: r.pred,
+        roiRange: r.pred ? (r.m.roiLow.toFixed(1) + '~' + r.m.roiHigh.toFixed(1)) : null,
+        conf: r.conf,
+        risk: r.risk || '—', status: r.status, statusText: r.statusText
       };
     });
 
-    return '<div class="card"><div class="card-h"><h3>达人库</h3>' +
-      '<span class="card-sub">证据材料视图 · 全部效果系数由 ' + K.CAMPAIGNS.length + ' 条历史合作明细聚合</span>' +
-      '<button class="btn-ghost sm" data-act="kol-view" data-id="board">← 返回投放决策</button></div>' +
-      '<div class="bt-warn">⚠ 「数据不足」的达人没有历史合作记录，其 ROI 显示为空而不是用类目均值填充 —— ' +
-      '用均值冒充会让投放决策建立在编造的数字上。要评估他们，只能先小额试投。</div>' +
-      h.table({
-        columns: [
-          { key: 'name', label: '达人', sortable: true, render: function (r) { return '<button class="lnk" data-act="kol-detail" data-id="' + h.esc(r.id) + '"><b>' + h.esc(r.name) + '</b></button><div class="td-sub">' + h.esc(r.category) + '</div>'; } },
-          { key: 'platformText', label: '平台 / 粉丝' },
-          { key: 'quote', label: '报价', sortable: true, align: 'right', render: function (r) { return '¥' + r.quote.toLocaleString('zh-CN'); } },
-          { key: 'overlap', label: '客群重合', sortable: true, align: 'right', fmt: 'pct0' },
-          { key: 'authenticity', label: '粉丝真实性', sortable: true, align: 'right', render: function (r) { return '<span class="' + (r.authenticity < 0.7 ? 'bad' : '') + '">' + fmt.pct0(r.authenticity) + '</span>'; } },
-          { key: 'deals', label: '合作次数', sortable: true, align: 'right', fmt: 'int' },
-          { key: 'roi', label: '历史 ROI', sortable: true, align: 'right', render: function (r) { return r.predictable ? '<b class="' + (r.roi >= 3 ? 'ok' : (r.roi < 2 ? 'bad' : '')) + '">' + r.roi.toFixed(2) + '</b><div class="td-sub">' + h.esc(r.roiRange) + '</div>' : '<span class="muted" data-tip="无历史合作记录，无法推导">数据不足</span>'; } },
-          { key: 'costPerConv', label: '获客成本', align: 'right', render: function (r) { return r.costPerConv ? '¥' + Math.round(r.costPerConv).toLocaleString('zh-CN') : '<span class="muted">—</span>'; } },
-          { key: 'conf', label: '置信度', render: function (r) { return r.predictable ? '<span class="pill ' + (r.conf === 'high' ? 'ok' : (r.conf === 'medium' ? 'warn' : 'bad')) + '">' + confLabel(r.conf) + '</span>' : '<span class="muted">—</span>'; } },
-          { key: 'risk', label: '风险标记', render: function (r) { return r.risk === '—' ? '<span class="muted">—</span>' : '<span class="warn">' + h.esc(r.risk) + '</span>'; } },
-          { key: 'status', label: '结论', render: function (r) { return h.pill(r.status, r.statusText); } },
-          { key: 'act', label: '', render: function (r) { return '<button class="lnk" data-act="kol-detail" data-id="' + h.esc(r.id) + '">详情</button>'; } }
-        ],
-        rows: rows, sortBy: 'roi', sortDir: 'desc', pageSize: 20, rowAction: null,
-        emptyTitle: '达人库为空'
-      }) + '</div>' +
+    var list = h.table({
+      columns: [
+        { key: 'name', label: '达人', sortable: true, render: function (r) { return '<button class="lnk" data-act="kol-detail" data-id="' + h.esc(r.id) + '"><b>' + h.esc(r.name) + '</b></button><div class="td-sub">' + h.esc(r.category) + '</div>'; } },
+        { key: 'platformText', label: '平台 / 粉丝' },
+        { key: 'quote', label: '报价', sortable: true, align: 'right', render: function (r) { return '¥' + r.quote.toLocaleString('zh-CN'); } },
+        { key: 'overlap', label: '客群重合', sortable: true, align: 'right', fmt: 'pct0' },
+        { key: 'authenticity', label: '粉丝真实性', sortable: true, align: 'right', render: function (r) { return '<span class="' + (r.authenticity < 0.7 ? 'bad' : '') + '">' + fmt.pct0(r.authenticity) + '</span>'; } },
+        { key: 'deals', label: '合作次数', sortable: true, align: 'right', fmt: 'int' },
+        { key: 'roi', label: '历史 ROI', sortable: true, align: 'right', render: function (r) { return r.predictable ? '<b class="' + (r.roi >= 3 ? 'ok' : (r.roi < 2 ? 'bad' : '')) + '">' + r.roi.toFixed(2) + '</b><div class="td-sub">' + h.esc(r.roiRange) + '</div>' : '<span class="muted" data-tip="无历史合作记录，无法推导">数据不足</span>'; } },
+        /* 置信度并进 ROI 单元格的副行（区间 + 次数就是置信度的来源），风险并进结论列 ——
+           带侧栏后表格只有 876px，12 列会把「结论」「详情」挤出可视区 */
+        { key: 'status', label: '结论', render: function (r) {
+          return h.pill(r.status, r.statusText) +
+            (r.risk === '—' ? '' : '<div class="td-sub warn">' + h.esc(r.risk) + '</div>');
+        } },
+        { key: 'act', label: '', render: function (r) { return '<button class="lnk" data-act="kol-detail" data-id="' + h.esc(r.id) + '">详情</button>'; } }
+      ],
+      /* 整行点击也打开同一个档案抽屉（参考图的列表视图就是这样：点行不点字） */
+      rows: tableRows, sortBy: 'roi', sortDir: 'desc', pageSize: 20, rowAction: 'kol-detail',
+      emptyTitle: '没有符合条件的达人'
+    });
+
+    var bar = '<div class="k2-lbar">' +
+      '<span class="k2-lcount">' + rows.length + ' 位达人</span>' +
+      '<label class="k2-sortsel">排序<select data-kolsort="1">' +
+        [['roi', '历史 ROI ↓'], ['fans', '粉丝量 ↓'], ['quote', '报价 ↑'], ['overlap', '客群重合 ↓']].map(function (o) {
+          return '<option value="' + o[0] + '"' + (sortKey === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+        }).join('') +
+      '</select></label>' +
+      '<div class="k2-bright">' +
+        '<div class="view-sw">' +
+          '<button class="vs-btn' + (view === 'grid' ? ' on' : '') + '" data-act="kol-lib-view" data-id="grid">卡片</button>' +
+          '<button class="vs-btn' + (view === 'table' ? ' on' : '') + '" data-act="kol-lib-view" data-id="table">列表</button>' +
+        '</div>' +
+        '<button class="k2-bbtn' + (favOnly ? ' on' : '') + '" data-act="kol-lib-favonly" title="只看已收藏">★ 收藏' +
+          (favs.length ? '<i>' + favs.length + '</i>' : '') + '</button>' +
+        '<button class="k2-bbtn" data-act="kol-lib-export" title="导出当前筛选结果">导出 CSV</button>' +
+      '</div>' +
+    '</div>';
+
+    /* 两种视图都保留左筛选栏：参考界面的侧栏独立于视图，切到列表也能继续筛 */
+    return '<div class="k2-lib">' + bar +
+      '<div class="k2-lbody">' + side + '<div class="k2-lmain">' +
+        (view === 'table' ? '<div class="k2-ltable">' + list + '</div>' : grid) +
+      '</div></div></div>' +
       h.metaBar({}, [
         { k: '系数来源', v: '触达率 / CTR / CVR / 客单价 / ROI 全部由历史合作明细聚合，非人工填写' },
         { k: '置信度', v: '高 ≥5 次合作 / 中 3-4 次 / 低 1-2 次 / 无 0 次；置信度决定 ROI 区间宽度' },
-        { k: '排序', v: '默认按历史 ROI 倒序；无数据达人排在末尾而非按 0 处理（按 0 会误导为"表现差"）' }
+        { k: '排序', v: '默认按历史 ROI 倒序；无数据达人排在末尾而非按 0 处理（按 0 会误导为"表现差"）' },
+        { k: '筛选', v: '筛选与收藏只在本页生效，不改任何达人系数，也不写进地址栏' }
       ]);
   }
 
   /* SECTION: kol-detail */
-  function detailView(h, fmt, kolId) {
+  function detailView(h, fmt, kolId, inSheet) {
     var m = K.metrics(kolId);
     if (!m) return '<div class="fatal"><h2>达人不存在</h2><button class="btn-primary" data-act="kol-view" data-id="library">返回达人库</button></div>';
     var audit = K.roiAudit(kolId);
     var deals = K.ACTIVE_DEALS.filter(function (d) { return d.kolId === kolId; });
     var f = K.forecast(kolId);
 
-    var head = '<div class="card"><div class="card-h">' +
-      '<h3>' + h.esc(m.kol.name) + '</h3>' +
-      h.pill(!m.predictable ? 'idle' : (m.roi >= 3 ? 'ok' : 'warn'), !m.predictable ? '数据不足' : (m.roi >= 3 ? '推荐' : '可考虑')) +
-      '<span class="card-sub">' + h.esc(m.kol.platform) + ' · ' + fmt.compact(m.kol.followers) + ' 粉丝 · ' + h.esc(m.kol.category) + ' · 报价 ' + fmt.money(m.kol.quote) + '</span>' +
-      '<button class="btn-ghost sm" data-act="kol-view" data-id="library">← 返回达人库</button></div>' +
-      '<div class="impact-grid">' +
-      '<div class="imp"><i>客群重合度</i><b>' + fmt.pct0(m.kol.overlap) + '</b><span>与目标客群的匹配程度</span></div>' +
-      '<div class="imp"><i>粉丝真实性</i><b class="' + (m.kol.authenticity < 0.7 ? 'bad' : '') + '">' + fmt.pct0(m.kol.authenticity) + '</b><span>互动率与增长曲线检测</span></div>' +
-      '<div class="imp"><i>历史合作</i><b>' + m.deals + '</b><span>置信度' + confLabel(m.confidence) + '</span></div>' +
-      '<div class="imp"><i>历史 ROI</i><b class="' + (m.predictable && m.roi < 2 ? 'bad' : '') + '">' + (m.predictable ? m.roi.toFixed(2) : '—') + '</b><span>' + (m.predictable ? '区间 ' + m.roiLow.toFixed(2) + '~' + m.roiHigh.toFixed(2) : '无数据') + '</span></div>' +
-      '</div></div>';
+    /* 顶部一排关键数字：对齐参考界面的详情面板 —— 一眼看到结论，不用先读表 */
+    var head = '<div class="k2-kpis-row">' + [
+      {
+        v: m.predictable ? m.roi.toFixed(2) : '—', label: '历史 ROI',
+        tone: m.predictable ? (m.roi >= 3 ? 'g' : (m.roi < 2 ? 'r' : 'a')) : 'mu',
+        sub: m.predictable ? '区间 ' + m.roiLow.toFixed(2) + '~' + m.roiHigh.toFixed(2) : '无历史合作'
+      },
+      { v: fmt.compact(m.kol.followers), label: '粉丝量', tone: 'b', sub: m.deals + ' 次合作' },
+      { v: fmt.pct0(m.kol.overlap), label: '客群重合', tone: 'v', sub: m.kol.overlap >= 0.6 ? '人群匹配' : '人群偏散' },
+      { v: fmt.pct0(m.kol.authenticity), label: '真实粉丝', tone: m.kol.authenticity < 0.7 ? 'r' : 'b', sub: m.kol.authenticity < 0.7 ? '低于 70%' : '正常' },
+      { v: fmt.money(m.kol.quote), label: '参考报价', tone: 'n', sub: m.kol.exclusivity ? '有竞品排他' : '无排他' }
+    ].map(function (k) {
+      return '<div class="k2-kpi"><b class="' + k.tone + '">' + k.v + '</b>' +
+        '<span>' + k.label + '</span><i>' + k.sub + '</i></div>';
+    }).join('') + '</div>';
 
     if (!m.predictable) {
       return head + '<div class="card"><div class="empty"><div class="empty-ico">' + h.icon('chart', 28) + '</div>' +
@@ -406,19 +627,14 @@
     var campaignRows = m.campaigns.slice().sort(function (a, b) { return b.dayOffset - a.dayOffset; });
 
     return head +
-      (deals.length ? '<div class="card"><div class="card-h"><h3>进行中的合作</h3></div>' +
-        deals.map(function (d) {
-          var stage = K.STAGES.filter(function (s) { return s.id === d.stage; })[0];
-          return '<div class="deal-block"><div class="deal-h"><b>' + h.esc(stage ? stage.name : d.stage) + '</b>' +
-            '<span>' + h.esc(d.formName) + ' · ¥' + d.budget.toLocaleString('zh-CN') + '</span></div>' +
-            '<div class="deal-next">下一步：' + h.esc(d.nextAction) + '</div>' +
-            (d.blocker ? '<div class="bt-warn">⚠ 阻塞：' + h.esc(d.blocker) + '</div>' : '') +
-            (d.liveMetrics ? '<div class="deal-live">已发布 ' + d.liveMetrics.daysSince + ' 天（归因窗口 ' + d.liveMetrics.windowDays + ' 天）：曝光 ' +
-              fmt.compact(d.liveMetrics.exposure) + ' · 点击 ' + fmt.int(d.liveMetrics.clicks) + ' · 转化 ' + d.liveMetrics.conv + ' · GMV ' + fmt.money(d.liveMetrics.gmv) + '</div>' : '') +
-            '<div class="deal-hist">' + d.history.map(function (x) {
-              return '<span><i>' + h.esc(fmt.rel(x.at)) + '</i>' + h.esc(x.text) + '</span>';
-            }).join('') + '</div></div>';
-        }).join('') + '</div>' : '') +
+      /* 先给一张图：逐次合作的 ROI 高低一眼可见，比先读表格快 */
+      '<div class="card"><div class="card-h"><h3>逐次合作 ROI</h3>' +
+      '<span class="card-sub">' + m.deals + ' 次合作，条形越长越好</span></div>' +
+      C.barChart(m.campaigns.slice().sort(function (a, b) { return a.dayOffset - b.dayOffset; }).map(function (c) {
+        return { label: fmt.rel(c.dayOffset), value: c.roi, display: c.roi.toFixed(2) };
+      }), { colorFn: function (x) { return x && x.value >= 3 ? '#2563eb' : '#c7cdd8'; } }) +
+      '<div class="bt-note">同一达人的 ROI 波动越大，预期区间越宽 —— ' +
+      '单次高低说明不了什么，看的是能不能重复。</div></div>' +
 
       '<div class="card"><div class="card-h"><h3>投放预期（可展开每一步口径）</h3>' +
       '<span class="card-sub">推荐形式：' + h.esc(f.formName) + '</span></div>' +
@@ -432,6 +648,20 @@
       '（置信度' + confLabel(f.confidence) + '，基于 ' + f.deals + ' 次历史合作）。' +
       '区间宽度反映样本量：合作次数越少，区间越宽，预期越不可信。' +
       (f.confidence === 'low' ? '当前仅 ' + f.deals + ' 次合作，建议小额试投而非全额投入。' : '') + '</div></div>' +
+
+      (deals.length ? '<div class="card"><div class="card-h"><h3>进行中的合作</h3></div>' +
+        deals.map(function (d) {
+          var stage = K.STAGES.filter(function (s) { return s.id === d.stage; })[0];
+          return '<div class="deal-block"><div class="deal-h"><b>' + h.esc(stage ? stage.name : d.stage) + '</b>' +
+            '<span>' + h.esc(d.formName) + ' · ¥' + d.budget.toLocaleString('zh-CN') + '</span></div>' +
+            '<div class="deal-next">下一步：' + h.esc(d.nextAction) + '</div>' +
+            (d.blocker ? '<div class="bt-warn">⚠ 阻塞：' + h.esc(d.blocker) + '</div>' : '') +
+            (d.liveMetrics ? '<div class="deal-live">已发布 ' + d.liveMetrics.daysSince + ' 天（归因窗口 ' + d.liveMetrics.windowDays + ' 天）：曝光 ' +
+              fmt.compact(d.liveMetrics.exposure) + ' · 点击 ' + fmt.int(d.liveMetrics.clicks) + ' · 转化 ' + d.liveMetrics.conv + ' · GMV ' + fmt.money(d.liveMetrics.gmv) + '</div>' : '') +
+            '<div class="deal-hist">' + d.history.map(function (x) {
+              return '<span><i>' + h.esc(fmt.rel(x.at)) + '</i>' + h.esc(x.text) + '</span>';
+            }).join('') + '</div></div>';
+        }).join('') + '</div>' : '') +
 
       '<div class="card"><div class="card-h"><h3>ROI 核算</h3>' +
       '<span class="card-sub">ROI 不能是黑盒数字 —— 公式与每项来源都摊开</span></div>' +
@@ -479,6 +709,132 @@
       ]);
   }
 
+  /* SECTION: kol-sheet
+   * 达人档案抽屉。内容复用 detailView（同一套系数与 ROI 核算表），只是换成浮层：
+   *   · 点卡片 / 列表里的达人名 → 从右侧滑出，遮罩 + × + ESC 都能关
+   *   · 「全屏」把宽度放到 1180，长表格（逐次明细）看得下
+   *   · 抽屉里的 [data-act] 要手动派发 —— bindContent 只在整页渲染时绑一次
+   */
+  var kolSheetEsc = null;
+  var kolSheetHash = null;
+
+  function openKolSheet(h, id, full) {
+    closeKolSheet();
+    var m = K.metrics(id);
+    if (!m) return;
+
+    var mask = document.createElement('div');
+    mask.className = 'k2-mask';
+
+    var box = document.createElement('div');
+    box.className = 'k2-drawer' + (full ? ' full' : '');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', m.kol.name + ' 的档案');
+    var fav = (h.state.kol && h.state.kol.libFav || []).indexOf(id) >= 0;
+    var idx = 0;
+    for (var i = 0; i < K.KOLS.length; i++) { if (K.KOLS[i].id === id) { idx = i; break; } }
+    var avaBg = AVA_COLORS[idx % AVA_COLORS.length];
+
+    box.innerHTML =
+      '<div class="k2-drawer-h">' +
+        '<span class="k2-dh-av" style="background:' + avaBg + '">' + h.esc(m.kol.name.slice(0, 2)) + '</span>' +
+        '<div class="k2-dh-t"><b>' + h.esc(m.kol.name) + '</b>' +
+          '<span>' + h.esc(m.kol.platform) + ' · ' + h.esc(m.kol.region) + ' · ' + h.esc(m.kol.category) + '</span></div>' +
+        '<div class="k2-dh-act">' +
+          '<button class="k2-hbtn" data-sheet="full">' + (full ? '还原' : '全屏') + '</button>' +
+          '<button class="k2-hbtn k2-x" data-sheet="close" aria-label="关闭">×</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="k2-drawer-b kol-v2">' + detailView(h, h.fmt, id, true) + '</div>' +
+      '<div class="k2-drawer-f">' +
+        '<button class="k2-fbtn primary" data-sheet-act="kol-sheet-fav" data-id="' + h.esc(id) + '">' +
+          (fav ? '★ 已收藏' : '☆ 收藏') + '</button>' +
+        '<button class="k2-fbtn" data-sheet-act="kol-sheet-export" data-id="' + h.esc(id) + '"' +
+          (m.deals ? '' : ' disabled title="该达人没有历史合作明细可导出"') + '>导出合作明细</button>' +
+        '<button class="k2-fbtn" data-sheet="close">关闭</button>' +
+      '</div>';
+
+    document.body.appendChild(mask);
+    document.body.appendChild(box);
+    /* 背景整块 inert：Tab 键不会跑到后面的列表里，读屏也读不到。
+       遮罩本来就挡点击，这里补的是键盘。 */
+    var shell = document.querySelector('.shell');
+    if (shell && shell.setAttribute) shell.setAttribute('inert', '');
+    if (window.requestAnimationFrame) {
+      window.requestAnimationFrame(function () {
+        mask.classList.add('on');
+        box.classList.add('on');
+      });
+    } else {
+      mask.classList.add('on');
+      box.classList.add('on');
+    }
+
+    box.addEventListener('click', function (e) {
+      var t = e.target;
+      var sheetBtn = t.closest ? t.closest('[data-sheet]') : null;
+      if (sheetBtn) {
+        var c = sheetBtn.getAttribute('data-sheet');
+        if (c === 'close') closeKolSheet();
+        if (c === 'full') openKolSheet(h, id, !full);
+        return;
+      }
+      /* ⚠ 抽屉里的按钮用 data-sheet-act，不要用 data-act：
+         全局那圈 [data-act] 扫描会把新注入的节点也挂一次（v23 的 bindPatched），
+         加上这里自己的委托，同一次点击跑两遍 —— 收藏「加了又删」，表现为点了没反应。 */
+      var actEl = t.closest ? t.closest('[data-sheet-act], [data-act]') : null;
+      if (actEl) {
+        var act = actEl.getAttribute('data-sheet-act') || actEl.getAttribute('data-act');
+        var A2 = global.ACTIONS || {};
+        if (A2[act]) A2[act](actEl.getAttribute('data-id'), actEl, h);
+        /* 与整页里的 handleAction 一致：没接线就明说，不要点了没反应 */
+        else h.toast('演示环境：该操作（' + act + '）未接线，不执行真实写操作', 'info');
+      }
+    });
+    mask.addEventListener('click', closeKolSheet);
+
+    kolSheetEsc = function (e) { if (e.key === 'Escape') closeKolSheet(); };
+    document.addEventListener('keydown', kolSheetEsc);
+    /* 抽屉挂在 body 下，不随 #content 重绘消失：切到别的屏时它会盖在新页面上。
+       路由一变就收掉（同一 hash 的原地重绘不触发 hashchange，不影响收藏/全屏）。 */
+    kolSheetHash = function () { closeKolSheet(); };
+    window.addEventListener('hashchange', kolSheetHash);
+  }
+
+  function closeKolSheet() {
+    var shell = document.querySelector('.shell');
+    if (shell && shell.removeAttribute) shell.removeAttribute('inert');
+    var nodes = document.querySelectorAll('.k2-mask, .k2-drawer');
+    for (var i = 0; i < nodes.length; i++) {
+      if (nodes[i].parentNode) nodes[i].parentNode.removeChild(nodes[i]);
+    }
+    if (kolSheetEsc) { document.removeEventListener('keydown', kolSheetEsc); kolSheetEsc = null; }
+    if (kolSheetHash) { window.removeEventListener('hashchange', kolSheetHash); kolSheetHash = null; }
+  }
+
+  /* 抽屉底部的两个动作：收藏（同步列表星标）与导出该达人的逐次合作明细 */
+  function kolFavToggle(h, id) {
+    h.state.kol = h.state.kol || {};
+    var arr = h.state.kol.libFav = h.state.kol.libFav || [];
+    var i = arr.indexOf(id);
+    if (i >= 0) arr.splice(i, 1); else arr.push(id);
+    return i < 0;
+  }
+  function kolRepaint(h) {
+    /* 与 libRerender 同一件事：原地重画并接回滚动位置，只是不需要改 state */
+    libRerender(h, function () {});
+  }
+  function kolDownload(name, rows) {
+    var blob = new Blob(['\ufeff' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.parentNode.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+  }
+
   /* SECTION: kol-actions */
   var A = global.ACTIONS;
   A['kol-view'] = function (id, btn, h) {
@@ -487,11 +843,10 @@
     if (id === 'planner' && !h.state.kol.budget) h.state.kol.budget = 100000;
     h.navigate({});
   };
+  /* 2026-10-30：单达人改成右侧抽屉（与「网红筛选」一致：点卡片就地看档案，不换页）。
+     不 navigate，所以页签不增加，列表的筛选与滚动位置都还在。 */
   A['kol-detail'] = function (id, btn, h) {
-    h.state.kol = h.state.kol || {};
-    h.state.kol.view = 'detail';
-    h.state.kol.kolId = id;
-    h.navigate({});
+    openKolSheet(h, id, false);
   };
   A['kol-deal'] = function (id, btn, h) {
     var d = K.ACTIVE_DEALS.filter(function (x) { return x.id === id; })[0];
@@ -506,6 +861,100 @@
   A['kol-reset'] = function (id, btn, h) {
     h.state.kol = { view: 'planner', budget: 100000, goal: 'roi', minOverlap: 0, exclude: [] };
     h.navigate({});
+  };
+  /* 达人库（2026-10-30）：卡片 / 列表切换、筛选、重置。
+     ⚠ 这里**不用 navigate**，只用 h.render() 原地重画 —— 页签是按完整 hash 去重的
+     （见 app.js 知识库那条约 v17 方案乙），每改一次筛选就往页签条上堆一个「网红营销」。
+     实测点 5 次筛选出 5 个同名页签。原地重渲染不写 hash，页签数量不变。
+     代价是 #content 会被重画，滚动位置要自己接回去。 */
+  function libRerender(h, patch, toTop) {
+    h.state.kol = h.state.kol || {};
+    patch(h.state.kol);
+    libSave(h.state.kol);
+    var ct = document.getElementById('content');
+    var top = ct ? ct.scrollTop : 0;
+    h.render();
+    ct = document.getElementById('content');
+    if (ct) ct.scrollTop = toTop ? 0 : top;
+  }
+
+  A['kol-lib-view'] = function (id, btn, h) {
+    libRerender(h, function (k) { k.libView = id === 'table' ? 'table' : 'grid'; }, true);
+  };
+  A['kol-lib-filter'] = function (id, btn, h) {
+    var k = btn && btn.getAttribute ? btn.getAttribute('data-k') : null;
+    var v = btn && btn.getAttribute ? btn.getAttribute('data-v') : '';
+    if (!k) return;
+    libRerender(h, function (kk) {
+      kk.libF = kk.libF || {};
+      if (k === 'tags') {
+        /* 风格标签可多选：点一次加入，再点取消；清空就回到「不限」 */
+        var arr = kk.libF.tags || [];
+        var i = arr.indexOf(v);
+        if (i >= 0) arr.splice(i, 1); else arr.push(v);
+        kk.libF.tags = arr;
+        return;
+      }
+      /* 其余分组单选：点同一个 chip 再点一次 = 取消该条筛选 */
+      kk.libF[k] = (kk.libF[k] === v) ? '' : v;
+    });
+  };
+  A['kol-lib-reset'] = function (id, btn, h) {
+    libRerender(h, function (k) { k.libF = {}; k.libFavOnly = false; });
+  };
+  A['kol-lib-fav'] = function (id, btn, h) {
+    libRerender(h, function (k) {
+      var arr = k.libFav = k.libFav || [];
+      var i = arr.indexOf(id);
+      if (i >= 0) arr.splice(i, 1); else arr.push(id);
+    });
+  };
+  A['kol-sheet-fav'] = function (id, btn, h) {
+    var full = !!document.querySelector('.k2-drawer.full');
+    var added = kolFavToggle(h, id);
+    openKolSheet(h, id, full);   // 重开一次，按钮文案跟着变
+    kolRepaint(h);               // 列表上的星标同步
+    h.toast(added ? '已收藏' : '已取消收藏', 'ok');
+  };
+  A['kol-sheet-export'] = function (id, btn, h) {
+    var m = K.metrics(id);
+    if (!m) return;
+    var audit = K.roiAudit(id);
+    if (!audit.perCampaign.length) { h.toast(m.kol.name + ' 没有历史合作明细可导出', 'info'); return; }
+    var rows = [['时间', '内容形式', '投入', '曝光', '点击', '转化', '客单价', 'GMV', 'ROI'].join(',')].concat(
+      audit.perCampaign.map(function (c) {
+        return [c.date, c.form, c.spend, c.exposure, c.clicks, c.conv, c.aov, c.gmv, c.roi.toFixed(2)].join(',');
+      })
+    );
+    kolDownload('达人-' + m.kol.name + '-合作明细.csv', rows);
+    h.toast('已导出 ' + m.kol.name + ' 的 ' + audit.perCampaign.length + ' 次合作明细', 'ok');
+  };
+  A['kol-lib-favonly'] = function (id, btn, h) {
+    libRerender(h, function (k) { k.libFavOnly = !k.libFavOnly; });
+  };
+  /* 导出当前筛选结果。真下载（Blob），不是假按钮；带 BOM 免 Excel 中文乱码。 */
+  A['kol-lib-export'] = function (id, btn, h) {
+    var st = h.state.kol || {};
+    var rows = libCurrentRows(st);
+    if (!rows.length) { h.toast('当前筛选没有可导出的达人', 'info'); return; }
+    var head = ['达人', '平台', '地区', '类目', '粉丝', '参考报价', '客群重合', '真实粉丝', '合作次数', '历史ROI', '结论', '合作状态'];
+    var lines = [head.join(',')].concat(rows.map(function (r) {
+      return [
+        r.kol.name, r.kol.platform, r.kol.region, r.kol.category,
+        r.kol.followers, r.kol.quote,
+        Math.round(r.kol.overlap * 100) + '%', Math.round(r.kol.authenticity * 100) + '%',
+        r.deals, r.roi == null ? '' : r.roi.toFixed(2), r.statusText, DEAL_STATE[r.deal].text
+      ].join(',');
+    }));
+    var blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '达人库-' + rows.length + '位.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.parentNode.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+    h.toast('已导出 ' + rows.length + ' 位达人', 'ok');
   };
   A['kol-plan'] = function (id, btn, h) {
     h.navigate({});

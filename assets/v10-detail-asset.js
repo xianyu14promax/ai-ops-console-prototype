@@ -1626,22 +1626,38 @@
        原来只有「18 个基名 × 无限加版本号」，3,852 篇就摊到 v160 ——
        企业里不存在 v160 的文档，版本号是实体属性，不该由"这个文件夹有多少篇"决定。 */
     var PER = 5;                                   /* 每个方案最多几个版本 */
-    /* 限定只用一个维度（范围）。库的文档数已降到几百篇，
-       18 基名 × 8 范围 = 144 个方案 × 5 版本 = 720 篇容量，够用。
-       原来堆三个限定词（范围+年份+业务线）才装得下上万篇，
-       名字变成《退货政策 集团 2022 总部 v1》那样又长又假。 */
+    /* 法规库（kb-reg-*）的文档名走 REG_LAWS 真名池，其余库走 DOC_POOL。
+       法规库与产品库的差别就在命名：一个是「中华人民共和国广告法」，一个是「退货政策（华东区）v2」。
+       池里装不下的部分按「领域 + 文件类型 + 年份」派生 —— 法规库本来就有大量同名不同年份的
+       办法与实施细则，这个命名不是凑数，是它真实的结构。 */
+    var RLAWS = (global.DATA_SEED && global.DATA_SEED.REG_LAWS) ? global.DATA_SEED.REG_LAWS[kbId] : null;
+    var R_AREA = ['广告', '价格', '电商', '数据', '隐私', '消费者', '食品', '化妆品',
+      '医疗器械', '金融', '劳动', '环境', '进出口', '平台责任'];
+    var R_KIND = ['法', '条例', '办法', '规定', '实施细则', '指引', '国家标准', '通知'];
     var SCOPE = ['集团', '华东区', '华北区', '华南区', '西南区', '海外', '渠道', '直营'];
     for (var i = 0; i < n; i++) {
       var slices = Math.max(2, Math.round(_mean * (0.55 + rng() * 0.9)));
       var exp = rng() < 0.055;
       var slot = Math.floor(i / PER);              /* 第几个「方案实例」 */
       var ver = 1 + (i % PER);                     /* v1..v5 */
-      var docBase = DOC_POOL[slot % DOC_POOL.length];
-      var docQual = SCOPE[Math.floor(slot / DOC_POOL.length) % SCOPE.length];
+      var docBase, docQual = '', docName;
+      if (RLAWS && i < RLAWS.length) {
+        /* 头几篇用真名：清单第一屏要能认出「哦这是广告法」 */
+        docBase = RLAWS[i];
+        docName = '《' + docBase + '》';
+      } else if (RLAWS) {
+        var j = i - RLAWS.length;
+        docBase = R_AREA[Math.floor(j / R_KIND.length) % R_AREA.length] + R_KIND[j % R_KIND.length];
+        docName = '《' + docBase + '（' + (2016 + (Math.floor(j / (R_AREA.length * R_KIND.length)) % 11)) + '）》';
+      } else {
+        docBase = DOC_POOL[slot % DOC_POOL.length];
+        docQual = SCOPE[Math.floor(slot / DOC_POOL.length) % SCOPE.length];
+        docName = '《' + docBase + '（' + docQual + '） v' + ver + '》';
+      }
       out.push({
         id: kbId + '-d' + i,
-        name: '《' + docBase + '（' + docQual + '） v' + ver + '》',
-        _plan: docBase + '（' + docQual + '）',    /* 版本归组用的方案键 */
+        name: docName,
+        _plan: RLAWS ? docBase : (docBase + '（' + docQual + '）'),    /* 版本归组用的方案键 */
         source: DOC_SOURCES[Math.floor(rng() * DOC_SOURCES.length) % DOC_SOURCES.length],
         sizeKB: slices * (0.5 + rng() * 1.3),
         updatedDay: -(1 + Math.floor(rng() * 90)),
@@ -1689,6 +1705,14 @@
     var ups = kbUploads(h, id);
     for (var j = 0; j < ups.length; j++) { var u = ups[j]; if (!op.deleted[u.id] && !op.offline[u.id]) n++; }
     return n;
+  }
+
+  /* 切片策略文案：普通库按 token 窗口切，法规库按条切（chunkSize 是字符串）。
+     两处（指标副标题 / 索引配置）共用这一份，避免同一个库写出两种说法。 */
+  function sliceTextOf(s) {
+    if (!s) return '—';
+    if (typeof s.chunkSize === 'number') return s.chunkSize + ' token / 重叠 ' + s.overlap;
+    return String(s.chunkSize) + ' · 1 条 = 1 个向量';
   }
 
   function kbDocStatus(d) {

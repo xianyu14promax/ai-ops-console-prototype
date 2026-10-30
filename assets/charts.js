@@ -421,10 +421,18 @@
     });
     /* 覆盖整块绘图区的命中层：mousemove 按 x 反算列号（比给每列挂一个 1px 宽的命中区好点中） */
     if (rich) g.push(el('rect', { x: padL, y: padT, width: iw, height: ih, fill: 'transparent', class: 'chart-hit' }));
-    /* X 轴标签：最多 8 个，避免挤成糊字 */
+    /* X 轴标签：最多 8 个，避免挤成糊字。
+       v42：**末点必须标出来** —— 30 天窗口按 i%4 抽样时最后一个是 10/28，
+       而图上最后一根柱子其实是 10/29，读者会以为数据停在昨天。
+       末点与前一个已标点太近时，去掉前一个、换上末点（不是两个都标，会叠字）。 */
     var every = Math.max(1, Math.ceil(points.length / 8));
+    var marks = {}, lastI = points.length - 1;
+    for (var mk = 0; mk <= lastI; mk += every) marks[mk] = 1;
+    var prevMarked = Math.floor(lastI / every) * every;
+    if (prevMarked !== lastI && lastI - prevMarked < every * 0.6) delete marks[prevMarked];
+    marks[lastI] = 1;
     points.forEach(function (p, i) {
-      if (i % every) return;
+      if (!marks[i]) return;
       g.push('<text x="' + (padL + i * bw + bw / 2) + '" y="' + (h - 8) + '" class="ds-axis" text-anchor="middle">' + esc(tsLabel(p.ts, opts.granularity)) + '</text>');
     });
     var svgAttrs = ' class="ds-chart' + (rich ? ' chart-stack' : '') + '"' +

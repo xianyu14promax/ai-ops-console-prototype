@@ -298,16 +298,15 @@
       '</div></div>';
 
     /* ---------- ① 问卷内容（上方填入） ---------- */
-    /* v10b：副标题点明编辑对象 —— 原来只说「把要问的写在这里」，用户分不清是在编辑存量问卷
-       还是新建一份（④ 列表里同名存量问卷 2,680 人正在跑）。把对象说清，③④ 的对象关系才接得上。 */
-    /* 卡头只留标题 + 类型标签（标签靠右），与模拟页「① 本轮方案 / ① 待评估内容」同一套卡型 */
+    var qs = (IVD.questions ? IVD.questions() : []);
     var qCard = '<div class="card"><div class="card-h"><h3>① 问卷内容</h3>' +
-      '<span style="margin-left:auto">' + pill(h, 'ok', '话题式') + '</span></div>' +
+      '<div class="card-act" style="margin-left:auto;display:flex;align-items:center;gap:6px">' + pill(h, 'ok', '话题式') +
+      '<button class="btn-ghost sm" data-act="iv-fill-q" data-id="' + esc(h, row.id) + '">填写问卷</button></div></div>' +
       '<div class="iv-form">' +
       '<label class="iv-field"><span>问卷名称</span>' +
       '<input class="iv-input" data-iv="q-name" value="' + esc(h, row.name) + '" /></label>' +
-      '<label class="iv-field"><span>访谈内容（话题 / 必问 / 禁问，一行一条）</span>' +
-      '<textarea class="iv-input" data-iv="q-body" rows="6">' + esc(h, (IVD.outlineText ? IVD.outlineText() : '')) + '</textarea></label>' +
+      '<label class="iv-field"><span>访谈内容</span>' +
+      '<textarea class="iv-input" data-iv="q-body" rows="6" placeholder="点击输入访谈内容">' + esc(h, (IVD.outlineEditedText ? IVD.outlineEditedText() : '')) + '</textarea></label>' +
       '<div class="iv-row">' +
       '<label class="iv-field sm"><span>引用知识库</span>' +
       '<select class="iv-input" data-iv="q-kb"><option>产品文档库（必引 · 须给出处）</option><option>销售话术库（参考）</option><option>不用知识库</option></select></label>' +
@@ -317,9 +316,7 @@
       '<select class="iv-input" data-iv="q-time"><option>09:00–20:00</option><option>10:00–18:00</option></select></label>' +
       '<label class="iv-field sm"><span>每人频次</span>' +
       '<select class="iv-input" data-iv="q-freq"><option>14 天 ≤ 1 次</option><option>7 天 ≤ 1 次</option></select></label>' +
-      /* 两个动作贴到卡片右下角，与模拟页「保存方案 / 提交跑批」同一位置 */
-      '<button class="btn-ghost" style="margin-left:auto" data-act="iv-save-q">保存问卷内容</button>' +
-      /* 主行动给蓝色：保存是留在此页，进详细编排是往前走（与模拟页「保存方案/提交跑批」同一主次） */
+      '<button class="btn-ghost" style="margin-left:auto" data-act="iv-fill-q" data-id="' + esc(h, row.id) + '">编辑题目</button>' +
       '<button class="btn-primary" data-act="iv-open-plan" data-id="' + esc(h, row.id) + '">进详细编排 →</button>' +
       '</div></div></div>';
 
@@ -454,8 +451,277 @@
         { k: '可派发样本', v: '池内 ' + pool.length + ' 位全部具名可派发，挑人即加入本轮' },
         { k: '派发口径', v: '派发时自动剔除已退订、黑名单与频控内的样本；每人 14 天 ≤ 1 次' }
       ]) +
-      modalHtml(state, h, rows);
+      fillModalHtml(state, h, rows) + modalHtml(state, h, rows);
   };
+
+  /* 卡片①的题目预览：按人话显示题号 / 题型 / 题干 / 选项 A B C D。
+     以前这里挂的是一个只读文本框，回显的是「名字｜必问｜内容」这种给机器的中间格式，
+     业主一眼就问「这怎么回事」—— 界面不该出现管道符。 */
+  function qPrevHtml(h, qs) {
+    if (!qs || !qs.length) return '<div class="iv-qp"><div class="iv-qp-item"><div class="iv-qp-q" style="padding-left:23px;color:var(--faint)">还没有题目 —— 点「编辑题目」加一道</div></div></div>';
+    var LETTERS = 'ABCDEFGH';
+    var rows = qs.map(function (q, i) {
+      var opts = (q.options || []);
+      var oTxt = '';
+      if (q.type === 'single' || q.type === 'multi') {
+        oTxt = opts.map(function (o, oi) { return LETTERS.charAt(oi) + ' ' + (o || '未填'); }).join('　');
+      } else if (q.type === 'scale') {
+        oTxt = '评分 1 – 5';
+      } else {
+        oTxt = '开放作答';
+      }
+      return '<div class="iv-qp-item">' +
+        '<div class="iv-qp-line"><span class="iv-qp-n">' + (i + 1) + '</span>' +
+        '<span class="iv-qp-t">' + esc(h, IVD.QTYPE[q.type] || '问答') + '</span>' +
+        '<span class="iv-qp-q">' + esc(h, q.title || '未填题干') + '</span>' +
+        '<span class="iv-qp-m">' + (q.required ? '必答' : '选答') + '</span></div>' +
+        '<div class="iv-qp-o">' + esc(h, oTxt) + '</div></div>';
+    }).join('');
+    return '<div class="iv-qp">' + rows + '</div>';
+  }
+
+  /* ============================================================
+   * 弹窗：填写问卷 —— 照问卷星的骨架
+   *   左边常驻题型栏，点一下追加一道；右边是题目卡片，工具（上移/下移/复制/删除）
+   *   浮在卡头，题型靠卡头下拉切换（等于问卷星的「转换题型」），必答默认开。
+   * 草稿在 state.ivDraft：敲字只写状态不重绘；结构变化才整页重渲染 ——
+   * 本项目 [data-act] 是逐元素绑的，局部替换 DOM 后新按钮点不动。
+   * ============================================================ */
+  function draftOf(state) {
+    if (!state.ivDraft) {
+      state.ivDraft = JSON.parse(JSON.stringify(IVD.questions ? IVD.questions() : []));
+    }
+    return state.ivDraft;
+  }
+
+  function qCardHtml(h, q, i, total) {
+    var isChoice = (q.type === 'single' || q.type === 'multi');
+    var opts = '', note = '', maxRow = '';
+    if (isChoice) {
+      opts = '<div class="iv-qm-opts">' + (q.options || []).map(function (o, oi) {
+        return '<div class="iv-qm-opt"><span class="iv-qm-mark' + (q.type === 'multi' ? ' multi' : '') + '"></span>' +
+          '<input class="iv-input" data-q="opt" data-qi="' + i + '" data-oi="' + oi + '" value="' + esc(h, o) + '" placeholder="选项文字" />' +
+          '<button class="iv-qm-x" data-act="iv-opt-del" data-id="' + i + '|' + oi + '" aria-label="删除选项">×</button></div>';
+      }).join('') + '</div>';
+    }
+    /* 多选题的「最多选几项」是一个真设置，不再写在题干里当摆设。
+       上限跟着选项数走，改选项数时这个下拉的选项数同步变。 */
+    if (q.type === 'multi') {
+      var n = (q.options || []).length;
+      var mp = q.maxPick || 0;
+      var range = [];
+      for (var k = 1; k <= n; k++) range.push(k);
+      maxRow = '<div class="iv-qm-maxpick">最多可选' +
+        '<select class="iv-input iv-qm-mp" data-q="maxPick" data-qi="' + i + '">' +
+        '<option value="0"' + (mp ? '' : ' selected') + '>不限</option>' +
+        range.map(function (v) { return '<option value="' + v + '"' + (mp === v ? ' selected' : '') + '>' + v + '</option>'; }).join('') +
+        '</select>项</div>';
+    }
+    if (q.type === 'scale') {
+      note = '<div class="iv-qm-note">评分 1 – 5，不用设选项</div>';
+    } else if (q.type === 'text') {
+      note = '<div class="iv-qm-note">开放式作答，AI 会追问</div>';
+    }
+    /* 卡片底栏：左边是「加选项」（只有选择题有），右边是这道题的操作。
+       操作放右下角，卡头只留题号 / 题型 / 必答，一行读下来不被按钮打断。 */
+    return '<div class="iv-qm-card" draggable="true">' +
+      '<div class="iv-qm-ch">' +
+      '<span class="iv-qm-no">' + (i + 1) + '</span>' +
+      '<select class="iv-input iv-qm-type" data-q="type" data-qi="' + i + '">' +
+      ['single', 'multi', 'text', 'scale'].map(function (k) {
+        return '<option value="' + k + '"' + (q.type === k ? ' selected' : '') + '>' + IVD.QTYPE[k] + '</option>';
+      }).join('') + '</select>' +
+      '<label class="iv-qm-req"><input type="checkbox" data-q="required" data-qi="' + i + '"' + (q.required ? ' checked' : '') + ' /> 必答</label>' +
+      maxRow +
+      /* 删题放卡头最右：危险动作离内容远一点，别和「加选项」挤在一处 */
+      '<button class="iv-qm-del" data-act="iv-q-del" data-id="' + i + '" title="删除这道题" aria-label="删除">' +
+      '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">' +
+      '<path d="M4 4l8 8M12 4l-8 8"/></svg></button>' +
+      '</div>' +
+      '<input class="iv-input iv-qm-title" data-q="title" data-qi="' + i + '" value="' + esc(h, q.title || '') + '" placeholder="题干，例如：这半年整体用下来，续约的意向如何？" />' +
+      note + opts +
+      '<div class="iv-qm-cardfoot">' +
+      (isChoice ? '<button class="iv-qm-addopt" data-act="iv-opt-add" data-id="' + i + '">+ 添加选项</button>' : '<span></span>') +
+      '<div class="iv-qm-tools">' +
+      '<button data-act="iv-q-dup" data-id="' + i + '" title="复制这道题" aria-label="复制">' +
+      '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="5.5" y="5.5" width="8" height="8" rx="1.6"/><path d="M10.5 5.5V3.6A1.6 1.6 0 0 0 8.9 2H3.6A1.6 1.6 0 0 0 2 3.6v5.3a1.6 1.6 0 0 0 1.6 1.6h1.9"/></svg></button>' +
+      '</div></div></div>';
+  }
+
+  function fillModalHtml(state, h, rows) {
+    if (!state.ivFill) return '';
+    var row = null;
+    rows.forEach(function (x) { if (x.id === state.ivFill) row = x; });
+    if (!row) return '';
+    var qs = draftOf(state);
+    var st = (IVD.qtypeStat ? IVD.qtypeStat(qs) : {});
+    var sub = ['single', 'multi', 'text', 'scale'].filter(function (k) { return st[k]; })
+      .map(function (k) { return IVD.QTYPE[k] + ' ' + st[k]; }).join(' · ');
+    return '<div class="modal-mask" data-act="iv-fill-close">' +
+      /* modal 自己也挂空动作：点弹窗内空白时 closest 命中它，不落到遮罩的 iv-fill-close 上。
+         用 stopPropagation 会连带挡住内部按钮的委托（表现为「取消」点了没反应）。 */
+      '<div class="modal iv-qm" role="dialog" aria-modal="true" data-act="iv-fill-keep">' +
+      '<div class="modal-h"><h3>填写问卷<span style="font-weight:400;font-size:12.5px;color:var(--sub);margin-left:8px">' +
+      esc(h, row.name) + '</span></h3>' +
+      '<button class="modal-x" data-act="iv-fill-close" aria-label="关闭">×</button></div>' +
+      '<div class="iv-qm-body">' +
+      '<div class="iv-qm-main"><div class="iv-qm-list">' +
+      (qs.length ? qs.map(function (q, i) { return qCardHtml(h, q, i, qs.length); }).join('') : '') +
+      /* 添加题目就在列表末尾 —— 不再单开一栏，加题的位置就是新题出现的位置。
+         中间一个 +（默认加单选），下面一行是题型，点哪个加哪个。 */
+      '<div class="iv-qm-add">' +
+      '<button class="iv-qm-plus" data-act="iv-q-add" data-id="single" title="添加一道单选" aria-label="添加题目">+</button>' +
+      '<div class="iv-qm-types">' +
+      '<button data-act="iv-q-add" data-id="single">单选</button>' +
+      '<button data-act="iv-q-add" data-id="multi">多选</button>' +
+      '<button data-act="iv-q-add" data-id="text">问答</button>' +
+      '<button data-act="iv-q-add" data-id="scale">量表</button>' +
+      '</div></div>' +
+      '</div></div></div>' +
+      '<div class="iv-qm-foot"><span class="iv-qm-count">共 ' + qs.length + ' 题' +
+      (sub ? ' · ' + esc(h, sub) : '') + '</span>' +
+      '<span style="margin-left:auto;display:flex;gap:8px">' +
+      '<button class="btn-ghost" data-act="iv-fill-close">取消</button>' +
+      '<button class="btn-primary" data-act="iv-fill-save">保存问卷</button></span></div>' +
+      '</div></div>';
+  }
+
+  /* 题内输入走 data-q 委托（下拉/勾选框不能用 data-act：一改就整页重渲染会冲掉输入） */
+  function bindQEditor(state, h) {
+    var root = document.querySelector('.iv-qm-list');
+    if (!root || root.__qBound) return;
+    root.__qBound = 1;
+    var pick = function (t) {
+      var qi = parseInt(t.getAttribute('data-qi'), 10);
+      var k = t.getAttribute('data-q');
+      if (isNaN(qi) || !k) return null;
+      var d = draftOf(state);
+      if (!d[qi]) return null;
+      return { q: d[qi], k: k, qi: qi, t: t };
+    };
+    root.addEventListener('input', function (e) {
+      var x = pick(e.target);
+      if (!x) return;
+      if (x.k === 'title') x.q.title = x.t.value;
+      else if (x.k === 'opt') {
+        var oi = parseInt(x.t.getAttribute('data-oi'), 10);
+        if (!isNaN(oi) && x.q.options) x.q.options[oi] = x.t.value;
+      }
+    });
+    root.addEventListener('change', function (e) {
+      var x = pick(e.target);
+      if (!x) return;
+      if (x.k === 'required') { x.q.required = !!x.t.checked; return; }
+      if (x.k === 'maxPick') { x.q.maxPick = parseInt(x.t.value, 10) || 0; return; }
+      if (x.k === 'type') {
+        x.q.type = x.t.value;
+        if ((x.q.type === 'single' || x.q.type === 'multi') && !(x.q.options && x.q.options.length)) {
+          x.q.options = ['选项 1', '选项 2'];
+        }
+        if (x.q.type === 'text' || x.q.type === 'scale') x.q.options = [];
+        if (x.q.type !== 'multi') x.q.maxPick = 0;
+        repaint(h, '[data-q="type"][data-qi="' + x.qi + '"]');
+      }
+    });
+  }
+
+  /* 拖拽排序：整张卡可拖（不设手柄），拖动时把目标位置画成一条蓝线。
+     卡里的 input/select/button 上按下要放行给它们自己，否则选字会变成拖卡片。 */
+  function bindQDrag(state, h) {
+    var list = document.querySelector('.iv-qm-list');
+    if (!list || list.__dragBound) return;
+    list.__dragBound = 1;
+    var from = null, lastCard = null, lastAfter = false;
+    var clear = function () {
+      [].forEach.call(list.querySelectorAll('.iv-qm-card'), function (c) {
+        c.classList.remove('drop-before', 'drop-after');
+      });
+    };
+    list.addEventListener('dragstart', function (e) {
+      var card = e.target.closest ? e.target.closest('.iv-qm-card') : null;
+      if (!card) return;
+      if (/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(e.target.tagName)) { e.preventDefault(); return; }
+      from = [].indexOf.call(list.querySelectorAll('.iv-qm-card'), card);
+      card.classList.add('dragging');
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'q'); } catch (x) {}
+    });
+    list.addEventListener('dragover', function (e) {
+      if (from === null) return;
+      e.preventDefault();
+      try { e.dataTransfer.dropEffect = 'move'; } catch (x) {}
+      var card = e.target.closest ? e.target.closest('.iv-qm-card') : null;
+      if (!card) { clear(); lastCard = null; return; }
+      var r = card.getBoundingClientRect();
+      var after = (e.clientY - r.top) > r.height / 2;
+      if (card === lastCard && after === lastAfter) return;
+      clear();
+      card.classList.add(after ? 'drop-after' : 'drop-before');
+      lastCard = card; lastAfter = after;
+    });
+    list.addEventListener('drop', function (e) {
+      if (from === null) return;
+      e.preventDefault();
+      var d = draftOf(state);
+      var card = e.target.closest ? e.target.closest('.iv-qm-card') : lastCard;
+      if (!card) { clear(); from = null; return; }
+      var cards = [].slice.call(list.querySelectorAll('.iv-qm-card'));
+      var idx = cards.indexOf(card);
+      var to = idx + (lastAfter ? 1 : 0);
+      if (from < to) to -= 1;
+      if (to !== from && to >= 0 && to < d.length) {
+        var item = d.splice(from, 1)[0];
+        d.splice(to, 0, item);
+      }
+      clear();
+      from = null; lastCard = null;
+      repaint(h, null);
+    });
+    list.addEventListener('dragend', function () {
+      clear();
+      var c = list.querySelector('.iv-qm-card.dragging');
+      if (c) c.classList.remove('dragging');
+      from = null; lastCard = null;
+    });
+  }
+
+  /* 结构变了才重绘：整页重渲染 → 重绑 → 光标回到触发它的控件 */
+  function repaint(h, focusSel) {
+    h.state.__qFocus = focusSel || null;
+    h.navigate({}, { scroll: false });
+    restoreQFocus(h.state, h);
+  }
+  function restoreQFocus(state, h) {
+    if (typeof setTimeout !== 'function') return;
+    setTimeout(function () {
+      bindQEditor(state, h);
+      bindQDrag(state, h);
+      var sel = state.__qFocus;
+      state.__qFocus = null;
+      if (!sel) return;
+      var el = document.querySelector(sel);
+      if (el && el.focus) el.focus();
+    }, 30);
+  }
+
+  /* 把文本解析成提纲并写进真源；返回写进去的话题数（0 = 空文本，已回退默认） */
+  function applyOutline(text, h) {
+    var texts = String(text || '').split('\n').filter(function (x) { return x.trim(); });
+    if (!texts.length) {
+      h.state.ivOutline = null;
+      return 0;
+    }
+    var base = (IVD.currentOutline ? IVD.currentOutline() : {}) || {};
+    var topics = (IVD.parseOutlineText ? IVD.parseOutlineText(text) : []);
+    h.state.ivOutline = {
+      form: base.form || 'topic',
+      opening: base.opening, closing: base.closing, forbidden: base.forbidden || [],
+      maxChars: base.maxChars || 200, maxRounds: base.maxRounds || 24,
+      kbs: base.kbs || [],
+      topics: topics
+    };
+    return topics.length;
+  }
 
   /* ============================================================
    * 弹窗：先用户列表 → 点人换成「左记录 / 右分析」
@@ -742,27 +1008,85 @@
     if (ACTIONS['create-open']) { ACTIONS['create-open']('survey', null, h); return; }
     h.toast('创建入口不可用（create-open 未注册）', 'bad');
   };
-  /* 保存问卷内容：**真的解析并写入提纲真源**（state.ivOutline）。
-     原来这个动作只弹一句"已保存到本会话"，文本框里的字没人读 ——
-     详情页「谈什么」和 AI 评价都在用各自写死的常量，所以怎么写都不会变。 */
-  A['iv-save-q'] = function (id, btn, h) {
-    var ta = null;
-    try { ta = document.querySelector('[data-iv="q-body"]'); } catch (e) { ta = null; }
-    if (!ta) { h.toast('找不到问卷内容输入框', 'bad'); return; }
-    var texts = String(ta.value || '').split('\n').filter(function (x) { return x.trim(); });
-    if (!texts.length) { h.toast('问卷内容是空的：至少写一条「话题｜必问/可选/禁问｜问什么」', 'bad'); return; }
-    var base = (IVD.currentOutline ? IVD.currentOutline() : {});
-    var topics = (IVD.parseOutlineText ? IVD.parseOutlineText(ta.value) : []);
-    h.state.ivOutline = {
-      form: base.form || 'topic',
-      opening: base.opening, closing: base.closing, forbidden: base.forbidden || [],
-      maxChars: base.maxChars || 200, maxRounds: base.maxRounds || 24,
-      kbs: base.kbs || [],
-      topics: topics
-    };
-    var mustN = topics.filter(function (t) { return t.must; }).length;
-    var banN = topics.filter(function (t) { return t.ban; }).length;
-    h.toast('已保存 ' + topics.length + ' 个话题（必问 ' + mustN + ' · 禁问 ' + banN + '）：详情页「谈什么」与 AI 问卷评价已按这份提纲更新', 'ok');
+  /* 卡头「填写问卷」：打开题目编辑器，草稿从当前问卷深拷贝一份出来 */
+  A['iv-fill-q'] = function (id, btn, h) {
+    if (!id) { h.toast('未指定问卷', 'bad'); return; }
+    h.state.ivModal = null;   /* 两个弹窗互斥，免得叠在一起 */
+    h.state.ivDraft = null;   /* 每次打开重新拷，取消即丢弃 */
+    h.state.ivFill = id;
+    h.navigate({}, { scroll: false });
+    restoreQFocus(h.state, h);
+  };
+  /* 弹窗内空白点击的落点：什么都不做，只为截住事件不往上冒到遮罩 */
+  A['iv-fill-keep'] = function () {};
+  A['iv-fill-close'] = function (id, btn, h) {
+    if (!h.state.ivFill) return;
+    h.state.ivFill = null;
+    h.state.ivDraft = null;
+    h.navigate({}, { scroll: false });
+  };
+  /* 左侧题型栏：加一道，必答默认开（跟问卷星一致） */
+  A['iv-q-add'] = function (type, btn, h) {
+    var d = draftOf(h.state);
+    var t = type || 'single';
+    var item = { id: 'q' + (Date.now() % 100000), type: t, required: true, topic: '', title: '', options: [] };
+    if (t === 'single' || t === 'multi') item.options = ['选项 1', '选项 2'];
+    if (t === 'multi') item.maxPick = 0;
+    d.push(item);
+    repaint(h, '[data-q="title"][data-qi="' + (d.length - 1) + '"]');
+  };
+  A['iv-q-del'] = function (i, btn, h) {
+    var d = draftOf(h.state);
+    var n = parseInt(i, 10);
+    if (isNaN(n) || !d[n]) return;
+    d.splice(n, 1);
+    repaint(h, null);
+  };
+  /* 复制：插到原题后面，就地改，不用再拖回去 */
+  A['iv-q-dup'] = function (i, btn, h) {
+    var d = draftOf(h.state);
+    var n = parseInt(i, 10);
+    if (isNaN(n) || !d[n]) return;
+    var copy = JSON.parse(JSON.stringify(d[n]));
+    copy.id = 'q' + (Date.now() % 100000);
+    d.splice(n + 1, 0, copy);
+    repaint(h, null);
+  };
+  A['iv-opt-add'] = function (i, btn, h) {
+    var d = draftOf(h.state);
+    var n = parseInt(i, 10);
+    if (isNaN(n) || !d[n]) return;
+    d[n].options = d[n].options || [];
+    d[n].options.push('选项 ' + (d[n].options.length + 1));
+    repaint(h, '[data-q="opt"][data-qi="' + n + '"][data-oi="' + (d[n].options.length - 1) + '"]');
+  };
+  A['iv-opt-del'] = function (id, btn, h) {
+    var p = String(id || '').split('|');
+    var qi = parseInt(p[0], 10), oi = parseInt(p[1], 10);
+    var d = draftOf(h.state);
+    if (isNaN(qi) || isNaN(oi) || !d[qi] || !d[qi].options) return;
+    if (d[qi].options.length <= 1) { h.toast('单选/多选至少留一个选项', 'warn'); return; }
+    d[qi].options.splice(oi, 1);
+    /* 选项少了，最多选数不能比选项还多 */
+    if (d[qi].maxPick && d[qi].maxPick > d[qi].options.length) d[qi].maxPick = d[qi].options.length;
+    repaint(h, null);
+  };
+  A['iv-fill-save'] = function (id, btn, h) {
+    var qs = draftOf(h.state);
+    /* 题干空着的不落库 */
+    var kept = qs.filter(function (q) { return String(q.title || '').trim(); });
+    if (!kept.length) { h.toast('还没有题目：点左边题型加一道，写上题干再保存', 'warn'); return; }
+    var dropped = qs.length - kept.length;
+    h.state.ivQuestions = kept;
+    /* 题目 → 提纲文本 → topics，详情页「谈什么」与 AI 评价不用改一行 */
+    applyOutline(IVD.questionsToOutline(kept), h);
+    var st = IVD.qtypeStat(kept);
+    var txt = ['single', 'multi', 'text', 'scale'].filter(function (k) { return st[k]; })
+      .map(function (k) { return IVD.QTYPE[k] + ' ' + st[k]; }).join(' · ');
+    h.state.ivFill = null;
+    h.state.ivDraft = null;
+    h.toast('已保存 ' + kept.length + ' 道题（' + txt + '）' + (dropped ? '，' + dropped + ' 道空题未保存' : '') +
+      '：详情页「谈什么」与 AI 问卷评价已按这份问卷更新', 'ok');
     h.navigate({}, { scroll: false });
   };
   A['iv-open-plan'] = function (id, btn, h) { h.navigate({ agentId: id, objId: id, tab: 'plan', objTab: 'plan' }); };

@@ -163,11 +163,20 @@
     state.assetSub = (state.cap === 'assets' && /^[a-z]{2,12}$/.test(String(q.as || ''))) ? q.as : null;
     if (state.cap === 'kol') {
       if (q.view || q.budget || q.goal || q.minOverlap || q.exclude || q.kolId) {
+        /* 达人库的筛选 / 视图 / 排序是临时态，不进 URL；但 hashchange 会走到这里重建
+           state.kol —— 不把这三项接回来，点一下筛选就被重置成「全部」（实测 2026-10-30）。 */
+        var _prevKol = state.kol || {};
         state.kol = {
           view: q.view || 'board', budget: q.budget ? Number(q.budget) : 100000,
           goal: q.goal || 'roi', minOverlap: q.minOverlap ? Number(q.minOverlap) : 0,
           kolId: q.kolId || null, exclude: q.exclude ? q.exclude.split(',').filter(Boolean) : []
         };
+        if (_prevKol.libView) state.kol.libView = _prevKol.libView;
+        if (_prevKol.libF) state.kol.libF = _prevKol.libF;
+        if (_prevKol.libSort) state.kol.libSort = _prevKol.libSort;
+        if (_prevKol.libFav) state.kol.libFav = _prevKol.libFav;
+        if (_prevKol.libFavOnly) state.kol.libFavOnly = _prevKol.libFavOnly;
+        if (_prevKol.__libReady) state.kol.__libReady = _prevKol.__libReady;
       }
     } else if (state.cap === 'knowledge') {
       state.kb = { view: q.kbView || 'list', q: q.kbq || '', kbId: q.kb || null, topK: q.topK ? Number(q.topK) : 5, th: q.th != null ? Number(q.th) : 0.72 };
@@ -437,8 +446,14 @@
     var inner =
       '<div class="m-label">' + esc(m.label) + info + approx + '</div>' +
       '<div class="m-value">' + esc(m.value) + (m.unit ? '<small>' + esc(m.unit) + '</small>' : '') + '</div>' +
-      '<div class="m-foot">' + (m.deltaHtml || '') + (m.sub ? '<span class="m-sub">' + esc(m.sub) + '</span>' : '') + '</div>';
-    var cls = 'metric' + (m.alert ? ' metric-alert' : '') + (m.act ? ' metric-act' : '');
+      '<div class="m-foot">' + (m.deltaHtml || '') + (m.sub ? '<span class="m-sub">' + esc(m.sub) + '</span>' : '') + '</div>' +
+      /* m.denom：分母行。对标 Intercom 的「29,429 out of 40,929」——
+         百分比单摆着没人知道是几除以几，读者要么信、要么自己算，两样都不该发生。 */
+      (m.denom ? '<div class="m-denom">' + esc(m.denom) + '</div>' : '');
+    /* m.hero：深色指标卡（2026-10-30 业主「统一用这种」）。
+       原先是"一排里的一张反色主位"，现在这一屏的指标卡全部走同一套深色，
+       避免同排一半黑一半白、看着像两套系统。 */
+    var cls = 'metric' + (m.alert ? ' metric-alert' : '') + (m.act ? ' metric-act' : '') + (m.hero ? ' metric-hero' : '');
     if (m.act) {
       /* 🔴 修复（HTML 内容模型）：这里此前渲染成 <button>…<div class="m-label">…，而 <button> 的
          内容模型是 phrasing content —— 放块级 <div> 不合法，浏览器会**改写 DOM**：同一 .metrics
@@ -1351,6 +1366,53 @@
         navigate({}, { scroll: false }); // 松手/选择后写入 URL，刷新保持
       });
     });
+    /* 达人库排序（2026-10-30）：同样只走 render()，不写 hash、不堆页签 */
+    els.content.querySelectorAll('[data-kolsort]').forEach(function (els2) {
+      els2.addEventListener('change', function () {
+        state.kol = state.kol || {};
+        state.kol.libSort = els2.value;
+        var _c2 = $('content'), _t2 = _c2 ? _c2.scrollTop : 0;
+        render();
+        _c2 = $('content'); if (_c2) _c2.scrollTop = _t2;
+      });
+    });
+    /* 达人库粉丝量级双滑块（2026-10-30）：拖动过程只改旁边数字，松手才重新筛。
+       拖动中整页重绘会把原生滑块的拖拽状态打断（DOM 被替换），手感像卡住。 */
+    els.content.querySelectorAll('[data-kolfans]').forEach(function (elr) {
+      var which = elr.getAttribute('data-kolfans');
+      var lab = elr.parentNode ? elr.parentNode.querySelector('.k2-ranv') : null;
+      function compact(n) { return n >= 10000 ? (n / 10000).toFixed(1) + '万' : String(n); }
+      elr.addEventListener('input', function () {
+        if (lab) lab.textContent = compact(Number(elr.value));
+      });
+      elr.addEventListener('change', function () {
+        state.kol = state.kol || {};
+        state.kol.libF = state.kol.libF || {};
+        var v = Number(elr.value);
+        if (which === 'min') {
+          var mx = state.kol.libF.fMax == null ? 2200000 : state.kol.libF.fMax;
+          state.kol.libF.fMin = Math.min(v, mx);
+        } else {
+          var mn = state.kol.libF.fMin == null ? 0 : state.kol.libF.fMin;
+          state.kol.libF.fMax = Math.max(v, mn);
+        }
+        var _c3 = $('content'), _t3 = _c3 ? _c3.scrollTop : 0;
+        render();
+        _c3 = $('content'); if (_c3) _c3.scrollTop = _t3;
+      });
+    });
+    /* 达人库搜索框（2026-10-30）：只在回车 / 失焦时生效 —— 逐字重渲染会把输入焦点弄丢。
+       走 render() 而不是 navigate()：搜索词不进 hash，否则每搜一词往页签条堆一个同名页签。 */
+    els.content.querySelectorAll('[data-kolq]').forEach(function (elq) {
+      elq.addEventListener('change', function () {
+        state.kol = state.kol || {};
+        state.kol.libF = state.kol.libF || {};
+        state.kol.libF.q = elq.value;
+        var _ct = $('content'), _top = _ct ? _ct.scrollTop : 0;
+        render();
+        _ct = $('content'); if (_ct) _ct.scrollTop = _top;
+      });
+    });
     // 知识库检索测试参数（state.kb 实时重算：下拉 change 即时生效，query 失焦生效）
     els.content.querySelectorAll('[data-kb]').forEach(function (el3) {
       var key = el3.getAttribute('data-kb');
@@ -1430,6 +1492,11 @@
         row.innerHTML = '<td colspan="' + tr.children.length + '">' + html + '</td>';
         tr.after(row);
       }
+    } else {
+      /* 通用兜底（2026-10-30）：rowAction 直接写 ACTIONS 里的动作名时按动作派发。
+         达人库列表传的是 'kol-detail'，此前落到这里等于什么也没发生（点行没反应）。 */
+      var _A = global.ACTIONS || {};
+      if (_A[act]) _A[act](id, tr, helpers());
     }
   }
 

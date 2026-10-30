@@ -104,7 +104,7 @@
       pipeline: 'userops', desc: '从圈人到策略生成、触达执行与效果回收的运营闭环',
       action: '新建策略' },
     { id: 'kol', domain: 'engine', name: '网红营销', icon: 'play', pageType: 'kolPage',
-      desc: '规划投放组合、推进合作全流程，用历史合作数据推导可解释的预期回报',
+      desc: '按历史合作数据评价达人，判断谁值得进投放组合',
       action: '规划新投放' },
     { id: 'compliance', domain: 'engine', name: '合规检查', icon: 'signal', pageType: 'queuePage',
       detailType: 'complianceDetail',
@@ -138,7 +138,7 @@
        单账号系统里它想说的两件事都已各有归处：我是谁在顶栏账号菜单里，
        每个 Agent 能碰什么在 Agent 详情 › 管理 › 联系里。留一页只做转场没有意义。 */
     { id: 'evo', domain: 'platform', name: '自进化控制台', icon: 'signal', pageType: 'pipelinePage',
-      pipeline: 'evolution', desc: '从 badcase 聚类到策略生成、离线评估与灰度上线的进化流水线',
+      pipeline: 'evolution', desc: '本轮改动的对象与幅度：工具调用、流程编排、经验记忆、提示词与知识；每处附依据、验证与回滚方式',
       action: '发起进化任务' },
     /* menu:false：内容已并入「能力与权限」页（沙盒 › 卡片总览 / 实例与执行明细）。 */
   { id: 'sandbox', menu: false, domain: 'platform', name: '沙盒隔离', icon: 'doc', pageType: 'sandboxPage',
@@ -1485,6 +1485,11 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
   function buildPipelines() {
     var P = {};
 
+    /* 独立站客单价（USD）—— site 与 social 两个区块共用，只在这里定义一次。
+       社媒「带动成交」与搜索「带动成交」都靠它把订单折成金额，
+       两处各写一个 38.4 迟早会改漏一处，出现"社媒成交额对不上 GMV 占比"。 */
+    var UO_AOV = 38.4;
+
     // 用户池 / 生命周期 / 分群：确定性派生，保证可对账 ——
     // Σ(阶段人数) === pool；每个分群 cover ≤ pool；trend 末点 === round(cover * actRate)
     var _lc = (function () {
@@ -1664,6 +1669,258 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
           result: null
         }
       ],
+      /* SECTION: userops-site
+       * v42（2026-10-29 业主）：这一屏要能回答「人在站里干了什么」——
+       * 活跃度、站内搜索、点击、AI 命中四件事，各自有量、有率、有 Top 明细。
+       * 与 CRM 联系人池（pool）**不设固定倍数关系**：独立站访客可能没有留资（0 个联系人），
+       * 也可能一个公司多人共用一个账号（1 个联系人对应多个访客）。
+       * 强行对齐是评审时最容易被问住的地方，宁可两个口径各自独立、各自对账。
+       * 对账纪律：daily 序列 → 30 天合计 → 指标卡 / Top 表全部由同一份序列推出，不另写数字。 */
+      site: (function () {
+        var r = S.R.of('userops-site-v1');
+        var DAYS = 30;
+        var base = 8200 + r() * 2400;
+        var days = [];
+        for (var i = 0; i < DAYS; i++) {
+          var dt = new Date(Date.now() - (DAYS - 1 - i) * 86400000);
+          var dow = dt.getDay();
+          /* 周末回落 12% —— 内容型独立站的常态；周六日的大盘靠社媒引流补，站内自然访问偏低 */
+          var weekDip = (dow === 0 || dow === 6) ? 0.88 : 1;
+          var drift = 1 + (i / DAYS) * (0.08 + r() * 0.12);
+          var uv = Math.max(1, Math.round(base * weekDip * drift * (0.95 + r() * 0.11)));
+          var newUv = Math.round(uv * (0.33 + r() * 0.12));
+          var pv = Math.round(uv * (3.7 + r() * 1.2));
+          var aiS = Math.round(uv * (0.055 + r() * 0.02));
+          days.push({
+            ts: dt.getTime(),
+            label: (dt.getMonth() + 1) + '/' + dt.getDate(),
+            uv: uv,
+            newUv: newUv,
+            retUv: uv - newUv,
+            pv: pv,
+            search: Math.round(uv * (0.30 + r() * 0.10)),
+            clicks: Math.round(pv * (0.19 + r() * 0.05)),
+            aiSessions: aiS,
+            aiHit: Math.round(aiS * (0.64 + r() * 0.15))
+          });
+        }
+        function sum(k) { var t = 0; for (var i = 0; i < days.length; i++) t += days[i][k]; return t; }
+        function avgOf(arr, k) { var t = 0; for (var i = 0; i < arr.length; i++) t += arr[i][k]; return t / arr.length; }
+        var last = days[DAYS - 1];
+        var w7 = days.slice(-7), p7 = days.slice(-14, -7);
+        var dau = last.uv;
+        /* WAU / MAU 不是 7×DAU、30×DAU —— 去重后要打折。独立站的经验系数：4.3 / 14 */
+        var wau = Math.round(avgOf(w7, 'uv') * 4.3);
+        var mau = Math.round(avgOf(days, 'uv') * 14);
+        var pv30 = sum('pv'), clicks30 = sum('clicks'), search30 = sum('search');
+        var ai30 = sum('aiSessions'), aiHit30 = sum('aiHit');
+        var funnel = (function () {
+          var v = [mau, Math.round(mau * 0.62), Math.round(mau * 0.212), Math.round(mau * 0.094), Math.round(mau * 0.068)];
+          return [
+            { name: '访问', value: v[0] }, { name: '看商品', value: v[1] },
+            { name: '加购', value: v[2] }, { name: '结账', value: v[3] }, { name: '支付', value: v[4] }
+          ];
+        })();
+        /* 搜索词：**手写权重不随机** —— 这张表是给人做决策的（哪个词没结果、哪个词 AI 接不住），
+           随机生成只会得到一张永远看不出问题的表。权重合计 31.6%，其余 68.4% 明确标为长尾。
+           prev = 上期（前 7 天）名次。热搜是榜单，要看的是「谁在前、谁在往上冲」，
+           不是看这个月搜了几次 —— 所以名次与名次变化都要有据可查。 */
+        var termDefs = [
+          { q: 'silver ring', tag: '商品 · 戒指', w: 0.061, noResult: 0.118, aiHit: 0.58, prev: 1 },
+          { q: 'waterproof necklace', tag: '商品 · 项链', w: 0.048, noResult: 0.041, aiHit: 0.71, prev: 4 },
+          { q: 'size guide', tag: '帮助 · 尺码', w: 0.041, noResult: 0.007, aiHit: 0.92, prev: 2 },
+          { q: 'shipping to canada', tag: '帮助 · 物流', w: 0.036, noResult: 0.163, aiHit: 0.44, prev: 3 },
+          { q: 'gift for girlfriend', tag: '场景 · 送礼', w: 0.031, noResult: 0.022, aiHit: 0.66, prev: 7 },
+          { q: 'sterling vs stainless', tag: '内容 · 材质', w: 0.026, noResult: 0.034, aiHit: 0.79, prev: 5 },
+          { q: 'rings', tag: '类目 · 宽泛', w: 0.024, noResult: 0.011, aiHit: 0.51, prev: 6 },
+          { q: 'custom engraving', tag: '服务 · 刻字', w: 0.019, noResult: 0.052, aiHit: 0.63, prev: 0 },
+          { q: 'hoop earrings small', tag: '商品 · 耳环', w: 0.016, noResult: 0.077, aiHit: 0.69, prev: 8 },
+          { q: 'return policy', tag: '帮助 · 退换', w: 0.014, noResult: 0.019, aiHit: 0.88, prev: 9 }
+        ];
+        /* 点击率按词性给区间：宽泛词 ctr 高（点得散、转化低），帮助类词 ctr 低但结束会话 */
+        var termCtr = { 'silver ring': 0.412, 'waterproof necklace': 0.386, 'size guide': 0.207,
+          'shipping to canada': 0.164, 'gift for girlfriend': 0.298, 'sterling vs stainless': 0.231,
+          'rings': 0.476, 'custom engraving': 0.341, 'hoop earrings small': 0.358, 'return policy': 0.188 };
+        var topTerms = termDefs.map(function (d, i) {
+          var n = Math.round(search30 * d.w);
+          return {
+            q: d.q, tag: d.tag, n: n,
+            rank: i + 1, prevRank: d.prev,   /* prevRank 0 = 本期新进榜 */
+            ctr: termCtr[d.q] || 0.3,
+            noResult: d.noResult, noResultN: Math.round(n * d.noResult),
+            aiHit: d.aiHit
+          };
+        });
+        var covered = topTerms.reduce(function (a, t) { return a + t.n; }, 0);
+        return {
+          days: days,
+          dau: dau,
+          dauPrevDay: p7[6].uv,
+          wau: wau,
+          mau: mau,
+          sticky: dau / mau,
+          newRatio: last.newUv / last.uv,
+          pv30: pv30,
+          clicks30: clicks30,
+          clickRate: clicks30 / pv30,
+          search30: search30,
+          searchPerUv: search30 / dau / 30,
+          ai30: ai30,
+          aiHit30: aiHit30,
+          aiHitRate: aiHit30 / ai30,
+          aiPerUv: ai30 / dau / 30,
+          funnel: funnel,
+          aov: UO_AOV,
+          /* 搜索带动成交 —— 对齐 Klevu 的 Search Led Sales / Search Led Contribution 口径。
+             这是搜索这件事最该被看见的数：搜了几次不重要，搜索带来了多少单才重要。
+             搜索用户 = 搜索次数 ÷ 人均 4.5 次（Klevu 的 avg queries per search user 就在 3–5）；
+             转化率 9.8% 相对站均约 1.4 倍 —— 行业说搜索用户转化是站均 1.5–3 倍，这里取下沿。 */
+          searchUsers: (function () { return Math.round(search30 / 4.5); })(),
+          searchOrders: (function () { return Math.round(Math.round(search30 / 4.5) * 0.098); })(),
+          searchRevenue: (function () { return Math.round(Math.round(search30 / 4.5) * 0.098) * UO_AOV; })(),
+          /* 站均 UV 转化率（用漏斗末档 ÷ MAU，与漏斗同源），搜索转化相对它的倍数由页面即时算 */
+          convRate: funnel[4].value / mau,
+          /* 不只看支付率，还要能看到「哪一步漏得最多」—— 由漏斗相邻两档即时推导，不写死 */
+          topTerms: topTerms,
+          termCovered: covered,
+          termLongTail: 1 - covered / search30,
+          noResultTotal: topTerms.reduce(function (a, t) { return a + t.noResultN; }, 0),
+          /* 点击落点：与 clicks30 对得上（前 6 个入口占 71%，其余归「其他页面」）。
+             同样是榜单 —— 名次 + 上期名次，运营关心的是"哪个入口在往上走"。 */
+          clickPaths: [
+            { path: '/collections/rings', label: '类目 · 戒指', w: 0.214, prev: 1 },
+            { path: '/products/s925-hoop', label: '商品 · 925 耳环', w: 0.148, prev: 3 },
+            { path: '/collections/necklaces', label: '类目 · 项链', w: 0.121, prev: 2 },
+            { path: '/blogs/material-guide', label: '内容 · 材质指南', w: 0.094, prev: 5 },
+            { path: '/pages/size-guide', label: '帮助 · 尺码表', w: 0.071, prev: 4 },
+            { path: '/pages/shipping', label: '帮助 · 物流', w: 0.062, prev: 0 }
+          ].map(function (p, i) {
+            return { path: p.path, label: p.label, n: Math.round(clicks30 * p.w), rank: i + 1, prevRank: p.prev };
+          }),
+          /* AI 没接住的问题：Top5 合计只占未命中的一小部分，明确写「其余为长尾」 */
+          aiMiss: [
+            { q: 'can i shower with it on', n: 268, why: '防水说明只写在商品页 Tab 里，知识库没有独立条目' },
+            { q: 'do you ship to brazil', n: 214, why: '可配送国家表未同步，AI 只能答「部分地区」' },
+            { q: 'difference between 925 and 999', n: 186, why: '材质对比有内容但未结构化，检索命中错章节' },
+            { q: 'exchange size after 30 days', n: 121, why: '退换政策分两处（帮助中心 / 商品页），条款不一致' },
+            { q: 'engraving in another language', n: 96, why: '无对应条目，AI 直接答「不支持」（实际支持 8 种语言）' }
+          ],
+          /* 知识条目表现 —— 对齐 Intercom Fin 的 content performance 表。
+             只看「哪些问题没接住」会让人一直往里加新条目，却不知道已有的哪一条根本不在解决事：
+             刻字说明被引用 410 次、只解决 48%，问题不在"没有条目"，在这条本身写得不对。
+             Σresolved 必须 ≤ 命中会话数，否则口径就穿了。 */
+          knowledgeTop: [
+            { title: '尺码对照表 v3', kind: '帮助页', cited: 1840, resolved: 1693 },
+            { title: '925 银饰保养须知', kind: '文章', cited: 1215, resolved: 1046 },
+            { title: '配送时效与关税', kind: '帮助页', cited: 980, resolved: 617 },
+            { title: '退换货政策（30 天）', kind: '帮助页', cited: 742, resolved: 668 },
+            { title: '刻字服务说明', kind: '商品页片段', cited: 410, resolved: 197 }
+          ].map(function (k) { return Object.assign({}, k, { rate: k.resolved / k.cited }); })
+        };
+      })(),
+
+      /* SECTION: userops-social
+       * 社媒阵地：粉丝是**存量资产**，净增是**当期结果**，互动是**内容质量**。
+       * 三者分开看 —— 只看粉丝总数会把「买粉/刷量」和「内容起飞」混为一谈；
+       * 只看净增会在掉粉的平台上误判（粉丝基数大、净增小但互动很好 = 存量在活跃）。
+       * 对账：每平台 30 天序列「末点 − 首点 === net30」，Σ平台 === 汇总，不另存汇总值。 */
+      social: (function () {
+        var defs = [
+          { id: 'tt', name: 'TikTok', handle: '@aurora.jewelry', followers: 186400, net30: 12860, posts30: 42,
+            views30: 3200000, likes: 214000, comments: 21800, shares: 32400, saves: 0,
+            clicks: 34000, sessions: 26400, orders: 760,
+            note: '主战场 · 短视频带站内搜索' },
+          { id: 'yt', name: 'YouTube', handle: 'Aurora Jewelry', followers: 64200, net30: 3140, posts30: 8,
+            views30: 890000, likes: 31200, comments: 4100, shares: 2600, saves: 3900,
+            clicks: 10200, sessions: 8400, orders: 400,
+            note: '长视频 · 材质科普拉搜索' },
+          { id: 'ig', name: 'Instagram', handle: '@aurora.jewelry', followers: 92800, net30: 2260, posts30: 36,
+            views30: 1100000, likes: 48600, comments: 5200, shares: 7400, saves: 0,
+            clicks: 7600, sessions: 5600, orders: 160,
+            note: '图文种草 · 收藏率高' },
+          { id: 'fb', name: 'Facebook', handle: 'Aurora Jewelry', followers: 38500, net30: -420, posts30: 18,
+            views30: 240000, likes: 6400, comments: 900, shares: 800, saves: 0,
+            clicks: 1900, sessions: 1400, orders: 36,
+            note: '35+ 客群 · 自然触达衰减' },
+          { id: 'x', name: 'X', handle: '@aurorajewelry', followers: 12600, net30: 180, posts30: 54,
+            views30: 320000, likes: 3900, comments: 620, shares: 680, saves: 0,
+            clicks: 1300, sessions: 800, orders: 8,
+            note: '品牌发声 · 不承担拉新' }
+        ];
+        /* 30 天粉丝序列：首末两端锁死，中间在线性插值上做小幅波动（真实涨粉也不是每天匀速） */
+        function series(start, end, key) {
+          var rr = S.R.of(key), out = [start];
+          for (var i = 1; i < 29; i++) {
+            var target = start + (end - start) * (i / 29);
+            out.push(Math.round(target * (1 + (rr() - 0.5) * 0.012)));
+          }
+          out.push(end);
+          return out;
+        }
+        var platforms = defs.map(function (d) {
+          var eng = d.likes + d.comments + d.shares + d.saves;
+          var rate = eng / d.views30;
+          /* 互动率与上周的差（百分点）—— 涨粉快但互动率掉，是「内容迎合算法、丢品牌」的早期信号。
+             反过来存一份上周值，界面上要给的是「变化」，不是只给一个"本周掉了"的结论。 */
+          var dPt = (d.id === 'tt') ? -0.6 : (d.id === 'fb') ? -0.2 : 0.3;
+          return Object.assign({}, d, {
+            eng30: eng,
+            engRate: rate,
+            engRateDelta: dPt,
+            engRatePrev: rate - dPt / 100,
+            /* 社媒这边真正该被看见的三件事：点进来的人、真的到了站内的人、买了的人。
+               viewToSession（点击→站内会话的匹配率）低，说明是落地页或追踪断了，不是内容不行 ——
+               行业实测这条在 60–85%，掉到 60% 以下先查 UTM 与重定向，别急着换内容。 */
+            revenue: d.orders * UO_AOV,
+            convRate: d.orders / d.sessions,
+            viewToSession: d.sessions / d.clicks,
+            viewsPerPost: Math.round(d.views30 / d.posts30),
+            trend: series(d.followers - d.net30, d.followers, 'userops-social|' + d.id)
+          });
+        });
+        var sumBy = function (k) { return platforms.reduce(function (a, p) { return a + p[k]; }, 0); };
+        var totViews = sumBy('views30');
+        var totClicks = sumBy('clicks'), totSessions = sumBy('sessions'), totOrders = sumBy('orders');
+        /* 社媒流量的加购率取 14%（站内整体 21%）：社媒来的意图更浅，加购少是常态，不是异常 */
+        var totAddCart = Math.round(totSessions * 0.14);
+        return {
+          platforms: platforms,
+          totalFollowers: sumBy('followers'),
+          totalNet30: sumBy('net30'),
+          totalViews: totViews,
+          totalEng: sumBy('eng30'),
+          /* 汇总互动率 = Σ互动 / Σ播放（不是各平台互动率的平均 —— 平均会把 6 万粉的号和小号等权）。
+             上期同理按播放加权，播放取本周值（周与周播放量级接近，只让率变）—— 只为给一个可读的环比。 */
+          engRate: sumBy('eng30') / totViews,
+          engRatePrev: platforms.reduce(function (a, p) { return a + p.engRatePrev * p.views30; }, 0) / totViews,
+          /* 社媒 → 站内 → 成交：五段链路，逐段转化率由相邻两档算，不另存。
+             这条链是「社媒到底值多少钱」的唯一诚实答案 —— 粉丝和播放都是中间量。 */
+          totalClicks: totClicks,
+          totalSessions: totSessions,
+          totalOrders: totOrders,
+          totalRevenue: totOrders * UO_AOV,
+          matchRate: totSessions / totClicks,
+          funnel: [
+            { name: '社媒曝光', value: totViews },
+            { name: '链接点击', value: totClicks },
+            { name: '站内访问', value: totSessions },
+            { name: '加购', value: totAddCart },
+            { name: '成交', value: totOrders }
+          ],
+          posts30: sumBy('posts30'),
+          /* 内容 Top：涨粉归因用「这条内容带来的新粉」，不是播放量 —— 播放高但涨粉低说明内容不带品牌记忆。
+             prev = 上期名次（0 = 本期新上榜）：内容榜的价值一半在"谁冲上来了"。 */
+          contentTop: [
+            { platform: 'TikTok', title: '925 银项链 · 30 秒防水实测', type: '短视频', views: 1280000, eng: 96400, follows: 4120, day: -2, prev: 3 },
+            { platform: 'TikTok', title: '手作刻字过程 ASMR', type: '短视频', views: 860000, eng: 71200, follows: 2860, day: -5, prev: 1 },
+            { platform: 'YouTube', title: 'S925 vs S999：到底差在哪', type: '长视频', views: 342000, eng: 18900, follows: 1460, day: -8, prev: 2 },
+            { platform: 'Instagram', title: '夏日叠戴 5 种搭法', type: '图文', views: 268000, eng: 22400, follows: 980, day: -4, prev: 0 },
+            { platform: 'TikTok', title: '客户实拍：戴了半年的氧化程度', type: '短视频', views: 214000, eng: 15600, follows: 640, day: -11, prev: 5 },
+            { platform: 'YouTube', title: '尺码怎么量 · 3 分钟看懂', type: '长视频', views: 96000, eng: 6100, follows: 420, day: -14, prev: 0 }
+          ]
+        };
+      })(),
+
       /* v20：触达治理（行业标准口径）—— 全局预算、冷却静默、偏好中心、紧急例外。
          此前只有策略内频控排除与免打扰一句话，缺跨策略的中心化抑制与用户偏好出口。 */
       guardrails: {
@@ -1703,6 +1960,108 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
         {
           id: 'ev-1', name: '客服助手·退货场景 badcase 修复', agentId: 'ag-cs-refund', agentName: '客服助手 Agent',
           status: 'gray', statusText: '灰度 20% 观察中', triggerText: 'badcase 阈值触发', createdAt: -4,
+          /* v53（2026-10-29 业主：「这个页面应该显示 agent 改进了什么，工具调用？流程优化？经验记忆改进？」）：
+             流水线四阶段（聚类→生成→评估→灰度）回答的是「怎么来的」，不是「改了什么」。
+             这里补一层**改动清单**：每一处改动都写清 对象 / 前后 diff / 依据哪类 badcase / 改完的效果 / 当前状态。
+             face 只有四个取值（tool 工具调用 / flow 流程编排 / memory 经验记忆 / prompt 提示词与知识），
+             页面的分组、计数、筛选全部由它派生 —— 不要在这里造第五种「改进面」。 */
+          changes: [
+            { id: 'ch-1-1', face: 'tool', kindText: '工具调用',
+              title: '物流问答改用混合检索 + 重排，召回从 3 条放宽到 5 条',
+              obj: 'search_chunks → hybrid_search + rerank', objSub: 'mcp://knowledge/search',
+              diff: [
+                { k: '调用方法', b: 'search_chunks（单路）', a: 'hybrid_search + rerank' },
+                { k: 'top_k', b: '3', a: '5' },
+                { k: '相似度阈值', b: '0.72', a: '0.65' }
+              ],
+              cause: { name: '物流信息答非所问', cases: 47 },
+              effect: [
+                { k: '检索命中', b: '84.2%', a: '95.6%', d: '+11.4pp', good: true },
+                { k: '引用准确', b: '71.0%', a: '93.4%', d: '+22.4pp', good: true },
+                { k: 'P50 时延', b: '1.82s', a: '2.14s', d: '+320ms', good: false },
+                { k: '单次成本', b: '¥0.018', a: '¥0.021', d: '+18%', good: false }
+              ],
+              verify: '回归 1,200 例通过率 91.7% → 94.8%；灰度样本中物流类 47 例修复 43 例',
+              state: 'gray', stateText: '灰度 20%' },
+
+            { id: 'ch-1-2', face: 'flow', kindText: '流程编排',
+              title: '在意图识别之后插入「订单锁定」节点，多轮对话绑定订单号',
+              obj: '售后工单流程 r12 → r13', objSub: '新增 1 个节点 · 改 1 个节点',
+              diff: [
+                { k: '节点数', b: '5 个', a: '6 个' },
+                { k: '新增节点', b: '—', a: '订单锁定（意图识别之后）' },
+                { k: '模型调用', b: '2 次 / 工单', a: '3 次 / 工单' }
+              ],
+              flow: {
+                name: '售后工单流程', from: 'r12', to: 'r13',
+                nodes: [
+                  { kind: '触发器', name: '工单受理', sub: '退货 / 物流 / 发票', st: 'base' },
+                  { kind: '判断', name: '意图识别', sub: '三类意图分流', st: 'base' },
+                  { kind: '动作', name: '订单锁定', sub: '绑订单号，隔离多轮上下文', st: 'new' },
+                  { kind: '工具', name: '知识检索', sub: 'hybrid + rerank', st: 'chg' },
+                  { kind: '模型', name: '生成回复', sub: 'qwen-plus', st: 'base' },
+                  { kind: '校验', name: '合规预检', sub: '对外话术过一遍', st: 'base' }
+                ],
+                note: '发票、报销类意图不进入订单锁定；该例外于灰度第 2 天补充'
+              },
+              cause: { name: '跨订单混淆', cases: 28 },
+              effect: [
+                { k: '跨订单混淆', b: '28 例 / 14 天', a: '0 例（灰度样本）', d: '归零', good: true },
+                { k: '发票误锁', b: '8 例退化', a: '0 例（补例外后复测）', d: '已修复', good: true },
+                { k: 'P50 时延', b: '2.14s', a: '2.51s', d: '+370ms', good: false }
+              ],
+              verify: '离线评估报告「发票咨询 8 例退化」，原因为订单锁定将发票号误判为订单号；加入发票类例外后复测，退化 0 例',
+              state: 'gray', stateText: '灰度 20%' },
+
+            { id: 'ch-1-3', face: 'memory', kindText: '经验记忆',
+              title: '新增经验：退货时限以物流签收日起算',
+              obj: '经验库 · 售后线（新增第 7 条）', objSub: '私有于客服助手 Agent',
+              mem: {
+                action: '新增', entry: '退货时限以物流签收日起算',
+                trigger: '客户问「还能退吗 / 是不是超期了」',
+                before: '旧口径按下单日起算，在途 2~3 天计入有效期，客户常被告知已超期',
+                after: '按物流签收日起算，签收当天不计入；无签收记录时按「发货 +3 天」兜底',
+                searches: 412, adopt: 0.78, hit: 0.91
+              },
+              cause: { name: '退货时限判断错误', cases: 68 },
+              effect: [
+                { k: '该类问题', b: '68 例 / 14 天', a: '6 例（灰度样本）', d: '-91%', good: true },
+                { k: '被召回', b: '—', a: '412 次', d: '近 14 天', good: null }
+              ],
+              verify: '经验条目按经验库生效流程发布，不随 Agent 版本灰度；当前命中 91%、采纳 78%，命中低于 70% 时自动退出检索池',
+              state: 'live', stateText: '已生效' },
+
+            { id: 'ch-1-4', face: 'prompt', kindText: '提示词',
+              title: '系统提示词加一条硬约束：时效只答政策区间，不承诺具体日期',
+              obj: '系统提示词 · 第 4 段', objSub: '2,140 → 2,186 tokens',
+              diff: [
+                { k: '新增约束', b: '—', a: '不得承诺「N 小时内到账 / 一定退」' },
+                { k: '改写示例', b: '「24 小时内退款到账」', a: '「审核通过后 1~3 个工作日，以银行入账为准」' },
+                { k: '约束位置', b: '靠后（第 6 段）', a: '前置到第 4 段' }
+              ],
+              cause: { name: '承诺退款时效与政策不符（含 bc-73）', cases: 34 },
+              effect: [
+                { k: '承诺类违规', b: '34 例 / 14 天', a: '1 例（灰度样本）', d: '-97%', good: true },
+                { k: '平均回复长度', b: '312 字', a: '286 字', d: '-8%', good: true }
+              ],
+              verify: '违规口径：回复中出现「N 小时内到账」「保证退」等承诺性表述，由合规规则包判定，非人工抽检',
+              state: 'gray', stateText: '灰度 20%' },
+
+            { id: 'ch-1-5', face: 'prompt', kindText: '知识库',
+              title: '售后案例库新增 3 条举证材料清单',
+              obj: '售后案例库 · §质量问题举证', objSub: '3 条新增条目 · 索引已重建',
+              diff: [
+                { k: '该章节条目', b: '0 条（空章节）', a: '3 条：照片要求 / 检测报告 / 时间窗' },
+                { k: '生效日期', b: '未标注', a: '2026-10-01 起，按签收日判定' }
+              ],
+              cause: { name: '质量问题举证要求缺失', cases: 39 },
+              effect: [
+                { k: '该类问题', b: '39 例 / 14 天', a: '4 例（灰度样本）', d: '-90%', good: true },
+                { k: '检索命中', b: '未命中', a: '93.1%', d: '+93.1pp', good: true }
+              ],
+              verify: '3 条均标注生效日期与出处；政策更新后按日期过滤旧口径',
+              state: 'gray', stateText: '灰度 20%' }
+          ],
           stages: [
             { id: 'cluster', name: 'badcase 聚类', state: 'done', detail: '纳入近 14 天 214 例 badcase，聚为 6 类', count: 214,
               clusters: [
@@ -1736,6 +2095,73 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
         {
           id: 'ev-2', name: '知识问答·幻觉抑制', agentId: 'ag-kb-qa', agentName: '知识问答 Agent',
           status: 'evaluate', statusText: '离线评估中', triggerText: '每周定时', createdAt: -2,
+          changes: [
+            { id: 'ch-2-1', face: 'prompt', kindText: '提示词',
+              title: '输出强制带引用，无来源时回答「未找到」',
+              obj: '系统提示词 · 输出版式段', objSub: '新增 2 条硬约束',
+              diff: [
+                { k: '引用格式', b: '不要求', a: '必附 [来源: 文档名 §章节]' },
+                { k: '无来源时', b: '照常生成（编造）', a: '只回答「知识库中未找到」' },
+                { k: '约束强度', b: '建议语气', a: '硬约束 + 输出校验' }
+              ],
+              cause: { name: '引用不存在的政策条款', cases: 41 },
+              effect: [
+                { k: '幻觉率', b: '32.0%', a: '9.2%', d: '-22.8pp', good: true },
+                { k: '引用覆盖率', b: '0%', a: '100%', d: '+100pp', good: true },
+                { k: '答案完整度', b: '—', a: '略有下降', d: '待全量', good: null }
+              ],
+              verify: '评估中：全量 1,500 例已完成 812 例；上表为 120 例小样本回放结果，全量完成前不作为结论',
+              state: 'eval', stateText: '评估中 · 812/1,500' },
+
+            { id: 'ch-2-2', face: 'flow', kindText: '流程编排',
+              title: '检索相似度低于 0.6 时进入兜底分支，不进入生成',
+              obj: '知识问答流程 r7 → r8', objSub: '新增 1 个判断节点 · 1 条分支',
+              diff: [
+                { k: '判断节点', b: '—', a: '相似度 ≥ 0.6 ？（检索之后）' },
+                { k: '兜底分支', b: '无（继续生成）', a: '直接走兜底话术 + 转人工' },
+                { k: '模型调用', b: '每次都调', a: '命中兜底时省一次生成' }
+              ],
+              flow: {
+                name: '知识问答流程', from: 'r7', to: 'r8',
+                head: [
+                  { kind: '触发器', name: '用户提问', sub: '站内 / 企业微信', st: 'base' },
+                  { kind: '工具', name: '多库检索', sub: '按库分组召回', st: 'chg' },
+                  { kind: '判断', name: '相似度 ≥0.6 ？', sub: '低于阈值不进入生成', st: 'new' }
+                ],
+                split: [
+                  { label: '够', tone: 'ok', nodes: [
+                    { kind: '模型', name: '生成答案', sub: '带来源引用', st: 'base' } ] },
+                  { label: '不够', tone: 'no', nodes: [
+                    { kind: '兜底', name: '转人工 + 兜底话术', sub: '不消耗生成调用', st: 'new' },
+                    { kind: '动作', name: '生成知识缺口单', sub: '进知识库待补清单', st: 'new' } ] }
+                ],
+                note: '经判断节点分流：无可用来源时不进入生成，直接转人工并生成缺口单'
+              },
+              cause: { name: '数字类回答编造', cases: 27 },
+              effect: [
+                { k: '数字编造', b: '27 例 / 周', a: '3 例', d: '-89%', good: true },
+                { k: '转人工率', b: '4.2%', a: '6.8%', d: '+2.6pp', good: true },
+                { k: 'P50 时延', b: '1.40s', a: '1.10s', d: '-300ms', good: true }
+              ],
+              verify: '转人工率上升为预期结果，非退化；灰度结论需注明该项，否则会被判为指标退步',
+              state: 'eval', stateText: '评估中 · 812/1,500' },
+
+            { id: 'ch-2-3', face: 'tool', kindText: '工具调用',
+              title: '多库检索按库分组后再合并，避免两个库的条款被拼接',
+              obj: 'hybrid_search + group_by_collection', objSub: 'mcp://knowledge/search',
+              diff: [
+                { k: '检索参数', b: 'group_by_collection = false', a: 'true（按库分组）' },
+                { k: '合并顺序', b: '全局按分数排', a: '每库先出 top2，再合并重排' },
+                { k: '返回条数', b: '5 条（可能全是同一个库）', a: '5 条（每库至少 2 条）' }
+              ],
+              cause: { name: '跨库信息混淆', cases: 18 },
+              effect: [
+                { k: '跨库混淆', b: '18 例 / 周', a: '5 例', d: '-72%', good: true },
+                { k: '检索时延', b: '180ms', a: '207ms', d: '+15%', good: false }
+              ],
+              verify: '待全量评估确认；时延 +15% 在 SLO 内（P99 上限 4s）',
+              state: 'eval', stateText: '评估中 · 812/1,500' }
+          ],
           stages: [
             { id: 'cluster', name: 'badcase 聚类', state: 'done', detail: '纳入 96 例，聚为 4 类', count: 96, clusters: [
               { name: '引用不存在的政策条款', cases: 41, rootCause: '未强制要求引用来源' },
@@ -1755,11 +2181,129 @@ function firmById(id, personas) { var p = firmPool(personas); return p[id] || nu
         {
           id: 'ev-3', name: '标书生成·章节结构优化', agentId: 'ag-sales-bid', agentName: '标书生成 Agent',
           status: 'cluster', statusText: '聚类中', triggerText: '人工发起', createdAt: 0,
+          /* 还没走到「改」这一步：聚类没跑完就没有候选改动。
+             空态如实写「没有改动」，不许拿上一条任务的改动来充数。 */
+          changes: [],
+          pendingNote: '聚类进度 128 / 156。聚类完成后产出候选改动，候选须通过离线评估方可生效',
           stages: [
             { id: 'cluster', name: 'badcase 聚类', state: 'active', detail: '聚类中 128 / 156', count: 156, clusters: null },
             { id: 'generate', name: '策略生成', state: 'wait', detail: '—', count: null, candidates: null },
             { id: 'evaluate', name: '离线评估', state: 'wait', detail: '—', count: null, result: null },
             { id: 'gray', name: '灰度上线', state: 'wait', detail: '—', count: null, gray: null }
+          ]
+        },
+        /* 已转全量的样本：页面不能只讲「准备改什么」，还得回答「改完到底有没有用」。
+           这一条的全部数字都是**上线后**的线上数据（12 天），不是离线评估。 */
+        {
+          id: 'ev-4', name: '知识问答·差旅报销口径对齐', agentId: 'ag-kb-qa', agentName: '知识问答 Agent',
+          status: 'done', statusText: '已全量 12 天', triggerText: 'badcase 阈值触发', createdAt: -14,
+          track: { days: 12, line: '上线 12 天：差旅报销类 badcase 从 61 例/周 降到 6 例/周，P99 时延未变（1.9s → 1.9s）' },
+          changes: [
+            { id: 'ch-4-0', face: 'tool', kindText: '工具调用',
+              title: '新增退款进度、物流轨迹两个查询工具，替代模型推断',
+              obj: '+ refund_status · + shipping_track', objSub: 'mcp://order/detail',
+              diff: [
+                { k: '可用工具', b: '6 个', a: '8 个' },
+                { k: '新增', b: '—', a: 'refund_status / shipping_track' },
+                { k: '调用配额', b: '40 QPS', a: '60 QPS（读接口）' },
+                { k: '失败兜底', b: '重试 3 次后放弃', a: '失败即转人工，不重试' }
+              ],
+              cause: { name: '无来源时续写（退款进度编造）', cases: 31 },
+              effect: [
+                { k: '工具调用成功率', b: '96.9%', a: '99.6%', d: '+2.7pp', good: true },
+                { k: '进度类答错', b: '31 例 / 月', a: '2 例', d: '-94%', good: true },
+                { k: 'P99 时延', b: '1.90s', a: '1.90s', d: '持平', good: null }
+              ],
+              verify: '上线 12 天共 8,412 次调用，失败 34 次；其中 31 次为订单号不合法的脏数据，已提交业务侧修正',
+              state: 'live', stateText: '已生效' },
+
+            { id: 'ch-4-1', face: 'memory', kindText: '经验记忆',
+              title: '住宿上限改为按城市分级，替代原统一 500 元',
+              obj: '经验库 · 差旅线 v2 → v3', objSub: '被 4 个 Agent 共享',
+              mem: {
+                action: '改写', entry: '差旅住宿标准（城市分级）',
+                trigger: '员工问「出差住宿能报多少 / 这个价超标吗」',
+                before: '新版 v2：一线 / 非一线一律 500 元上限（2024 年口径，已废止）',
+                after: 'v3：一线 650 / 二线 500 / 其他 380，按发票开具城市判定；超标部分需事前审批单',
+                searches: 1238, adopt: 0.82, hit: 0.94
+              },
+              cause: { name: '报销上限答成旧口径', cases: 43 },
+              effect: [
+                { k: '该类准确率', b: '71%', a: '94%', d: '+23pp', good: true },
+                { k: '被召回', b: '—', a: '1,238 次', d: '12 天', good: null }
+              ],
+              verify: '版本 v3 保留 v2 供追溯，v2 已标注「2024 口径，已废止」；当前命中 94%、采纳 82%',
+              state: 'live', stateText: '已生效' },
+
+            { id: 'ch-4-2', face: 'prompt', kindText: '知识库',
+              title: '补 12 条政策原文，逐篇标注生效日期',
+              obj: '企业知识库 · §差旅管理办法 v3', objSub: '12 条新增 · 索引已重建',
+              diff: [
+                { k: '政策原文', b: '缺 2026 版全文（只有摘要）', a: '12 条原文 + 条款编号' },
+                { k: '生效日期', b: '未标注', a: '逐篇标注，检索时按日期过滤' },
+                { k: '检索方式', b: '按标题匹配', a: '标题 + 条款号 + 生效期三元匹配' }
+              ],
+              cause: { name: '引用不存在的政策条款', cases: 26 },
+              effect: [
+                { k: '引用不存在条款', b: '26 例 / 周', a: '0 例', d: '归零', good: true },
+                { k: '检索命中', b: '88%', a: '97%', d: '+9pp', good: true }
+              ],
+              verify: '上线 12 天 0 例「引用不存在的条款」；口径与财务《差旅管理办法 v3》逐条一致',
+              state: 'live', stateText: '已生效' },
+
+            { id: 'ch-4-3', face: 'flow', kindText: '流程编排',
+              title: '无可用来源时转人工并生成知识缺口单',
+              obj: '知识问答流程 r6 → r7', objSub: '新增 1 条分支 · 1 个出口',
+              diff: [
+                { k: '无结果时', b: '让模型「再想想」（续写）', a: '兜底话术 + 转人工' },
+                { k: '知识缺口', b: '不记录', a: '自动生成缺口单，进知识库待补清单' },
+                { k: '分支出口', b: '1 个（直接答）', a: '2 个（答 / 转）' }
+              ],
+              flow: {
+                name: '知识问答流程', from: 'r6', to: 'r7',
+                head: [
+                  { kind: '触发器', name: '用户提问', sub: '站内 / 企业微信', st: 'base' },
+                  { kind: '工具', name: '检索', sub: '标题 + 条款 + 生效期', st: 'chg' },
+                  { kind: '判断', name: '有没有可用来源', sub: '有 / 没有', st: 'new' }
+                ],
+                split: [
+                  { label: '有', tone: 'ok', nodes: [
+                    { kind: '模型', name: '生成答案', sub: '带条款引用', st: 'base' } ] },
+                  { label: '没有', tone: 'no', nodes: [
+                    { kind: '出口', name: '转人工 + 缺口单', sub: '进知识库待补清单', st: 'new' } ] }
+                ],
+                note: '缺口单每月汇总一次，为本轮「补 12 条政策原文」的输入来源'
+              },
+              cause: { name: '无可用来源时续写（编造）', cases: 31 },
+              effect: [
+                { k: '幻觉客诉', b: '11 件 / 月', a: '1 件', d: '-91%', good: true },
+                { k: '转人工率', b: '4.2%', a: '6.8%', d: '+2.6pp', good: true }
+              ],
+              verify: '转人工率上升为预期结果：命中兜底时不进入生成',
+              state: 'live', stateText: '已生效' }
+          ],
+          stages: [
+            { id: 'cluster', name: 'badcase 聚类', state: 'done', detail: '纳入 14 天 74 例，聚为 3 类', count: 74,
+              clusters: [
+                { name: '报销上限答成旧口径', cases: 43, rootCause: '经验条目 v2 是 2024 年标准，知识库里没有 2026 版原文' },
+                { name: '无可用来源时续写（编造）', cases: 31, rootCause: '检索无结果时未走兜底，让模型续写' },
+                { name: '其他零散', cases: 0, rootCause: '—' }
+              ] },
+            { id: 'generate', name: '策略生成', state: 'done', detail: '产出 3 条候选，全部进入评估', count: 3,
+              candidates: [
+                { id: 'c1', type: '改经验', target: '报销上限口径', diff: '经验条目 v2 → v3：住宿上限按城市分级', expect: '该类准确率回到 90% 以上', risk: '低', selected: true },
+                { id: 'c2', type: '补知识', target: '政策原文', diff: '12 条原文入知识库，逐篇标生效日期', expect: '引用不存在的条款归零', risk: '低', selected: true },
+                { id: 'c3', type: '改编排', target: '无结果兜底', diff: '无可用来源时转人工 + 生成知识缺口单', expect: '幻觉客诉下降', risk: '中（转人工率上升）', selected: true }
+              ] },
+            { id: 'evaluate', name: '离线评估', state: 'done', detail: '回归集 900 例 + 本次 74 例', count: 974,
+              result: {
+                baseline: { pass: 0.812, accuracy: 0.764, latency: 1900, cost: 0.014 },
+                candidate: { pass: 0.936, accuracy: 0.921, latency: 1880, cost: 0.014 },
+                sideEffect: { regressed: 2, regressedNote: '2 例「境外差旅补贴」问题被兜底错转人工（原能答），已补 1 条知识后复测通过' },
+                verdict: '3 条候选合并后通过，转人工率上升到预期区间'
+              } },
+            { id: 'gray', name: '灰度上线', state: 'done', detail: '灰度 5% → 20% → 100%，已全量 12 天', count: null,
+              gray: { ratio: 1, days: 12, autoRollback: '成功率<98% 或 P99>4s' } }
           ]
         }
       ]

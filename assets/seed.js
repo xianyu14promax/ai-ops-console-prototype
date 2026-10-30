@@ -199,8 +199,41 @@
     { id: 'kb-policy',  name: '行业政策库',   docs: 320, chunks: 3840,  embed: 'embed-v3', chunkSize: 768, overlap: 96, lastSync: -1 , hue: 'indigo' },
     { id: 'kb-script',  name: '销售话术库',   docs: 240, chunks: 2160,  embed: 'embed-v3', chunkSize: 384, overlap: 48, lastSync: -4 , hue: 'teal' },
     { id: 'kb-case',    name: '售后案例库',   docs: 300, chunks: 3000,  embed: 'embed-v3', chunkSize: 512, overlap: 64, lastSync: -1 , hue: 'amber' },
-    { id: 'kb-legal',   name: '合同条款库',   docs: 180, chunks: 3060,  embed: 'embed-v3', chunkSize: 1024, overlap: 128, lastSync: -7 , hue: 'purple' }
+    { id: 'kb-legal',   name: '合同条款库',   docs: 180, chunks: 3060,  embed: 'embed-v3', chunkSize: 1024, overlap: 128, lastSync: -7 , hue: 'purple' },
+    /* 法规库按辖区拆成 6 个知识库（2026-10-30）。合规检查页的「法规库」卡片读这张表，
+       不另存一份数字 —— 篇数、条款向量、周命中在知识库页与合规页必须是同一个数。
+       切片走「按条切」：一条法条一个向量，切片边界不会落在条文中段，
+       检索回来的是可直接引用的整条，而不是半句话。 */
+    { id: 'kb-reg-cn',  name: '法规库 · 中国',    docs: 486, chunks: 9720,  embed: 'embed-v3', chunkSize: '按条切', overlap: 0, lastSync: 0 , hue: 'blue' },
+    { id: 'kb-reg-eu',  name: '法规库 · 欧盟',    docs: 268, chunks: 5360,  embed: 'embed-v3', chunkSize: '按条切', overlap: 0, lastSync: -1, hue: 'indigo' },
+    { id: 'kb-reg-us',  name: '法规库 · 美国',    docs: 214, chunks: 4280,  embed: 'embed-v3', chunkSize: '按条切', overlap: 0, lastSync: -1, hue: 'purple' },
+    { id: 'kb-reg-uk',  name: '法规库 · 英国',    docs: 96,  chunks: 1920,  embed: 'embed-v3', chunkSize: '按条切', overlap: 0, lastSync: -3, hue: 'teal' },
+    { id: 'kb-reg-jp',  name: '法规库 · 日本',    docs: 78,  chunks: 1560,  embed: 'embed-v3', chunkSize: '按条切', overlap: 0, lastSync: -3, hue: 'amber' },
+    { id: 'kb-reg-sea', name: '法规库 · 东南亚',  docs: 132, chunks: 2640,  embed: 'embed-v3', chunkSize: '按条切', overlap: 0, lastSync: -5, hue: 'green' }
   ];
+
+  /* 法规名池：法规库文档清单只用真实法规名，同名多版本按年份并列 ——
+     法规库本来就是「同一条文有历次修订版」的结构，旧版不删、只标失效。 */
+  var REG_LAWS = {
+    'kb-reg-cn': ['中华人民共和国广告法', '中华人民共和国电子商务法', '中华人民共和国个人信息保护法',
+      '中华人民共和国反不正当竞争法', '中华人民共和国消费者权益保护法', '中华人民共和国产品质量法',
+      '中华人民共和国价格法', '中华人民共和国食品安全法', '互联网广告管理办法',
+      '网络交易监督管理办法', '生成式人工智能服务管理暂行办法', '人工智能生成合成内容标识办法'],
+    'kb-reg-eu': ['通用数据保护条例 GDPR', '数字服务法 DSA', '数字市场法 DMA', '人工智能法 AI Act',
+      '不公平商业行为指令 2005/29/EC', '消费者权利指令 2011/83/EU', '数据治理法 DGA',
+      '电子隐私指令 2002/58/EC', '平台工作条件指令', '产品安全通用法规 GPSR'],
+    'kb-reg-us': ['联邦贸易委员会法 FTC Act', '儿童在线隐私保护规则 COPPA', '加州消费者隐私法 CCPA',
+      '加州隐私权法 CPRA', '弗吉尼亚消费者数据保护法', '广告代言与证言指引 16 CFR 255',
+      '健康声明政策 21 CFR 101', '反垃圾商业邮件法 CAN-SPAM', '电话消费者保护法 TCPA', '各州生物识别信息法'],
+    'kb-reg-uk': ['广告实践委员会 CAP Code', '英国通用数据保护条例 UK GDPR', '数据保护法 2018',
+      '数字市场、竞争与消费者法 DMCC 2024', '消费者合同条例', '金融服务远程营销规则',
+      '隐私与电子通信条例 PECR', '在线安全法 Online Safety Act 2023'],
+    'kb-reg-jp': ['不当赠品及不当表示防止法', '医药品医疗器械法', '个人信息保护法',
+      '特定商业交易法', '消费者契约法', '健康增进法', '电气用品安全法', '食品标示法'],
+    'kb-reg-sea': ['新加坡个人数据保护法 PDPA', '泰国个人数据保护法 PDPA', '印尼个人数据保护法',
+      '越南网络安全法', '马来西亚个人数据保护法 PDPA 2010', '菲律宾数据隐私法',
+      '新加坡广告行为准则', '越南消费者权益保护法', '泰国消费者保护法', '印尼消费者保护法']
+  };
 
   /* SECTION: dim-skill
    * 技能包（Skill）资产表。
@@ -1068,6 +1101,7 @@
     HOST_SLOTS: HOST_SLOTS,
     SKILLS: SKILLS,
     KBS: KBS,
+    REG_LAWS: REG_LAWS,
     KB_MISSES: KB_MISSES,
     KB_EVAL: KB_EVAL,
     TODO_FILTERS: TODO_FILTERS,
