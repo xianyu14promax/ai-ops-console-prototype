@@ -1,14 +1,7 @@
-# 只跟踪原型核心交付物，其余参考/临时/过程材料不入库
+# 仓库只放一份「双击就能开」的演示页，源码与过程材料全部不进库。
+# 本地开发文件仍在工作区，只是不上传（工作区回滚请拉 tag backup-full-src-20261030）。
 *
 
-!/AI运营中台原型.html
-!/权限审批流程方案.md
 !/.gitignore
-!/assets/
-!/assets/**
-# 并行开发的归属表与守卫脚本：必须跟着仓库走，否则每个人拿到的边界不一样
-!/_parallel/
-!/_parallel/**
-# 门禁钩子：git config core.hooksPath .githooks 之后才会生效
-!/.githooks/
-!/.githooks/**
+!/README.md
+!/index.html
